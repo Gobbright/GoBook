@@ -1,0 +1,230 @@
+﻿import { useMemo, useState } from 'react';
+import { Download, Edit3, FileSpreadsheet, FileText, Search, Trash2, X } from 'lucide-react';
+
+import { deleteAdminTableRow, updateAdminTableRow } from '../adminService.js';
+
+function formatValue(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'object') return String(value.name || value.email || value.id || value._id || JSON.stringify(value)).substring(0, 80);
+  return String(value);
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '-';
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return dateString;
+  return parsed.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function titleize(field) {
+  return field.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase()).trim();
+}
+
+function getSourceKey(section) {
+  if (section.sourceKey) return section.sourceKey;
+  if (section.key?.startsWith('users-')) return 'users';
+  if (section.key?.startsWith('subscription-')) return section.key.endsWith('history') ? 'payments' : 'users';
+  if (section.key?.startsWith('user-details-')) return section.key.endsWith('payments') ? 'payments' : 'users';
+  return section.key || '';
+}
+
+function downloadFile(name, mimeType, content) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsv(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+export function DataTable({ section, onChanged }) {
+  const allFields = section.fields || [];
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [query, setQuery] = useState('');
+  const [editingRow, setEditingRow] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const sourceKey = getSourceKey(section);
+
+  const statusValues = useMemo(() => {
+    const values = new Set((section.rows || []).map((row) => row.status).filter(Boolean).map(String));
+    return ['all', ...Array.from(values)];
+  }, [section.rows]);
+
+  const rows = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return (section.rows || []).filter((row) => {
+      const matchesStatus = statusFilter === 'all' || String(row.status || '').toLowerCase() === statusFilter.toLowerCase();
+      const matchesSearch = !term || Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(term));
+      return matchesStatus && matchesSearch;
+    });
+  }, [query, section.rows, statusFilter]);
+
+  function exportExcel() {
+    const csv = [allFields.map(titleize).map(escapeCsv).join(',')]
+      .concat(rows.map((row) => allFields.map((field) => escapeCsv(formatValue(row[field]))).join(',')))
+      .join('\n');
+    downloadFile(`${section.label || 'admin-data'}.csv`, 'text/csv;charset=utf-8', csv);
+  }
+
+  function exportPdf() {
+    const html = `
+      <html><head><title>${section.label}</title><style>
+        body{font-family:Arial,sans-serif;padding:24px;color:#111827} h1{font-size:20px}
+        table{border-collapse:collapse;width:100%;font-size:11px} th,td{border:1px solid #d1d5db;padding:6px;text-align:left} th{background:#f3f4f6}
+      </style></head><body><h1>${section.label}</h1><table><thead><tr>${allFields.map((field) => `<th>${titleize(field)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${allFields.map((field) => `<td>${formatValue(row[field])}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
+  function openEdit(row) {
+    setActionError('');
+    setEditingRow(row);
+    setForm(Object.fromEntries(allFields.map((field) => [field, row[field] ?? ''])));
+  }
+
+  async function saveEdit() {
+    if (!editingRow?.id || !sourceKey) return;
+    setSaving(true);
+    setActionError('');
+    try {
+      await updateAdminTableRow(sourceKey, editingRow.id, form);
+      setEditingRow(null);
+      onChanged?.();
+      window.location.reload();
+    } catch (err) {
+      setActionError(err.message || 'Unable to update record');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteRow?.id || !sourceKey) return;
+    setSaving(true);
+    setActionError('');
+    try {
+      await deleteAdminTableRow(sourceKey, deleteRow.id);
+      setDeleteRow(null);
+      onChanged?.();
+      window.location.reload();
+    } catch (err) {
+      setActionError(err.message || 'Unable to delete record');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 bg-slate-50 dark:bg-slate-800">
+        <div>
+          <h3 className="m-0 text-[16px] font-extrabold text-slate-900 dark:text-slate-100">{section.label}</h3>
+          <p className="m-0 text-[12px] text-slate-500 dark:text-slate-400 mt-1">{section.count?.toLocaleString?.() || rows.length} total records - Showing {rows.length.toLocaleString()}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <div className="relative min-w-[220px]">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search table..." className="w-full pl-8 pr-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none" />
+          </div>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none">
+            {statusValues.map((status) => <option key={status} value={status}>{status === 'all' ? 'All Filter' : status}</option>)}
+          </select>
+          <button onClick={exportPdf} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center gap-2"><FileText size={15} /> PDF</button>
+          <button onClick={exportExcel} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center gap-2"><FileSpreadsheet size={15} /> Excel</button>
+        </div>
+      </div>
+
+      {/* Mobile View */}
+      <div className="md:hidden space-y-3">
+        {rows.length === 0 ? (
+          <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6 text-center text-slate-400 text-[13px]">No records found</div>
+        ) : rows.map((row, index) => (
+          <div key={row.id || index} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3">
+            {allFields.map((field, fieldIndex) => (
+              <div key={field} className={fieldIndex < allFields.length - 1 ? 'border-b border-slate-200 dark:border-slate-700 pb-3' : 'pb-0'}>
+                <p className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">{titleize(field)}</p>
+                <p className="text-[13px] text-slate-700 dark:text-slate-300 mt-1 break-all">
+                  {field.toLowerCase().includes('date') ? formatDate(row[field]) : formatValue(row[field])}
+                </p>
+              </div>
+            ))}
+            <div className="flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+              <button onClick={() => openEdit(row)} className="flex-1 p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Edit">
+                <Edit3 size={14} className="mx-auto" />
+              </button>
+              <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="flex-1 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Delete">
+                <Trash2 size={14} className="mx-auto" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop View */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              {allFields.map((field) => <th key={field} className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">{titleize(field)}</th>)}
+              <th className="px-4 py-3 text-right text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {rows.length === 0 ? (
+              <tr><td colSpan={allFields.length + 1} className="px-6 py-8 text-center text-slate-400 text-[13px]">No records found</td></tr>
+            ) : rows.map((row, index) => (
+              <tr key={row.id || index} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
+                {allFields.map((field) => <td key={field} className="px-4 py-3 text-[13px] text-slate-700 dark:text-slate-300 max-w-[220px] truncate" title={String(row[field] ?? '')}>{field.toLowerCase().includes('date') ? formatDate(row[field]) : formatValue(row[field])}</td>)}
+                <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <button onClick={() => openEdit(row)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Edit"><Edit3 size={16} /></button>
+                  <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Delete"><Trash2 size={16} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {editingRow && (
+        <Modal title={`Edit ${section.label}`} onClose={() => setEditingRow(null)}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
+            {allFields.map((field) => <label key={field} className="text-sm font-semibold text-slate-600 dark:text-slate-300">{titleize(field)}<input value={form[field] ?? ''} onChange={(event) => setForm({ ...form, [field]: event.target.value })} className="mt-1 w-full px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm" /></label>)}
+          </div>
+          {actionError && <p className="text-sm font-bold text-red-600">{actionError}</p>}
+          <div className="flex justify-end gap-2 mt-4"><button onClick={() => setEditingRow(null)} className="px-4 py-2 rounded-md border">Cancel</button><button onClick={saveEdit} disabled={saving} className="px-4 py-2 rounded-md bg-blue-600 text-white border-0">{saving ? 'Saving...' : 'Confirm & Save'}</button></div>
+        </Modal>
+      )}
+
+      {deleteRow && (
+        <Modal title="Confirm Delete" onClose={() => setDeleteRow(null)}>
+          <p className="text-sm text-slate-600 dark:text-slate-300">Are you sure you want to delete this record? Confirm panna apram DB-la delete aagum.</p>
+          {actionError && <p className="text-sm font-bold text-red-600">{actionError}</p>}
+          <div className="flex justify-end gap-2 mt-4"><button onClick={() => setDeleteRow(null)} className="px-4 py-2 rounded-md border">Cancel</button><button onClick={confirmDelete} disabled={saving} className="px-4 py-2 rounded-md bg-red-600 text-white border-0">{saving ? 'Deleting...' : 'Confirm Delete'}</button></div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-full max-w-3xl p-5 shadow-xl">
+        <div className="flex items-center justify-between gap-3 mb-4"><h3 className="m-0 text-lg font-extrabold text-slate-900 dark:text-slate-100">{title}</h3><button onClick={onClose} className="p-2 rounded-md border-0 bg-transparent"><X size={18} /></button></div>
+        {children}
+      </div>
+    </div>
+  );
+}

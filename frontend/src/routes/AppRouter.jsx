@@ -1,7 +1,20 @@
-import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+﻿import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { AdminLoginPage } from '../features/admin/AdminLoginPage.jsx';
 import { AdminPanelPage } from '../features/admin/AdminPanelPage.jsx';
+import { adminPageRoutes } from '../features/admin/routes.jsx';
+import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage.jsx';
+import { InvoicesPage } from '../features/admin/pages/InvoicesPage.jsx';
+import { ProductsPage } from '../features/admin/pages/ProductsPage.jsx';
+import { PaymentsPage } from '../features/admin/pages/PaymentsPage.jsx';
+import { AdminSectionPage } from '../features/admin/pages/AdminSectionPage.jsx';
+import { AdminUserListPage } from '../features/admin/pages/AdminUserListPage.jsx';
+import { AdminUserDetailsPage } from '../features/admin/pages/AdminUserDetailsPage.jsx';
+import { AdminSubscriptionPage } from '../features/admin/pages/AdminSubscriptionPage.jsx';
+import { AdminRecordPage } from '../features/admin/pages/AdminRecordPage.jsx';
+import { CategoryBusinessPage } from '../features/admin/pages/CategoryBusinessPage.jsx';
+import { CategoryHospitalPage } from '../features/admin/pages/CategoryHospitalPage.jsx';
+import { CategoryHotelPage } from '../features/admin/pages/CategoryHotelPage.jsx';
 import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage.jsx';
 import { GoogleOnboardingPage } from '../features/auth/GoogleOnboardingPage.jsx';
 import { LoginPage } from '../features/auth/LoginPage.jsx';
@@ -42,6 +55,56 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       <Route path="/admin-login" element={<AdminLoginPage />} />
       <Route path="/admin" element={<AdminPanelPage />} />
+      <Route path="/admin/users" element={<AdminSectionPage group="usersBusinesses" />} />
+      <Route path="/admin/users/all" element={<AdminUserListPage type="all" />} />
+      <Route path="/admin/users/active" element={<AdminUserListPage type="active" />} />
+      <Route path="/admin/users/trial" element={<AdminUserListPage type="trial" />} />
+      <Route path="/admin/users/expired" element={<AdminUserListPage type="expired" />} />
+      <Route path="/admin/users/blocked" element={<AdminUserListPage type="blocked" />} />
+      <Route path="/admin/users/deleted" element={<AdminUserListPage type="deleted" />} />
+      <Route path="/admin/user-details/business" element={<AdminUserDetailsPage type="business" />} />
+      <Route path="/admin/user-details/owner" element={<AdminUserDetailsPage type="owner" />} />
+      <Route path="/admin/user-details/category" element={<AdminUserDetailsPage type="category" />} />
+      <Route path="/admin/user-details/subscription" element={<AdminUserDetailsPage type="subscription" />} />
+      <Route path="/admin/user-details/registration" element={<AdminUserDetailsPage type="registration" />} />
+      <Route path="/admin/user-details/expiry" element={<AdminUserDetailsPage type="expiry" />} />
+      <Route path="/admin/user-details/payments" element={<AdminUserDetailsPage type="payments" />} />
+      <Route path="/admin/user-details/login" element={<AdminUserDetailsPage type="login" />} />
+      <Route path="/admin/subscription/plans" element={<AdminSubscriptionPage type="plans" />} />
+      <Route path="/admin/subscription/active" element={<AdminSubscriptionPage type="active" />} />
+      <Route path="/admin/subscription/expired" element={<AdminSubscriptionPage type="expired" />} />
+      <Route path="/admin/subscription/requests" element={<AdminSubscriptionPage type="requests" />} />
+      <Route path="/admin/subscription/history" element={<AdminSubscriptionPage type="history" />} />
+      <Route path="/admin/invoices" element={<InvoicesPage />} />
+      <Route path="/admin/products" element={<AdminSectionPage group="inventory" />} />
+      <Route path="/admin/payments" element={<PaymentsPage type="all" />} />
+      <Route path="/admin/payments/all" element={<PaymentsPage type="all" />} />
+      <Route path="/admin/payments/pending" element={<PaymentsPage type="pending" />} />
+      <Route path="/admin/payments/successful" element={<PaymentsPage type="successful" />} />
+      <Route path="/admin/payments/failed" element={<PaymentsPage type="failed" />} />
+      <Route path="/admin/payments/reports" element={<PaymentsPage type="reports" />} />
+      <Route path="/admin/notifications/renewal-reminder" element={<AdminRecordPage kind="renewalReminder" />} />
+      <Route path="/admin/notifications/expiry-reminder" element={<AdminRecordPage kind="expiryReminder" />} />
+      <Route path="/admin/notifications/payment-reminder" element={<AdminRecordPage kind="paymentReminder" />} />
+      <Route path="/admin/notifications/send-notification" element={<AdminRecordPage kind="sendNotification" />} />
+      <Route path="/admin/reports/user-report" element={<AdminRecordPage kind="userReport" />} />
+      <Route path="/admin/reports/renewal-report" element={<AdminRecordPage kind="renewalReport" />} />
+      <Route path="/admin/reports/expiry-report" element={<AdminRecordPage kind="expiryReport" />} />
+      <Route path="/admin/reports/payment-report" element={<AdminRecordPage kind="paymentReport" />} />
+      <Route path="/admin/reports/revenue-report" element={<AdminRecordPage kind="revenueReport" />} />
+      <Route path="/admin/settings/subscription-plans" element={<AdminRecordPage kind="subscriptionPlans" />} />
+      <Route path="/admin/settings/trial-days" element={<AdminRecordPage kind="trialDays" />} />
+      <Route path="/admin/settings/grace-period" element={<AdminRecordPage kind="gracePeriod" />} />
+      <Route path="/admin/settings/auto-block-after-expiry" element={<AdminRecordPage kind="autoBlockAfterExpiry" />} />
+      <Route path="/admin/settings/payment-settings" element={<AdminRecordPage kind="paymentSettings" />} />
+      <Route path="/admin/customers" element={<AdminSectionPage group="customers" />} />
+      <Route path="/admin/accounting" element={<AdminSectionPage group="accounting" />} />
+      <Route path="/admin/hr" element={<AdminSectionPage group="hr" />} />
+      <Route path="/admin/inventory" element={<AdminSectionPage group="inventory" />} />
+      <Route path="/admin/reports" element={<AdminSectionPage group="reports" />} />
+      <Route path="/admin/category/business" element={<CategoryBusinessPage />} />
+      <Route path="/admin/category/hospital" element={<CategoryHospitalPage />} />
+      <Route path="/admin/category/hotel" element={<CategoryHotelPage />} />
       <Route path="/google-onboarding" element={<ProtectedRoute><GoogleOnboardingPage /></ProtectedRoute>} />
       <Route path="/verify-email" element={<ProtectedRoute><VerifyEmailPage /></ProtectedRoute>} />
       <Route path="/platform-admin" element={<ProtectedRoute><PlatformAdminPage /></ProtectedRoute>} />
@@ -116,3 +179,14 @@ export function AppRouter() {
     </HashRouter>
   );
 }
+
+
+
+
+
+
+
+
+
+
+

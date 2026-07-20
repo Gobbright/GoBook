@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+﻿import { Schema, model } from 'mongoose';
 
 const paymentSchema = new Schema({
   userId:        { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
@@ -15,3 +15,4 @@ const paymentSchema = new Schema({
 paymentSchema.index({ userId: 1, invoiceId: 1 });
 
 export const Payment = model('Payment', paymentSchema);
+

@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Lock, LogIn, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Lock, Sparkles, UserRound } from 'lucide-react';
 
 import { loginAdmin } from './adminService.js';
+import { AuthLayout } from '../auth/AuthLayout.jsx';
+import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from '../auth/authTheme.jsx';
 
 export function AdminLoginPage() {
   const [adminId, setAdminId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -25,93 +28,111 @@ export function AdminLoginPage() {
 
   async function handleQuickLogin() {
     setError('');
-    setAdminId('admin');
-    setPassword('admin@123');
     setSubmitting(true);
     try {
       await loginAdmin('admin', 'admin@123');
       window.location.hash = '/admin';
     } catch (err) {
-      setError(err.message || 'Admin quick login failed');
+      setError(err.message || 'Quick login failed');
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8] flex items-center justify-center p-4 text-slate-900">
-      <div className="w-full max-w-[390px] bg-white border border-slate-200 rounded-lg shadow-sm p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-11 h-11 rounded-lg bg-slate-900 text-white flex items-center justify-center">
-            <ShieldCheck size={24} />
+    <AuthLayout compact cardMaxWidth={400}>
+        {/* Header */}
+        <div className="text-center mb-4 sm:mb-5">
+          <div className="hidden sm:flex justify-center mb-2.5">
+            <div className="inline-flex bg-white rounded-xl px-3.5 py-2">
+              <img src="/gobook-logo-full.png" alt="GoBook" className="h-8 w-auto object-contain" />
+            </div>
           </div>
-          <div>
-            <h1 className="text-[22px] font-extrabold m-0 tracking-tight">Admin Panel</h1>
-            <p className="text-[12px] text-slate-500 m-0">Site owner control centre</p>
-          </div>
+          <h2 className={`text-[20px] sm:text-[21px] font-bold m-0 mb-1 ${HEADING}`}>Admin Panel</h2>
+          <p className={`text-[12px] sm:text-[12.5px] m-0 mb-2 ${SUBTEXT}`}>Site owner control centre</p>
+          <div className="w-10 h-[3px] mx-auto rounded-full" style={{ background: '#4f90ff' }} />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* Admin ID */}
           <div>
-            <label htmlFor="adminId" className="block text-[12px] font-bold text-slate-700 mb-1.5">Admin ID</label>
+            <label htmlFor="adminId" className={LABEL}>Admin ID</label>
             <div className="relative">
-              <UserRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <UserRound size={15} className={ICON} />
               <input
                 id="adminId"
+                type="text"
+                required
+                placeholder="Enter your admin ID"
                 value={adminId}
                 onChange={(e) => setAdminId(e.target.value)}
-                className="w-full h-11 rounded-md border border-slate-200 pl-9 pr-3 text-[14px] outline-none focus:border-slate-900"
-                placeholder="Enter admin ID"
-                autoComplete="username"
-                required
+                className={INPUT}
               />
             </div>
           </div>
 
+          {/* Password */}
           <div>
-            <label htmlFor="adminPassword" className="block text-[12px] font-bold text-slate-700 mb-1.5">Password</label>
+            <label htmlFor="adminPassword" className={LABEL}>Password</label>
             <div className="relative">
-              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Lock size={15} className={ICON} />
               <input
                 id="adminPassword"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-11 rounded-md border border-slate-200 pl-9 pr-3 text-[14px] outline-none focus:border-slate-900"
-                placeholder="Enter password"
-                autoComplete="current-password"
-                required
+                className={`${INPUT} pr-11`}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className={`absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-0 flex items-center transition-colors ${EYE_BUTTON}`}
+              >
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
             </div>
           </div>
 
-          {error && <div className="rounded-md bg-red-50 border border-red-100 px-3 py-2 text-[12px] text-red-700">{error}</div>}
+          {/* Error */}
+          {error && (
+            <div className={`rounded-xl px-4 py-2.5 ${ERROR_BOX}`}>
+              <span className={`text-[12.5px] ${ERROR_TEXT}`}>{error}</span>
+            </div>
+          )}
 
+          {/* Quick Login */}
           <button
             type="button"
             onClick={handleQuickLogin}
             disabled={submitting}
-            className="w-full h-11 rounded-md bg-emerald-600 text-white text-[14px] font-bold border-0 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3 text-white font-bold text-[14px] border-0 cursor-pointer transition-all duration-150 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: '#10b981', boxShadow: '0 6px 24px -4px rgba(16,185,129,0.4)' }}
           >
-            <Sparkles size={17} />
-            Quick Login
+            <Sparkles size={18} />
+            {submitting ? 'Signing in…' : 'Quick Login'}
           </button>
 
+          {/* Submit */}
           <button
             type="submit"
             disabled={submitting}
-            className="w-full h-11 rounded-md bg-slate-900 text-white text-[14px] font-bold border-0 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3 text-white font-bold text-[14px] border-0 cursor-pointer transition-all duration-150 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: 'linear-gradient(135deg, #4f90ff 0%, #6366f1 100%)', boxShadow: '0 6px 24px -4px rgba(79,144,255,0.55)' }}
           >
-            <LogIn size={17} />
-            {submitting ? 'Checking...' : 'Login to Admin'}
+            <ArrowRight size={18} />
+            {submitting ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
 
-        <div className="mt-5 flex justify-between text-[12px]">
-          <a href="#/login" className="text-slate-500 hover:text-slate-900 no-underline">Back to user login</a>
-          <span className="text-slate-400">Protected</span>
-        </div>
-      </div>
-    </div>
+        <p className={`text-center text-[12px] mt-3 mb-0 ${MUTED}`}>
+          Not an admin?{' '}
+          <a href="#/login" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>
+            User Login
+          </a>
+        </p>
+    </AuthLayout>
   );
 }

@@ -1,4 +1,4 @@
-import { AccountingPosting } from '../../models/AccountingPosting.js';
+﻿import { AccountingPosting } from '../../models/AccountingPosting.js';
 import { AccountingVoucher } from '../../models/AccountingVoucher.js';
 import { AppUser } from '../../models/AppUser.js';
 import { Attendance } from '../../models/Attendance.js';
@@ -35,7 +35,7 @@ import { signAdminToken } from './adminAuth.js';
 
 const COLLECTIONS = [
   { key: 'businesses', label: 'Businesses', model: Business, fields: ['name', 'category', 'createdAt'] },
-  { key: 'users', label: 'Users', model: AppUser, fields: ['name', 'email', 'role', 'status', 'businessName', 'category', 'authProvider', 'lastLogin'] },
+  { key: 'users', label: 'Users', model: AppUser, fields: ['name', 'email', 'phone', 'role', 'status', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'authProvider', 'createdAt', 'lastLogin'] },
   { key: 'businessSettings', label: 'Business Settings', model: BusinessSettings, fields: ['businessName', 'businessEmail', 'phone', 'gstin', 'city', 'state'] },
   { key: 'branches', label: 'Branches', model: Branch, fields: ['name', 'code', 'city', 'state', 'status'] },
   { key: 'customers', label: 'Customers', model: Customer, fields: ['name', 'email', 'phone', 'gstin', 'city'] },
@@ -67,16 +67,92 @@ const COLLECTIONS = [
   { key: 'whatsAppCampaigns', label: 'WhatsApp Campaigns', model: WhatsAppCampaign, fields: ['name', 'status', 'sentCount', 'createdAt'] },
 ];
 
+
+function getCollectionConfig(section) {
+  return COLLECTIONS.find((c) => c.key === section);
+}
+
+function cleanMutationPayload(payload = {}) {
+  const clean = { ...payload };
+  delete clean.id;
+  delete clean._id;
+  delete clean.createdAt;
+  delete clean.updatedAt;
+  delete clean.__v;
+  return clean;
+}
 function pickFields(doc, fields) {
   const row = { id: doc._id, createdAt: doc.createdAt, updatedAt: doc.updatedAt };
-  for (const field of fields) row[field] = doc[field] ?? '';
+  for (const field of fields) {
+    if (field === 'mode') row[field] = doc.mode ?? doc.method ?? '';
+    else if (field === 'status' && doc.status == null) row[field] = 'success';
+    else row[field] = doc[field] ?? '';
+  }
   return row;
 }
 
+
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+async function getAdminPanelStats() {
+  const today = startOfToday();
+  const [
+    totalUsers,
+    activeUsers,
+    blockedUsers,
+    todayRegistrations,
+    allUsers,
+    payments,
+  ] = await Promise.all([
+    AppUser.countDocuments(),
+    AppUser.countDocuments({ status: /^active$/i }),
+    AppUser.countDocuments({ status: /^blocked$/i }),
+    AppUser.countDocuments({ createdAt: { $gte: today } }),
+    AppUser.find({}).select('name email businessName category subscriptionPlan subscriptionAmount status createdAt lastLogin phone').lean(),
+    Payment.find({}).select('amount status date createdAt customerName mode').lean(),
+  ]);
+
+  const subscriptionCounts = allUsers.reduce((acc, user) => {
+    const plan = user.subscriptionPlan || 'noPlan';
+    acc[plan] = (acc[plan] || 0) + 1;
+    return acc;
+  }, {});
+
+  const totalRevenue = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+  const successfulPayments = payments.filter((payment) => /^success|paid|completed$/i.test(String(payment.status || ''))).length;
+  const failedPayments = payments.filter((payment) => /^fail|failed|cancelled$/i.test(String(payment.status || ''))).length;
+  const pendingPayments = payments.filter((payment) => /^pending|processing$/i.test(String(payment.status || ''))).length;
+
+  return {
+    totalUsers,
+    activeUsers,
+    expiredUsers: 0,
+    blockedUsers,
+    todayRegistrations,
+    upcomingRenewals: 0,
+    totalRevenue,
+    trialUsers: subscriptionCounts.noPlan || 0,
+    activeSubscriptions: totalUsers - (subscriptionCounts.noPlan || 0),
+    expiredSubscriptions: 0,
+    renewalRequests: 0,
+    renewalHistory: payments.length,
+    allPayments: payments.length,
+    pendingPayments,
+    successfulPayments,
+    failedPayments,
+    subscriptionCounts,
+    users: allUsers.slice(0, 20),
+    payments: payments.slice(0, 20),
+  };
+}
 async function summarizeCollection(item) {
   const [count, latest] = await Promise.all([
     item.model.countDocuments(),
-    item.model.find({}).sort({ createdAt: -1, _id: -1 }).limit(20).lean(),
+    item.model.find({}).sort({ createdAt: -1, _id: -1 }).limit(1000).lean(),
   ]);
   return {
     key: item.key,
@@ -113,7 +189,134 @@ export async function getAdminDashboard(_req, res, next) {
       employees: byKey.employees?.count ?? 0,
       leads: byKey.leads?.count ?? 0,
     };
-    res.json({ generatedAt: new Date().toISOString(), totals, sections });
+    const panel = await getAdminPanelStats();
+    res.json({ generatedAt: new Date().toISOString(), totals, sections, panel });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAdminSection(req, res, next) {
+  try {
+    const { section } = req.params;
+    const collectionConfig = getCollectionConfig(section);
+    if (!collectionConfig) {
+      return next(httpError(404, `Section "${section}" not found`));
+    }
+    const data = await summarizeCollection(collectionConfig);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAdminStats(_req, res, next) {
+  try {
+    const stats = await Promise.all(COLLECTIONS.map(async (config) => ({
+      key: config.key,
+      label: config.label,
+      count: await config.model.countDocuments(),
+    })));
+    res.json({ stats, timestamp: new Date().toISOString() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+
+
+export async function getAdminRecords(req, res, next) {
+  try {
+    const { kind } = req.params;
+    const config = ADMIN_RECORD_TYPES[kind];
+    if (!config) return next(httpError(404, `Admin record type "${kind}" not found`));
+
+    await ensureAdminRecord(kind);
+    const docs = await AdminRecord.find({ kind }).sort({ createdAt: -1, _id: -1 }).limit(1000).lean();
+    res.json({
+      key: kind,
+      label: config.label,
+      group: config.group,
+      count: docs.length,
+      fields: ['title', 'status', 'amount', 'target', 'scheduledDate', 'notes', 'createdAt'],
+      rows: docs.map(pickAdminRecord),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createAdminRecord(req, res, next) {
+  try {
+    const { kind } = req.params;
+    const config = ADMIN_RECORD_TYPES[kind];
+    if (!config) return next(httpError(404, `Admin record type "${kind}" not found`));
+
+    const doc = await AdminRecord.create({
+      kind,
+      group: config.group,
+      title: req.body.title || config.title,
+      status: req.body.status || config.status,
+      amount: Number(req.body.amount || config.amount || 0),
+      target: req.body.target || 'All Users',
+      notes: req.body.notes || config.notes,
+      scheduledDate: req.body.scheduledDate || new Date().toISOString().slice(0, 10),
+    });
+    res.status(201).json({ record: pickAdminRecord(doc) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+export async function updateAdminSectionRow(req, res, next) {
+  try {
+    const { section, id } = req.params;
+    const collectionConfig = getCollectionConfig(section);
+    if (!collectionConfig) return next(httpError(404, `Section "${section}" not found`));
+
+    const updated = await collectionConfig.model.findByIdAndUpdate(id, cleanMutationPayload(req.body), { new: true, runValidators: true }).lean();
+    if (!updated) return next(httpError(404, 'Record not found'));
+    res.json({ row: pickFields(updated, collectionConfig.fields) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteAdminSectionRow(req, res, next) {
+  try {
+    const { section, id } = req.params;
+    const collectionConfig = getCollectionConfig(section);
+    if (!collectionConfig) return next(httpError(404, `Section "${section}" not found`));
+
+    const deleted = await collectionConfig.model.findByIdAndDelete(id).lean();
+    if (!deleted) return next(httpError(404, 'Record not found'));
+    res.json({ deleted: true, id });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateAdminRecord(req, res, next) {
+  try {
+    const { kind, id } = req.params;
+    if (!ADMIN_RECORD_TYPES[kind]) return next(httpError(404, `Admin record type "${kind}" not found`));
+    const updated = await AdminRecord.findOneAndUpdate({ _id: id, kind }, cleanMutationPayload(req.body), { new: true, runValidators: true }).lean();
+    if (!updated) return next(httpError(404, 'Record not found'));
+    res.json({ row: pickAdminRecord(updated) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteAdminRecord(req, res, next) {
+  try {
+    const { kind, id } = req.params;
+    if (!ADMIN_RECORD_TYPES[kind]) return next(httpError(404, `Admin record type "${kind}" not found`));
+    const deleted = await AdminRecord.findOneAndDelete({ _id: id, kind }).lean();
+    if (!deleted) return next(httpError(404, 'Record not found'));
+    res.json({ deleted: true, id });
   } catch (err) {
     next(err);
   }

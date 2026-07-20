@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../../services/apiBase.js';
+﻿import { API_BASE_URL } from '../../services/apiBase.js';
 
 const ADMIN_TOKEN_KEY = 'gobook_admin_token';
 const ADMIN_USER_KEY = 'gobook_admin_user';
@@ -53,7 +53,56 @@ export async function fetchAdminDashboard() {
   return adminRequest('/admin/dashboard');
 }
 
+export async function fetchAdminStats() {
+  return adminRequest('/admin/stats');
+}
+
+export async function fetchAdminSection(sectionKey) {
+  try {
+    return await adminRequest(`/admin/section/${sectionKey}`);
+  } catch (err) {
+    const message = String(err.message || '').toLowerCase();
+    if (!message.includes('route not found') && !message.includes('section')) throw err;
+
+    const dashboard = await fetchAdminDashboard();
+    const section = dashboard.sections?.find((item) => item.key === sectionKey);
+    if (section) return section;
+    throw err;
+  }
+}
+
+
+export async function fetchAdminRecords(kind) {
+  return adminRequest(`/admin/records/${kind}`);
+}
+
+export async function createAdminRecord(kind, payload) {
+  return adminRequest(`/admin/records/${kind}`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAdminTableRow(sourceKey, id, payload) {
+  const path = sourceKey.startsWith('records/')
+    ? `/admin/${sourceKey}/${id}`
+    : `/admin/section/${sourceKey}/${id}`;
+  return adminRequest(path, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAdminTableRow(sourceKey, id) {
+  const path = sourceKey.startsWith('records/')
+    ? `/admin/${sourceKey}/${id}`
+    : `/admin/section/${sourceKey}/${id}`;
+  return adminRequest(path, { method: 'DELETE' });
+}
 export function logoutAdmin() {
   clearAdminSession();
   window.location.hash = '/admin-login';
 }
+
+
+
