@@ -73,6 +73,8 @@ export function BusinessSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [pendingLogoFile, setPendingLogoFile] = useState(null);
+  const [pendingLogoPreview, setPendingLogoPreview] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -119,13 +121,26 @@ export function BusinessSettingsPage() {
     apiClient('/settings', { method: 'PUT', body: JSON.stringify(next) }).catch(() => setSettings(settings));
   }
 
-  async function handleLogoUpload(e) {
+  function handleLogoSelect(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPendingLogoFile(file);
+    setPendingLogoPreview(URL.createObjectURL(file));
+  }
+
+  function cancelLogoSelect() {
+    if (pendingLogoPreview) URL.revokeObjectURL(pendingLogoPreview);
+    setPendingLogoFile(null);
+    setPendingLogoPreview('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  async function handleLogoSave() {
+    if (!pendingLogoFile) return;
     setLogoUploading(true);
     try {
       const form = new FormData();
-      form.append('logo', file);
+      form.append('logo', pendingLogoFile);
       const token = getToken();
       const res = await fetch(`${API_BASE}/settings/logo`, {
         method: 'POST',
@@ -139,11 +154,11 @@ export function BusinessSettingsPage() {
         notifySettingsUpdated(next);
         return next;
       });
+      cancelLogoSelect();
     } catch (err) {
       console.error('Logo upload failed:', err);
     } finally {
       setLogoUploading(false);
-      e.target.value = '';
     }
   }
 
@@ -345,7 +360,13 @@ export function BusinessSettingsPage() {
         <div className="bg-white border border-[#dfe7f1] rounded-xl p-5">
           <h3 className="m-0 text-[14px] font-semibold text-[#111827] mb-4">Logo &amp; Branding</h3>
           <div className="flex flex-col items-center justify-center gap-4 pt-4">
-            {settings.logoUrl ? (
+            {pendingLogoPreview ? (
+              <img
+                src={pendingLogoPreview}
+                alt="Logo preview"
+                className="w-24 h-24 rounded-2xl object-contain shadow-md border border-blue-200"
+              />
+            ) : settings.logoUrl ? (
               <img
                 src={`${SERVER_ORIGIN}${settings.logoUrl}`}
                 alt="Business logo"
@@ -361,27 +382,52 @@ export function BusinessSettingsPage() {
               <div className="text-[18px] font-bold text-[#111827]">{settings.businessName || 'GoBook'}</div>
               <div className="text-[13px] text-[#536173] mt-0.5">Business Management Suite</div>
             </div>
-            <input ref={fileInputRef} type="file" className="hidden" onChange={handleLogoUpload} />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoSelect} />
             <div className="flex flex-wrap justify-center gap-2 mt-2">
-              <button
-                type="button"
-                disabled={logoUploading}
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-60"
-              >
-                <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-                {logoUploading ? 'Uploading…' : 'Update Logo'}
-              </button>
-              <button
-                type="button"
-                disabled={logoUploading}
-                onClick={handleLogoRemove}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-red-600 bg-white border border-red-200 rounded-md cursor-pointer hover:bg-red-50 font-[inherit] disabled:opacity-60"
-              >
-                Remove
-              </button>
+              {pendingLogoFile ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={logoUploading}
+                    onClick={handleLogoSave}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-60"
+                  >
+                    {logoUploading ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={logoUploading}
+                    onClick={cancelLogoSelect}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit] disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={logoUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-60"
+                  >
+                    <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                    Update Logo
+                  </button>
+                  <button
+                    type="button"
+                    disabled={logoUploading}
+                    onClick={handleLogoRemove}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-red-600 bg-white border border-red-200 rounded-md cursor-pointer hover:bg-red-50 font-[inherit] disabled:opacity-60"
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
             </div>
-            <p className="text-[12px] text-[#536173] text-center m-0">Upload your business logo file.</p>
+            <p className="text-[12px] text-[#536173] text-center m-0">
+              {pendingLogoFile ? 'Click Save to upload the selected logo.' : 'Upload your business logo file.'}
+            </p>
           </div>
         </div>
 

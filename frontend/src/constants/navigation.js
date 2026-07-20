@@ -2,11 +2,7 @@ const SECTIONS = {
   main: {
     title: 'Dashboard',
     items: [
-      { label: 'Sales Summary', href: '#/dashboard/sales-summary', icon: 'BarChart3' },
-      { label: 'Revenue', href: '#/dashboard/revenue', icon: 'Wallet' },
-      { label: 'Low Stock', href: '#/dashboard/low-stock', icon: 'AlertTriangle' },
-      { label: 'Top Customers', href: '#/dashboard/top-customers', icon: 'Users' },
-      { label: 'Top Products', href: '#/dashboard/top-products', icon: 'Package' },
+      { label: 'Dashboard', href: '#/dashboard', icon: 'LayoutDashboard' },
     ],
   },  sales: {
     title: 'Sales',
@@ -233,11 +229,7 @@ const SECTIONS = {
   hotelDashboard: {
     title: 'Dashboard',
     items: [
-      { label: 'Occupancy %', href: '#/hotel/dashboard/occupancy', icon: 'PieChart' },
-      { label: "Today's Arrivals", href: '#/hotel/dashboard/arrivals', icon: 'LogIn' },
-      { label: "Today's Departures", href: '#/hotel/dashboard/departures', icon: 'LogOut' },
-      { label: 'Revenue', href: '#/hotel/dashboard/revenue', icon: 'Wallet' },
-      { label: 'ADR / RevPAR', href: '#/hotel/dashboard/adr-revpar', icon: 'BarChart3' },
+      { label: 'Dashboard', href: '#/dashboard', icon: 'LayoutDashboard' },
     ],
   },
   hotelGuestManagement: {
@@ -283,10 +275,7 @@ const SECTIONS = {
   constructionDashboard: {
     title: 'Dashboard',
     items: [
-      { label: 'Active Projects', href: '#/construction/dashboard/active-projects', icon: 'LayoutDashboard' },
-      { label: 'Site Progress', href: '#/construction/dashboard/site-progress', icon: 'TrendingUp' },
-      { label: 'Material Cost', href: '#/construction/dashboard/material-cost', icon: 'Package' },
-      { label: 'Pending Bills', href: '#/construction/dashboard/pending-bills', icon: 'ReceiptText' },
+      { label: 'Dashboard', href: '#/dashboard', icon: 'LayoutDashboard' },
     ],
   },
   constructionClientsTenders: {
@@ -333,10 +322,7 @@ const SECTIONS = {
   ngoDashboard: {
     title: 'Dashboard',
     items: [
-      { label: 'Total Donations', href: '#/ngo/dashboard/total-donations', icon: 'Wallet' },
-      { label: 'Active Campaigns', href: '#/ngo/dashboard/active-campaigns', icon: 'TrendingUp' },
-      { label: 'Beneficiaries Served', href: '#/ngo/dashboard/beneficiaries-served', icon: 'Users' },
-      { label: 'Volunteers', href: '#/ngo/dashboard/volunteers', icon: 'UserPlus' },
+      { label: 'Dashboard', href: '#/dashboard', icon: 'LayoutDashboard' },
     ],
   },
   ngoDonors: {
@@ -390,10 +376,7 @@ const SECTIONS = {
   automobileDashboard: {
     title: 'Dashboard',
     items: [
-      { label: "Today's Job Cards", href: '#/automobile/dashboard/job-cards', icon: 'ClipboardList' },
-      { label: 'Vehicles In Service', href: '#/automobile/dashboard/vehicles-in-service', icon: 'Car' },
-      { label: 'Revenue', href: '#/automobile/dashboard/revenue', icon: 'Wallet' },
-      { label: 'Pending Delivery', href: '#/automobile/dashboard/pending-delivery', icon: 'Truck' },
+      { label: 'Dashboard', href: '#/dashboard', icon: 'LayoutDashboard' },
     ],
   },
   automobileCustomersVehicles: {
@@ -440,7 +423,7 @@ const SECTIONS = {
 const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayroll', 'moreModules', 'settings'];
 
 const CATEGORY_LAYOUTS = {
-  retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports'],
+  retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports', 'settings'],
   hospital: ['main', 'patientManagement', 'clinical', 'laboratory', 'pharmacy', 'medicalBilling', ...COMMON_LAYOUT.slice(1)],
   school: [
     'main', 'schoolStudentManagement', 'schoolAcademic', 'schoolFeeManagement',

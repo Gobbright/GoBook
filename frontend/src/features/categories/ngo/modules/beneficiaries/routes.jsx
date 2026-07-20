@@ -1,11 +1,36 @@
-import { ModulePlaceholderPage } from '../../../../../components/common/ModulePlaceholderPage.jsx';
+import { GenericModulePage } from '../../../../../components/common/GenericModulePage.jsx';
 
-function page(title) {
-  return <ModulePlaceholderPage title={title} group="Beneficiaries" category="NGO" />;
-}
+const GROUP = 'Beneficiaries';
+const CATEGORY = 'NGO';
 
-export const ngoBeneficiaryRoutes = [
-  { path: '/ngo/beneficiaries/register', element: page('Beneficiary Register') },
-  { path: '/ngo/beneficiaries/assistance-records', element: page('Assistance Records') },
-  { path: '/ngo/beneficiaries/impact-reporting', element: page('Impact Reporting') },
+const ITEMS = [
+  {
+    path: '/ngo/beneficiaries/register', title: 'Beneficiary Register', fields: [
+      { key: 'name', label: 'Beneficiary Name', required: true },
+      { key: 'phone', label: 'Phone' },
+      { key: 'address', label: 'Address', type: 'textarea' },
+      { key: 'category', label: 'Category' },
+    ],
+  },
+  {
+    path: '/ngo/beneficiaries/assistance-records', title: 'Assistance Records', fields: [
+      { key: 'beneficiaryName', label: 'Beneficiary Name', required: true },
+      { key: 'assistanceType', label: 'Assistance Type' },
+      { key: 'amount', label: 'Amount / Value', type: 'number' },
+      { key: 'date', label: 'Date', type: 'date' },
+    ],
+  },
+  {
+    path: '/ngo/beneficiaries/impact-reporting', title: 'Impact Reporting', fields: [
+      { key: 'programName', label: 'Program Name', required: true },
+      { key: 'beneficiariesServed', label: 'Beneficiaries Served', type: 'number' },
+      { key: 'period', label: 'Period' },
+      { key: 'notes', label: 'Notes', type: 'textarea' },
+    ],
+  },
 ];
+
+export const ngoBeneficiaryRoutes = ITEMS.map(({ path, title, fields }) => ({
+  path,
+  element: <GenericModulePage title={title} group={GROUP} category={CATEGORY} moduleKey={path.slice(1)} fields={fields} />,
+}));
