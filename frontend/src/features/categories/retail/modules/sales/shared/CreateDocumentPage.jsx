@@ -81,8 +81,15 @@ const PAYMENT_METHODS = [
   { id: 'credit', label: 'Credit', emoji: '📅', color: '#dc2626', method: null            },
 ];
 
-function productOptionId(itemId) {
-  return `product-options-${itemId}`;
+function filterProducts(products = [], query = '') {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return products;
+  return products.filter((p) =>
+    String(p.description || '').toLowerCase().includes(q)
+    || String(p.code || '').toLowerCase().includes(q)
+    || String(p.barcode || '').toLowerCase().includes(q)
+    || String(p.hsn || '').toLowerCase().includes(q),
+  );
 }
 
 function partyKindFromLabel(label = '') {
@@ -436,6 +443,8 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   const [showCustomerDrop, setShowCustomerDrop] = useState(false);
   const [customerQuery, setCustomerQuery]       = useState('');
   const [productSearch, setProductSearch]       = useState('');
+  const [openProductRow, setOpenProductRow]     = useState(null);
+  const [showTopProductDrop, setShowTopProductDrop] = useState(false);
   const [showPhoneDrop, setShowPhoneDrop]       = useState(false);
   const [showAddCustomer, setShowAddCustomer]   = useState(false);
   const [newCustomerForm, setNewCustomerForm]   = useState({
@@ -890,6 +899,16 @@ const [customFields, setCustomFields]         = useState([]);
       delete next.items;
       return next;
     });
+  }
+
+  // Erasing the description of a row that was auto-filled from a product should
+  // reset every field that came from that product, not leave stale HSN/rate/GST behind.
+  function clearItemProduct(itemId) {
+    setItems((prev) => prev.map((item) =>
+      item.id === itemId
+        ? { ...item, productId: null, productCode: '', barcode: '', description: '', hsn: '', unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }
+        : item,
+    ));
   }
 
   function addProductToBill(product) {
@@ -2234,39 +2253,58 @@ const [customFields, setCustomFields]         = useState([]);
           </div>
 
           <div className="billing-product-search">
-            <div className="relative flex-1">
+            <div
+              className="relative flex-1"
+              tabIndex={-1}
+              onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setShowTopProductDrop(false); }}
+            >
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7c8aa5]" />
               <input
                 className="w-full border border-blue-300 rounded-lg pl-9 pr-12 py-3 text-[14px] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-[inherit]"
-                list="billing-product-search-options"
                 placeholder="Search product by name, barcode, HSN, SKU, brand..."
                 value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
+                onFocus={() => setShowTopProductDrop(true)}
+                onChange={(e) => { setProductSearch(e.target.value); setShowTopProductDrop(true); }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     addProductFromSearch();
+                    setShowTopProductDrop(false);
                   }
+                  if (e.key === 'Escape') setShowTopProductDrop(false);
                 }}
               />
               <button
                 type="button"
                 className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-md border border-[#dbe4ef] bg-white text-blue-600 font-bold cursor-pointer"
-                onClick={addProductFromSearch}
+                onClick={() => { addProductFromSearch(); setShowTopProductDrop(false); }}
                 title="Add selected product"
               >
                 +
               </button>
-              <datalist id="billing-product-search-options">
-                {products.flatMap((p) => {
-                  const key = p._id ?? p.id ?? p.description;
-                  return [
-                    <option key={`${key}-name`} value={p.description} />,
-                    p.barcode ? <option key={`${key}-barcode`} value={p.barcode}>{p.description}</option> : null,
-                    p.code ? <option key={`${key}-code`} value={p.code}>{p.description}</option> : null,
-                  ];
-                })}
-              </datalist>
+              {showTopProductDrop && (
+                <div className="billing-customer-dropdown">
+                  {filterProducts(products, productSearch).length === 0 ? (
+                    <div className="billing-customer-empty">No matching products</div>
+                  ) : (
+                    filterProducts(products, productSearch).slice(0, 8).map((p) => (
+                      <button
+                        key={p._id ?? p.id ?? p.description}
+                        type="button"
+                        onMouseDown={() => {
+                          addProductToBill(p);
+                          setProductSearch('');
+                          setShowTopProductDrop(false);
+                          clearError('items');
+                        }}
+                      >
+                        <span>{p.description}</span>
+                        <small>{[p.code, p.barcode, p.hsn, formatCurrency(p.rate)].filter(Boolean).join(' · ')}</small>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             <button type="button" className="billing-add-new-item-btn" onClick={addItem}>
               <Plus size={14} /> Add New Item (F5)
@@ -2315,36 +2353,59 @@ const [customFields, setCustomFields]         = useState([]);
                       {/* Description: manual typing only for Quotation and Purchase Order; billing uses existing products */}
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         {allowManualItemDescription ? (
-                          <>
+                          <div
+                            className="billing-customer-picker"
+                            tabIndex={-1}
+                            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpenProductRow(null); }}
+                          >
                             <input
                               data-row={idx}
                               data-col="description"
                               className={`w-full border ${!item.description && errors.items ? 'border-red-400 bg-red-50' : 'border-[#dbe4ef]'} rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none bg-white focus:border-blue-500`}
-                              list={productOptionId(item.id)}
                               placeholder="Type item or select product..."
                               value={item.description}
+                              onFocus={() => setOpenProductRow(item.id)}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                const chosen = findProductByScan(products, value);
-                                if (chosen) {
-                                  selectProduct(item.id, chosen);
+                                if (!value.trim() && item.productId) {
+                                  clearItemProduct(item.id);
                                 } else {
                                   updateItem(item.id, 'description', value);
-                                  clearError('items');
+                                }
+                                setOpenProductRow(item.id);
+                                clearError('items');
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') setOpenProductRow(null);
+                                if (e.key === 'Enter') {
+                                  const match = filterProducts(products, item.description)[0];
+                                  if (match) {
+                                    e.preventDefault();
+                                    selectProduct(item.id, match);
+                                    setOpenProductRow(null);
+                                  }
                                 }
                               }}
                             />
-                            <datalist id={productOptionId(item.id)}>
-                              {products.flatMap((p) => {
-                                const key = p._id ?? p.id ?? p.description;
-                                return [
-                                  <option key={`${key}-name`} value={p.description} />,
-                                  p.barcode ? <option key={`${key}-barcode`} value={p.barcode}>{p.description}</option> : null,
-                                  p.code ? <option key={`${key}-code`} value={p.code}>{p.description}</option> : null,
-                                ];
-                              })}
-                            </datalist>
-                          </>
+                            {openProductRow === item.id && (
+                              <div className="billing-customer-dropdown" style={{ minWidth: 260 }}>
+                                {filterProducts(products, item.description).length === 0 ? (
+                                  <div className="billing-customer-empty">No matching products — keep typing to enter it manually</div>
+                                ) : (
+                                  filterProducts(products, item.description).slice(0, 8).map((p) => (
+                                    <button
+                                      key={p._id ?? p.id ?? p.description}
+                                      type="button"
+                                      onMouseDown={() => { selectProduct(item.id, p); setOpenProductRow(null); }}
+                                    >
+                                      <span>{p.description}</span>
+                                      <small>{[p.code, p.hsn, formatCurrency(p.rate)].filter(Boolean).join(' · ')}</small>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <select
                             data-row={idx}
