@@ -5,12 +5,14 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { api } from '../../../../../services/api.js';
+import { ShareModal } from './shared/ShareModal.jsx';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
-import { ShareModal } from './shared/ShareModal.jsx';
-import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
+import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
+
+// ── Sub-components ──────────────────────────────────────────────
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -40,6 +42,8 @@ function StatCard({ label, amount, countLabel, accentColor, icon, format = 'curr
   );
 }
 
+// ── Row action menu ─────────────────────────────────────────────
+
 function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload }) {
   const isOpen = openMenu === note.id;
   const btnRef = useRef(null);
@@ -61,8 +65,8 @@ function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload
 
   function close() { setOpenMenu(null); }
 
-  function handleView()   { close(); window.location.assign(`/billing/debit-note/${note.id}/view`); }
-  function handleEdit()   { close(); window.location.assign(`/billing/debit-note/${note.id}/edit`); }
+  function handleView()   { close(); window.location.assign(`/billing/sales-return/${note.id}/view`); }
+  function handleEdit()   { close(); window.location.assign(`/billing/sales-return/${note.id}/edit`); }
   function handleDelete() { close(); onDelete(note.id, note.number); }
 
   return (
@@ -85,7 +89,7 @@ function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload
           style={{ top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, minWidth: 192 }}
         >
           <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={handleView}>
-            <Eye size={13} className="text-[#94a3b8]" /> View Debit Note
+            <Eye size={13} className="text-[#94a3b8]" /> View Sales Return
           </button>
           <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={handleEdit}>
             <Pencil size={13} className="text-[#94a3b8]" /> Edit
@@ -106,6 +110,8 @@ function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload
     </div>
   );
 }
+
+// ── Normalize API data ──────────────────────────────────────────
 
 function normalizeNote(inv) {
   let taxable = 0;
@@ -137,11 +143,13 @@ function normalizeNote(inv) {
   };
 }
 
+// ── Delete confirm dialog ───────────────────────────────────────
+
 function DeleteDialog({ noteNumber, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="bg-white rounded-xl shadow-xl border border-[#dfe7f1] p-6 w-full max-w-sm mx-4">
-        <h3 className="text-[15px] font-bold text-[#111827] mb-2">Delete Debit Note</h3>
+        <h3 className="text-[15px] font-bold text-[#111827] mb-2">Delete Sales Return</h3>
         <p className="text-[13px] text-[#536173] mb-5">
           Are you sure you want to delete <span className="font-semibold text-[#111827]">{noteNumber}</span>? This cannot be undone.
         </p>
@@ -166,6 +174,8 @@ function DeleteDialog({ noteNumber, onConfirm, onCancel }) {
   );
 }
 
+// ── Main page ───────────────────────────────────────────────────
+
 const PAGE_SIZE = 5;
 
 function pageNumbers(current, total) {
@@ -175,7 +185,7 @@ function pageNumbers(current, total) {
   return [1, '...', current - 1, current, current + 1, '...', total];
 }
 
-export function DebitNotePage() {
+export function SalesReturnPage() {
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -185,7 +195,7 @@ export function DebitNotePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [shareDoc, setShareDoc]         = useState(null);
+  const [shareDoc, setShareDoc]         = useState(null); // { id, number }
   const [bizSettings, setBizSettings] = useState({});
   const [pdfDoc, setPdfDoc] = useState(null);
   const searchRef = useRef(null);
@@ -195,11 +205,11 @@ export function DebitNotePage() {
       setLoading(true);
       setError('');
       try {
-        const response = await api.listDebitNotes({ limit: 100 });
+        const response = await api.listSalesReturns({ limit: 100 });
         const data = Array.isArray(response.data) ? response.data.map(normalizeNote) : [];
         setNotes(data);
       } catch (err) {
-        setError(err.message || 'Unable to load debit notes');
+        setError(err.message || 'Unable to load sales returns');
         setNotes([]);
       } finally {
         setLoading(false);
@@ -219,10 +229,10 @@ export function DebitNotePage() {
   async function handleDeleteConfirm() {
     if (!deleteTarget) return;
     try {
-      await api.deleteDebitNote(deleteTarget.id);
+      await api.deleteSalesReturn(deleteTarget.id);
       setNotes((prev) => prev.filter((n) => n.id !== deleteTarget.id));
     } catch (err) {
-      setError(err.message || 'Failed to delete debit note');
+      setError(err.message || 'Failed to delete sales return');
     } finally {
       setDeleteTarget(null);
     }
@@ -253,21 +263,20 @@ export function DebitNotePage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
   const exportColumns = [
-    { label: 'Note No.', value: (row) => row.number },
+    { label: 'Return No.', value: (row) => row.number },
     { label: 'Customer', value: (row) => row.customer?.name || '' },
     { label: 'Phone', value: (row) => row.customer?.phone || '' },
-    { label: 'Note Date', value: (row) => fmtDate(row.date) },
+    { label: 'Return Date', value: (row) => fmtDate(row.date) },
     { label: 'Original Ref', value: (row) => row.originalRef || '' },
     { label: 'Taxable Amt', value: (row) => formatCurrency(row.taxable) },
     { label: 'GST', value: (row) => formatCurrency(row.gst) },
-    { label: 'Total Debit', value: (row) => formatCurrency(row.total) },
+    { label: 'Total Return', value: (row) => formatCurrency(row.total) },
   ];
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginated.length,
-    onOpen: (index) => window.location.assign(`/billing/debit-note/${paginated[index].id}/view`),
+    onOpen: (index) => window.location.assign(`/billing/sales-return/${paginated[index].id}/view`),
     searchRef,
   });
 
@@ -290,16 +299,16 @@ export function DebitNotePage() {
             <span>›</span>
             <span>Sales</span>
             <span>›</span>
-            <span className="text-[#111827]">Debit Notes</span>
+            <span className="text-[#111827]">Sales Returns</span>
           </nav>
-          <h1 className="m-0 text-[22px] font-bold text-[#111827]">Debit Notes</h1>
+          <h1 className="m-0 text-[22px] font-bold text-[#111827]">Sales Returns</h1>
         </div>
         <a
-          href="/billing/debit-note/new"
+          href="/billing/sales-return/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} />
-          Create Debit Note
+          Create Sales Return
         </a>
       </div>
 
@@ -308,7 +317,7 @@ export function DebitNotePage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 mb-6">{error}</div>
       )}
       {loading && (
-        <div className="rounded-lg border border-[#dfe7f1] bg-white p-6 text-sm text-[#374151] mb-6">Loading debit notes…</div>
+        <div className="rounded-lg border border-[#dfe7f1] bg-white p-6 text-sm text-[#374151] mb-6">Loading sales returns…</div>
       )}
 
       {/* ── Stats ── */}
@@ -353,13 +362,13 @@ export function DebitNotePage() {
             onToChange={setDateTo}
             onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
-          <ExportButtons title="Debit Notes" filename="debit-notes" rows={filtered} columns={exportColumns} />
+          <ExportButtons title="Sales Returns" filename="sales-returns" rows={filtered} columns={exportColumns} />
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
             <input
               ref={searchRef}
               className="pl-8 pr-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] outline-none focus:border-blue-500 w-64 font-[inherit]"
-              placeholder="Search debit note or customer… (/)"
+              placeholder="Search sales return or customer… (/)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -372,15 +381,15 @@ export function DebitNotePage() {
             <thead>
               <tr className="bg-[#f8fafc]">
                 {[
-                  { label: 'Note No.',     align: 'left'  },
-                  { label: 'Customer',     align: 'left'  },
-                  { label: 'Phone',        align: 'left'  },
-                  { label: 'Note Date',    align: 'left'  },
-                  { label: 'Original Ref', align: 'left'  },
-                  { label: 'Taxable Amt',  align: 'right' },
-                  { label: 'GST',          align: 'right' },
-                  { label: 'Total Debit',  align: 'right' },
-                  { label: '',             align: 'right' },
+                  { label: 'Return No.',    align: 'left'  },
+                  { label: 'Customer',      align: 'left'  },
+                  { label: 'Phone',         align: 'left'  },
+                  { label: 'Return Date',   align: 'left'  },
+                  { label: 'Original Ref',  align: 'left'  },
+                  { label: 'Taxable Amt',   align: 'right' },
+                  { label: 'GST',           align: 'right' },
+                  { label: 'Total Return',  align: 'right' },
+                  { label: '',              align: 'right' },
                 ].map((col, i) => (
                   <th
                     key={i}
@@ -399,8 +408,8 @@ export function DebitNotePage() {
                 <tr>
                   <td colSpan={9} className="text-center py-16 text-[#536173] text-[13px]">
                     {notes.length === 0
-                      ? 'No debit notes yet. Create your first debit note.'
-                      : 'No debit notes match your search.'}
+                      ? 'No sales returns yet. Create your first sales return.'
+                      : 'No sales returns match your search.'}
                   </td>
                 </tr>
               ) : (
@@ -409,10 +418,10 @@ export function DebitNotePage() {
                     key={note.id}
                     className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}
                   >
-                    {/* Note number */}
+                    {/* Return number */}
                     <td className="px-4 py-3.5">
                       <a
-                        href={`/billing/debit-note/${note.id}/view`}
+                        href={`/billing/sales-return/${note.id}/view`}
                         className="text-[13px] font-semibold text-blue-600 no-underline hover:underline"
                       >
                         {note.number}
@@ -432,7 +441,7 @@ export function DebitNotePage() {
                       {note.customer?.phone || <span className="text-[#b0bec5]">—</span>}
                     </td>
 
-                    {/* Note date */}
+                    {/* Return date */}
                     <td className="px-4 py-3.5 text-[13px] text-[#374151] whitespace-nowrap">
                       {fmtDate(note.date)}
                     </td>

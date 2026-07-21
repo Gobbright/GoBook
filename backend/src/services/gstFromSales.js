@@ -5,7 +5,7 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const OUTWARD_DOC_TYPES = ['invoice', 'bill-of-supply', 'e-invoice', 'e-way-bill', 'credit-note', 'debit-note'];
+const OUTWARD_DOC_TYPES = ['invoice', 'bill-of-supply', 'e-invoice', 'e-way-bill', 'credit-note', 'debit-note', 'sales-return'];
 const PURCHASE_DOC_TYPES = ['purchase-entry'];
 
 export const EMPTY_OUTWARD_ROWS = [
@@ -55,7 +55,7 @@ export function periodsForFy(fy) {
 }
 
 function taxMultiplier(documentType) {
-  if (documentType === 'credit-note') return -1;
+  if (documentType === 'credit-note' || documentType === 'sales-return') return -1;
   return 1;
 }
 
@@ -171,7 +171,7 @@ export async function buildGstr1FromSales({ userId, period, filingType = 'monthl
       dominantRate = gstRate || dominantRate;
     }
 
-    if (documentType === 'credit-note') addTax(noteTotals.credit, docTotal);
+    if (documentType === 'credit-note' || documentType === 'sales-return') addTax(noteTotals.credit, docTotal);
     if (documentType === 'debit-note') addTax(noteTotals.debit, docTotal);
 
     const value = r2(docTotal.taxable + docTotal.cgst + docTotal.sgst + docTotal.igst);

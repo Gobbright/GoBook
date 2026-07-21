@@ -66,10 +66,10 @@ function ActionMenu({ doc, openMenu, setOpenMenu, onDelete, onShare, onDownload 
 
       {isOpen && (
         <div className="fixed z-50 bg-white border border-[#dde6f2] rounded-lg shadow-lg py-1" style={{ top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, minWidth: 192 }}>
-          <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); window.location.assign(`#/billing/e-invoice/${doc.id}/view`); }}>
+          <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); window.location.assign(`/billing/e-invoice/${doc.id}/view`); }}>
             <Eye size={13} className="text-[#94a3b8]" /> View E-Invoice
           </button>
-          <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); window.location.assign(`#/billing/e-invoice/${doc.id}/edit`); }}>
+          <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); window.location.assign(`/billing/e-invoice/${doc.id}/edit`); }}>
             <Pencil size={13} className="text-[#94a3b8]" /> Edit
           </button>
           <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); onDownload(doc); }}>
@@ -232,7 +232,7 @@ export function EInvoicePage() {
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: filtered.length,
-    onOpen: (index) => window.location.assign(`#/billing/e-invoice/${filtered[index].id}/view`),
+    onOpen: (index) => window.location.assign(`/billing/e-invoice/${filtered[index].id}/view`),
     searchRef,
   });
 
@@ -245,14 +245,14 @@ export function EInvoicePage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span><span>Sales</span><span>›</span>
             <span className="text-[#111827]">E-Invoices</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">E-Invoices</h1>
         </div>
         <a
-          href="#/billing/e-invoice/new"
+          href="/billing/e-invoice/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} /> Generate E-Invoice
@@ -345,7 +345,7 @@ export function EInvoicePage() {
                 filtered.map((doc, rowIndex) => (
                   <tr key={doc.id} className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}>
                     <td className="px-4 py-3.5">
-                      <a href={`#/billing/e-invoice/${doc.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">{doc.number}</a>
+                      <a href={`/billing/e-invoice/${doc.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">{doc.number}</a>
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="text-[13px] font-medium text-[#111827] leading-snug">{doc.customer?.name || 'Walk-in customer'}</div>

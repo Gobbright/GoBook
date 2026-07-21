@@ -65,7 +65,7 @@ export function GoogleOnboardingPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (user && !user.needsOnboarding) window.location.hash = '/dashboard';
+    if (user && !user.needsOnboarding) window.location.assign('/dashboard');
   }, [user]);
 
   function updateField(field, value) {
@@ -119,7 +119,7 @@ export function GoogleOnboardingPage() {
         subscriptionAmount: selectedPlan?.amount || form.subscriptionAmount,
         gstin: form.gstin.trim().toUpperCase(),
       });
-      window.location.hash = '/dashboard';
+      window.location.assign('/dashboard');
     } catch (err) {
       setError(err.message || 'Unable to save business details');
     } finally {

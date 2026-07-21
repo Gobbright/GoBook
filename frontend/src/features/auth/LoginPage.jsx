@@ -21,7 +21,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       const user = await login(email, password);
-      window.location.hash = user.needsEmailVerification ? '/verify-email' : '/dashboard';
+      window.location.assign(user.needsEmailVerification ? '/verify-email' : '/dashboard');
     } catch (err) {
       setError(err.message || 'Invalid email or password. Please try again.');
     } finally {
@@ -35,7 +35,7 @@ export function LoginPage() {
     try {
       const credential = await signInWithGoogle();
       const user = await loginWithGoogle(credential);
-      window.location.hash = user.needsOnboarding ? '/google-onboarding' : '/dashboard';
+      window.location.assign(user.needsOnboarding ? '/google-onboarding' : '/dashboard');
     } catch (err) {
       setError(err.message || 'Google sign-in failed. Please try again.');
     } finally {
@@ -89,7 +89,7 @@ export function LoginPage() {
             </button>
           </div>
           <div className="flex justify-end mt-1.5">
-            <a href="#/forgot-password" className="text-[12.5px] font-semibold no-underline hover:underline"
+            <a href="/forgot-password" className="text-[12.5px] font-semibold no-underline hover:underline"
                style={{ color: '#4f90ff' }}>
               Forgot Password?
             </a>
@@ -132,12 +132,12 @@ export function LoginPage() {
 
       <p className={`text-center text-[12px] mt-3 mb-0 ${MUTED}`}>
         Don&apos;t have an account?{' '}
-        <a href="#/register" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>
+        <a href="/register" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>
           Create Account
         </a>
       </p>
       <div className="text-center mt-2">
-        <a href="#/admin-login" className="text-[12px] font-bold no-underline hover:underline" style={{ color: '#334155' }}>
+        <a href="/admin-login" className="text-[12px] font-bold no-underline hover:underline" style={{ color: '#334155' }}>
           Admin Panel
         </a>
       </div>

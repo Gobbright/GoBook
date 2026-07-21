@@ -20,7 +20,7 @@ export function VerifyEmailPage() {
     setSubmitting(true);
     try {
       await verifyEmailOtp(otp);
-      window.location.hash = '/dashboard';
+      window.location.assign('/dashboard');
     } catch (err) {
       setError(err.message || 'Invalid OTP');
     } finally {

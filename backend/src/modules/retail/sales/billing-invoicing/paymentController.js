@@ -34,7 +34,13 @@ async function paymentSummary(invoice, userId, excludePaymentId = null) {
   const paymentTotal = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
   const totalPaid = payments.length > 0 ? paymentTotal : Math.max(0, Number(invoice.advanceReceived) || 0);
   const balance = Math.max(0, invoiceTotal - totalPaid);
-  return { payments, invoiceTotal, totalPaid, balance };
+  // Recordable balance ignores the advanceReceived fallback: advanceReceived is written to the
+  // invoice at save time as a display convenience (invoice/PDF views read it directly), in the same
+  // request that then records the matching Payment doc(s) here. Gating new payments on totalPaid
+  // (which already folds advanceReceived in when no Payment rows exist yet) would reject that very
+  // first payment as "exceeding" a balance the invoice's own creation just zeroed out.
+  const recordableBalance = Math.max(0, invoiceTotal - paymentTotal);
+  return { payments, invoiceTotal, totalPaid, balance, recordableBalance };
 }
 
 // GET /sales/invoices/:id/payments
@@ -82,8 +88,8 @@ export async function recordPayment(req, res, next) {
     const amountNum = Number(amount);
     if (!Number.isFinite(amountNum) || amountNum <= 0) return next(httpError(400, 'Amount must be greater than 0'));
     const summary = await paymentSummary(invoice, req.user.id);
-    if (amountNum > summary.balance + 0.01) {
-      return next(httpError(400, `Payment exceeds balance due. Balance is ${summary.balance}`));
+    if (amountNum > summary.recordableBalance + 0.01) {
+      return next(httpError(400, `Payment exceeds balance due. Balance is ${summary.recordableBalance}`));
     }
 
     const payment = await Payment.create({

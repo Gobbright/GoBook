@@ -10,6 +10,7 @@ import {
   Shield, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound,
   Users, UtensilsCrossed, Wallet, Warehouse, Wrench, Zap,
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 import { getSidebarSections } from '../../constants/navigation.js';
 import { getCurrentUser, logout } from '../../services/authService.js';
@@ -31,20 +32,20 @@ function NavIcon({ name }) {
   return Icon ? <Icon size={15} strokeWidth={1.75} /> : null;
 }
 
-function findOpenNavItem(sidebarSections, hash) {
+function findOpenNavItem(sidebarSections, path) {
   for (const section of sidebarSections) {
     for (const item of section.items) {
-      if (item.children?.some((c) => c.href === hash || hash === item.href)) return item.label;
+      if (item.children?.some((c) => c.href === path || path === item.href)) return item.label;
     }
   }
   return null;
 }
 
-function findActiveSection(sidebarSections, hash) {
+function findActiveSection(sidebarSections, path) {
   for (const section of sidebarSections) {
     for (const item of section.items) {
-      if (item.href === hash) return section.title;
-      if (item.children?.some((c) => c.href === hash)) return section.title;
+      if (item.href === path) return section.title;
+      if (item.children?.some((c) => c.href === path)) return section.title;
     }
   }
   return null;
@@ -53,42 +54,30 @@ function findActiveSection(sidebarSections, hash) {
 const SECTION_KEY = 'gobook.openSection';
 
 export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
+  const location = useLocation();
+  const currentPath = location.pathname || '/dashboard';
   // Recomputed on every mount so switching accounts (different category) within the same tab picks up fresh nav.
   const [sidebarSections] = useState(() => getSidebarSections(getCurrentUser()?.category || 'retail'));
-  const [, setTick] = useState(0);
   const [openSection, setOpenSection] = useState(() => {
     // Active section from current URL takes priority; otherwise restore last saved; Sales is the default
-    const fromHash = findActiveSection(sidebarSections, window.location.hash || '#/dashboard');
-    if (fromHash) {
-      sessionStorage.setItem(SECTION_KEY, fromHash);
-      return fromHash;
-    }
     return sessionStorage.getItem(SECTION_KEY) ?? 'Dashboard';
   });
   const [openNavItem, setOpenNavItem] = useState(
-    () => findOpenNavItem(sidebarSections, window.location.hash || '#/dashboard'),
+    () => findOpenNavItem(sidebarSections, currentPath),
   );
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  const currentHash = window.location.hash || '#/dashboard';
-
   useEffect(() => {
-    function handleHashChange() {
-      const hash = window.location.hash || '#/dashboard';
-      setTick((t) => t + 1);
-      setOpenNavItem(findOpenNavItem(sidebarSections, hash));
-      const section = findActiveSection(sidebarSections, hash);
-      if (section) {
-        setOpenSection(section);
-        sessionStorage.setItem(SECTION_KEY, section);
-      }
-      onCloseRef.current();
+    setOpenNavItem(findOpenNavItem(sidebarSections, currentPath));
+    const section = findActiveSection(sidebarSections, currentPath);
+    if (section) {
+      setOpenSection(section);
+      sessionStorage.setItem(SECTION_KEY, section);
     }
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+    onCloseRef.current();
+  }, [currentPath, sidebarSections]);
 
   function toggleSection(title) {
     setOpenSection((s) => {
@@ -128,11 +117,11 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                   href={section.items[0].href}
                   onClick={onClose}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium no-underline transition-colors
-                    ${currentHash === section.items[0].href
+                    ${currentPath === section.items[0].href
                       ? 'bg-blue-600 text-white'
                       : 'text-[#c8dff2] hover:text-white hover:bg-white/8'}`}
                 >
-                  <span className={currentHash === section.items[0].href ? 'text-white' : 'text-[#7ab4d8]'}>
+                  <span className={currentPath === section.items[0].href ? 'text-white' : 'text-[#7ab4d8]'}>
                     <NavIcon name={section.items[0].icon} />
                   </span>
                   {section.items[0].label}
@@ -159,9 +148,9 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                     <div className="mt-0.5 flex flex-col gap-1 animate-fade-slide-down">
                       {section.items.map((item) => {
                         if (item.children) {
-                          const hasActiveChild = item.children.some((c) => currentHash === c.href);
+                          const hasActiveChild = item.children.some((c) => currentPath === c.href);
                           const isOpen = item.alwaysOpen || openNavItem === item.label || hasActiveChild;
-                          const activeParent = item.href && currentHash === item.href;
+                          const activeParent = item.href && currentPath === item.href;
                           const highlighted = activeParent || hasActiveChild;
                           return (
                             <div key={item.label}>
@@ -201,7 +190,7 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                               {isOpen && (
                                 <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
                                   {item.children.map((child) => {
-                                    const active = currentHash === child.href;
+                                    const active = currentPath === child.href;
                                     return (
                                       <a
                                         key={child.label}
@@ -219,7 +208,7 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                           );
                         }
 
-                        const active = currentHash === item.href;
+                        const active = currentPath === item.href;
                         return (
                           <a
                             key={item.label}

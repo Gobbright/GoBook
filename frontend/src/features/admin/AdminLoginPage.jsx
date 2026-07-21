@@ -15,7 +15,7 @@ export function AdminLoginPage() {
     setSubmitting(true);
     try {
       await loginAdmin(adminId, password);
-      window.location.hash = '/admin';
+      window.location.assign('/admin');
     } catch (err) {
       setError(err.message || 'Admin login failed');
     } finally {
@@ -30,7 +30,7 @@ export function AdminLoginPage() {
     setSubmitting(true);
     try {
       await loginAdmin('admin', 'admin@123');
-      window.location.hash = '/admin';
+      window.location.assign('/admin');
     } catch (err) {
       setError(err.message || 'Admin quick login failed');
     } finally {
@@ -108,7 +108,7 @@ export function AdminLoginPage() {
         </form>
 
         <div className="mt-5 flex justify-between text-[12px]">
-          <a href="#/login" className="text-slate-500 hover:text-slate-900 no-underline">Back to user login</a>
+          <a href="/login" className="text-slate-500 hover:text-slate-900 no-underline">Back to user login</a>
           <span className="text-slate-400">Protected</span>
         </div>
       </div>

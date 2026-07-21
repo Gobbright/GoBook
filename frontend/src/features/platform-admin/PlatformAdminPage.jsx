@@ -25,7 +25,7 @@ export function PlatformAdminPage() {
       .catch(() => {
         // Not a platform owner (404), unauthenticated (already redirected to /login),
         // or a real error — either way, this area doesn't exist for this account.
-        window.location.hash = '/dashboard';
+        window.location.assign('/dashboard');
       });
   }, []);
 

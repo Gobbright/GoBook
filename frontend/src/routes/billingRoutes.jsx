@@ -11,6 +11,7 @@ import { PurchaseEntryPage } from '../features/categories/retail/modules/sales/P
 import { PurchaseOrderPage } from '../features/categories/retail/modules/sales/PurchaseOrderPage.jsx';
 import { QuotationPage } from '../features/categories/retail/modules/sales/QuotationPage.jsx';
 import { ReceivablesPage } from '../features/categories/retail/modules/sales/ReceivablesPage.jsx';
+import { SalesReturnPage } from '../features/categories/retail/modules/sales/SalesReturnPage.jsx';
 import { documentConfigs } from '../features/categories/retail/modules/sales/documentConfigs.js';
 import { CreateDocumentPage } from '../features/categories/retail/modules/sales/shared/CreateDocumentPage.jsx';
 import { InvoiceViewPage } from '../features/categories/retail/modules/sales/shared/InvoiceViewPage.jsx';
@@ -47,6 +48,7 @@ export const billingRoutes = [
   { slug: 'purchase-entry', documentType: 'purchase-entry', list: <PurchaseEntryPage />, form: <CreateDocumentPage documentType="purchase-entry" /> },
   { slug: 'credit-note', documentType: 'credit-note', list: <CreditNotePage />, form: <CreateDocumentPage documentType="credit-note" /> },
   { slug: 'debit-note', documentType: 'debit-note', list: <DebitNotePage />, form: <CreateDocumentPage documentType="debit-note" /> },
+  { slug: 'sales-return', documentType: 'sales-return', list: <SalesReturnPage />, form: <CreateDocumentPage documentType="sales-return" /> },
   { slug: 'delivery-challan', documentType: 'delivery-challan', list: <DeliveryChallanPage />, form: <CreateDocumentPage documentType="delivery-challan" /> },
   { slug: 'e-invoice', documentType: 'e-invoice', list: <EInvoicePage />, form: <CreateDocumentPage documentType="e-invoice" /> },
 ];

@@ -19,11 +19,11 @@ const CATEGORY_DASHBOARDS = {
     inventoryTitle: 'Room Inventory',
     scoreTitle: 'Service Health Score',
     metrics: [
-      { label: 'Occupancy %', value: '78%', trend: '+6% vs yesterday', hash: '#/hotel/dashboard/occupancy' },
-      { label: "Today's Arrivals", value: '24', trend: '8 VIP arrivals', hash: '#/hotel/dashboard/arrivals' },
-      { label: "Today's Departures", value: '18', trend: '12 checked out', hash: '#/hotel/dashboard/departures' },
-      { label: 'Revenue', value: money(486000), trend: '+12% vs last week', hash: '#/hotel/dashboard/revenue' },
-      { label: 'ADR / RevPAR', value: `${money(6200)} / ${money(4836)}`, trend: 'ADR up 4%', hash: '#/hotel/dashboard/adr-revpar' },
+      { label: 'Occupancy %', value: '78%', trend: '+6% vs yesterday', hash: '/hotel/dashboard/occupancy' },
+      { label: "Today's Arrivals", value: '24', trend: '8 VIP arrivals', hash: '/hotel/dashboard/arrivals' },
+      { label: "Today's Departures", value: '18', trend: '12 checked out', hash: '/hotel/dashboard/departures' },
+      { label: 'Revenue', value: money(486000), trend: '+12% vs last week', hash: '/hotel/dashboard/revenue' },
+      { label: 'ADR / RevPAR', value: `${money(6200)} / ${money(4836)}`, trend: 'ADR up 4%', hash: '/hotel/dashboard/adr-revpar' },
     ],
     trend: [
       { label: 'Mon', total: 68 }, { label: 'Tue', total: 72 }, { label: 'Wed', total: 75 },
@@ -54,10 +54,10 @@ const CATEGORY_DASHBOARDS = {
     inventoryTitle: 'Materials Snapshot',
     scoreTitle: 'Execution Score',
     metrics: [
-      { label: 'Active Projects', value: '12', trend: '4 high priority', hash: '#/construction/dashboard/active-projects' },
-      { label: 'Site Progress', value: '64%', trend: '+9% this month', hash: '#/construction/dashboard/site-progress' },
-      { label: 'Material Cost', value: money(1860000), trend: '7% over plan', hash: '#/construction/dashboard/material-cost' },
-      { label: 'Pending Bills', value: money(742000), trend: '18 bills pending', hash: '#/construction/dashboard/pending-bills' },
+      { label: 'Active Projects', value: '12', trend: '4 high priority', hash: '/construction/dashboard/active-projects' },
+      { label: 'Site Progress', value: '64%', trend: '+9% this month', hash: '/construction/dashboard/site-progress' },
+      { label: 'Material Cost', value: money(1860000), trend: '7% over plan', hash: '/construction/dashboard/material-cost' },
+      { label: 'Pending Bills', value: money(742000), trend: '18 bills pending', hash: '/construction/dashboard/pending-bills' },
     ],
     trend: [
       { label: 'W1', total: 42 }, { label: 'W2', total: 48 }, { label: 'W3', total: 53 },
@@ -88,10 +88,10 @@ const CATEGORY_DASHBOARDS = {
     inventoryTitle: 'Beneficiary Coverage',
     scoreTitle: 'Impact Score',
     metrics: [
-      { label: 'Total Donations', value: money(965000), trend: '+18% this month', hash: '#/ngo/dashboard/total-donations' },
-      { label: 'Active Campaigns', value: '7', trend: '3 ending soon', hash: '#/ngo/dashboard/active-campaigns' },
-      { label: 'Beneficiaries Served', value: '1,284', trend: '+142 this month', hash: '#/ngo/dashboard/beneficiaries-served' },
-      { label: 'Volunteers', value: '86', trend: '23 active today', hash: '#/ngo/dashboard/volunteers' },
+      { label: 'Total Donations', value: money(965000), trend: '+18% this month', hash: '/ngo/dashboard/total-donations' },
+      { label: 'Active Campaigns', value: '7', trend: '3 ending soon', hash: '/ngo/dashboard/active-campaigns' },
+      { label: 'Beneficiaries Served', value: '1,284', trend: '+142 this month', hash: '/ngo/dashboard/beneficiaries-served' },
+      { label: 'Volunteers', value: '86', trend: '23 active today', hash: '/ngo/dashboard/volunteers' },
     ],
     trend: [
       { label: 'Jan', total: 120000 }, { label: 'Feb', total: 158000 }, { label: 'Mar', total: 142000 },
@@ -122,10 +122,10 @@ const CATEGORY_DASHBOARDS = {
     inventoryTitle: 'Spare Parts Snapshot',
     scoreTitle: 'Workshop Health Score',
     metrics: [
-      { label: "Today's Job Cards", value: '38', trend: '12 new this morning', hash: '#/automobile/dashboard/job-cards' },
-      { label: 'Vehicles In Service', value: '27', trend: '9 awaiting parts', hash: '#/automobile/dashboard/vehicles-in-service' },
-      { label: 'Revenue', value: money(318000), trend: '+11% vs yesterday', hash: '#/automobile/dashboard/revenue' },
-      { label: 'Pending Delivery', value: '14', trend: '5 ready for pickup', hash: '#/automobile/dashboard/pending-delivery' },
+      { label: "Today's Job Cards", value: '38', trend: '12 new this morning', hash: '/automobile/dashboard/job-cards' },
+      { label: 'Vehicles In Service', value: '27', trend: '9 awaiting parts', hash: '/automobile/dashboard/vehicles-in-service' },
+      { label: 'Revenue', value: money(318000), trend: '+11% vs yesterday', hash: '/automobile/dashboard/revenue' },
+      { label: 'Pending Delivery', value: '14', trend: '5 ready for pickup', hash: '/automobile/dashboard/pending-delivery' },
     ],
     trend: [
       { label: 'Mon', total: 24 }, { label: 'Tue', total: 31 }, { label: 'Wed', total: 29 },

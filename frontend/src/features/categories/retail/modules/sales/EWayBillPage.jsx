@@ -1,4 +1,4 @@
-﻿﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Calendar, CheckCircle2, ChevronLeft, ChevronRight, Download, Eye,
   FileText, IndianRupee, MoreVertical, Package, Pencil, Plus,
@@ -67,10 +67,10 @@ function ActionMenu({ doc, openMenu, setOpenMenu, onDelete, onShare, onDownload 
 
       {isOpen && (
         <div className="fixed z-50 bg-white border border-[#dde6f2] rounded-lg shadow-lg py-1" style={{ top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, minWidth: 192 }}>
-          <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); window.location.assign(`#/billing/e-way-bill/${doc.id}/view`); }}>
+          <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); window.location.assign(`/billing/e-way-bill/${doc.id}/view`); }}>
             <Eye size={13} className="text-[#94a3b8]" /> View E-Way Bill
           </button>
-          <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); window.location.assign(`#/billing/e-way-bill/${doc.id}/edit`); }}>
+          <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); window.location.assign(`/billing/e-way-bill/${doc.id}/edit`); }}>
             <Pencil size={13} className="text-[#94a3b8]" /> Edit
           </button>
           <button type="button" className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-left border-0 bg-transparent font-[inherit] cursor-pointer hover:bg-gray-50 transition-colors" onMouseDown={(e) => e.preventDefault()} onClick={() => { close(); onDownload(doc); }}>
@@ -214,7 +214,7 @@ export function EWayBillPage() {
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: filtered.length,
-    onOpen: (index) => window.location.assign(`#/billing/e-way-bill/${filtered[index].id}/view`),
+    onOpen: (index) => window.location.assign(`/billing/e-way-bill/${filtered[index].id}/view`),
     searchRef,
   });
 
@@ -227,14 +227,14 @@ export function EWayBillPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span><span>Sales</span><span>›</span>
             <span className="text-[#111827]">E-Way Bills</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">E-Way Bills</h1>
         </div>
         <a
-          href="#/billing/e-way-bill/new"
+          href="/billing/e-way-bill/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} /> Generate E-Way Bill
@@ -327,7 +327,7 @@ export function EWayBillPage() {
                 filtered.map((doc, rowIndex) => (
                   <tr key={doc.id} className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}>
                     <td className="px-4 py-3.5">
-                      <a href={`#/billing/e-way-bill/${doc.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">{doc.number}</a>
+                      <a href={`/billing/e-way-bill/${doc.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">{doc.number}</a>
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="text-[13px] font-medium text-[#111827] leading-snug">{doc.customer?.name}</div>
@@ -600,7 +600,7 @@ export function EWayBillFormPage({ ewbId }) {
       const payload = buildPayload(extraMeta);
       if (ewbId) await api.updateEWayBill(ewbId, payload);
       else       await api.createEWayBill(payload);
-      window.location.assign('#/billing/e-way-bill');
+      window.location.assign('/billing/e-way-bill');
     } catch (err) {
       setSaveError(err.message || 'Unable to save');
     } finally {
@@ -627,7 +627,7 @@ export function EWayBillFormPage({ ewbId }) {
       else {
         const saved = await api.createEWayBill(payload);
         // Stay on the page so user can see the EWB number, update URL to edit mode
-        if (saved?._id) window.history.replaceState(null, '', `#/billing/e-way-bill/${saved._id}/edit`);
+        if (saved?._id) window.history.replaceState(null, '', `/billing/e-way-bill/${saved._id}/edit`);
       }
     } catch (err) {
       setGspError(err.message || 'GSP generation failed. Check your credentials in Business Settings.');
@@ -653,7 +653,7 @@ export function EWayBillFormPage({ ewbId }) {
       const num = Number(e.key.slice(1));
       if (num < 1 || num > 12) return;
       e.preventDefault();
-      if (num === 1)  window.location.assign('#/billing/e-way-bill/new');
+      if (num === 1)  window.location.assign('/billing/e-way-bill/new');
       if (num === 2)  handleSave();
       if (num === 3)  handleGenerateGSP();
       if (num === 5)  addItem();
@@ -661,9 +661,9 @@ export function EWayBillFormPage({ ewbId }) {
       if (num === 7)  focus('vehicle');
       if (num === 8)  focus('transporter');
       if (num === 9)  focus('distance');
-      if (num === 10) window.location.assign('#/dashboard');
+      if (num === 10) window.location.assign('/dashboard');
       if (num === 11) window.location.assign('#business-settings');
-      if (num === 12) window.location.assign('#/billing/e-way-bill');
+      if (num === 12) window.location.assign('/billing/e-way-bill');
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -708,13 +708,13 @@ export function EWayBillFormPage({ ewbId }) {
   return (
     <div className="p-7 pb-20">
 
-      {/* ── Page Header ── */}
+      {/* -- Page Header -- */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <div className="flex flex-col gap-1">
           <nav className="flex items-center gap-1 text-[13px] text-[#536173]">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span><span>Sales</span><span>›</span>
-            <a className="text-blue-600 no-underline hover:underline" href="#/billing/e-way-bill">E-Way Bills</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/billing/e-way-bill">E-Way Bills</a>
             <span>›</span><span>{ewbId ? 'Edit E-Way Bill' : 'New E-Way Bill'}</span>
           </nav>
           <div className="flex items-center gap-3 mt-1">
@@ -723,7 +723,7 @@ export function EWayBillFormPage({ ewbId }) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button className={cx.btnOutline} type="button" onClick={() => window.location.assign('#/billing/e-way-bill')}>
+          <button className={cx.btnOutline} type="button" onClick={() => window.location.assign('/billing/e-way-bill')}>
             <svg fill="none" height="15" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="15"><line x1="8" x2="21" y1="6" y2="6" /><line x1="8" x2="21" y1="12" y2="12" /><line x1="8" x2="21" y1="18" y2="18" /><line x1="3" x2="3.01" y1="6" y2="6" /><line x1="3" x2="3.01" y1="12" y2="12" /><line x1="3" x2="3.01" y1="18" y2="18" /></svg>
             View List
           </button>
@@ -752,7 +752,7 @@ export function EWayBillFormPage({ ewbId }) {
           <svg className="flex-none text-red-500 mt-0.5" fill="none" height="16" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="16"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
           <div className="text-[13px] text-red-700">{gspError}
             {gspError.includes('Business Settings') && (
-              <a href="#business-settings" className="ml-2 font-semibold underline text-red-800">Go to Settings →</a>
+              <a href="#business-settings" className="ml-2 font-semibold underline text-red-800">Go to Settings ?</a>
             )}
           </div>
         </div>
@@ -782,10 +782,10 @@ export function EWayBillFormPage({ ewbId }) {
         </div>
       )}
 
-      {/* ── Document Card ── */}
+      {/* -- Document Card -- */}
       <div className="bg-white border border-[#dfe7f1] rounded-lg">
 
-        {/* ── Parties + Meta ── */}
+        {/* -- Parties + Meta -- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 border-b border-[#edf2f7]">
 
           {/* Bill From */}
@@ -815,7 +815,7 @@ export function EWayBillFormPage({ ewbId }) {
                 {[bizSettings.businessEmail, bizSettings.phone].filter(Boolean).join(' · ')}
               </div>
             )}
-            <a href="#business-settings" className="text-[12px] text-blue-600 hover:underline no-underline mt-1">Edit Business Profile →</a>
+            <a href="#business-settings" className="text-[12px] text-blue-600 hover:underline no-underline mt-1">Edit Business Profile ?</a>
           </div>
 
           {/* Consignee */}
@@ -927,7 +927,7 @@ export function EWayBillFormPage({ ewbId }) {
           </div>
         </div>
 
-        {/* ── Transport Details ── */}
+        {/* -- Transport Details -- */}
         <div className="px-6 py-5 border-b border-[#edf2f7]">
           <h3 className="m-0 text-[15px] font-semibold mb-4">Transport Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
@@ -970,7 +970,7 @@ export function EWayBillFormPage({ ewbId }) {
           </div>
         </div>
 
-        {/* ── Route Information ── */}
+        {/* -- Route Information -- */}
         <div className="px-6 py-5 border-b border-[#edf2f7]">
           <h3 className="m-0 text-[15px] font-semibold mb-4">Route Information</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -997,7 +997,7 @@ export function EWayBillFormPage({ ewbId }) {
           </div>
         </div>
 
-        {/* ── Items & Services ── */}
+        {/* -- Items & Services -- */}
         <div className="px-6 py-5 border-b border-[#edf2f7]">
           <div className="flex justify-between items-center mb-4">
             <h3 className="m-0 text-[15px] font-semibold">Items &amp; Services</h3>
@@ -1013,12 +1013,12 @@ export function EWayBillFormPage({ ewbId }) {
                     { w: 90,   label: 'HSN / SAC',        align: 'left'   },
                     { w: 68,   label: 'Qty',              align: 'right'  },
                     { w: 82,   label: 'Unit',             align: 'left'   },
-                    { w: 105,  label: 'Rate (₹)',         align: 'right'  },
+                    { w: 105,  label: 'Rate (?)',         align: 'right'  },
                     { w: 70,   label: 'Disc %',           align: 'right'  },
                     { w: 110,  label: 'Taxable',          align: 'right'  },
                     { w: 78,   label: 'GST %',            align: 'left'   },
                     { w: 100,  label: 'GST Amt',          align: 'right'  },
-                    { w: 115,  label: 'Total (₹)',        align: 'right'  },
+                    { w: 115,  label: 'Total (?)',        align: 'right'  },
                     { w: 38,   label: '',                 align: 'center' },
                   ].map((col, i) => (
                     <th key={i} className={`text-xs font-semibold uppercase text-[#536173] pb-2 px-2 ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`} style={col.w ? { width: col.w } : undefined}>
@@ -1100,7 +1100,7 @@ export function EWayBillFormPage({ ewbId }) {
           </button>
         </div>
 
-        {/* ── Additional Charges ── */}
+        {/* -- Additional Charges -- */}
         <div className="px-6 py-5 border-b border-[#edf2f7]">
           <div className="flex items-center justify-between mb-3">
             <h3 className="m-0 text-[14px] font-semibold text-[#374151]">Additional Charges</h3>
@@ -1135,7 +1135,7 @@ export function EWayBillFormPage({ ewbId }) {
           )}
         </div>
 
-        {/* ── Footer: Notes + Totals ── */}
+        {/* -- Footer: Notes + Totals -- */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 p-6">
           <div className="flex flex-col gap-2">
             <div className="text-xs font-semibold uppercase text-[#536173] tracking-wide">Notes</div>
@@ -1176,14 +1176,14 @@ export function EWayBillFormPage({ ewbId }) {
 
       </div>
 
-      {/* ── F-Key Shortcut Bar ── */}
+      {/* -- F-Key Shortcut Bar -- */}
       <div
         className="fixed bottom-0 left-0 right-0 md:left-60 z-30 select-none hidden md:block"
         style={{ background: '#062844', borderTop: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 -4px 16px rgba(0,0,0,0.25)' }}
       >
         <div className="flex items-stretch" style={{ height: 50 }}>
           {[
-            { key: 'F1',  label: 'New EWB',    action: () => window.location.assign('#/billing/e-way-bill/new') },
+            { key: 'F1',  label: 'New EWB',    action: () => window.location.assign('/billing/e-way-bill/new') },
             { key: 'F2',  label: 'Save',        action: () => handleSave() },
             { key: 'F3',  label: 'Generate',    action: () => handleGenerateGSP() },
             { key: 'F5',  label: 'Add Item',    action: () => addItem() },
@@ -1191,9 +1191,9 @@ export function EWayBillFormPage({ ewbId }) {
             { key: 'F7',  label: 'Vehicle',     action: () => { const el = document.querySelector('[data-fkey="vehicle"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.focus(); } },
             { key: 'F8',  label: 'Transporter', action: () => { const el = document.querySelector('[data-fkey="transporter"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.focus(); } },
             { key: 'F9',  label: 'Distance',    action: () => { const el = document.querySelector('[data-fkey="distance"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.focus(); } },
-            { key: 'F10', label: 'Home',        action: () => window.location.assign('#/dashboard') },
+            { key: 'F10', label: 'Home',        action: () => window.location.assign('/dashboard') },
             { key: 'F11', label: 'Settings',    action: () => window.location.assign('#business-settings') },
-            { key: 'F12', label: 'Close',       action: () => window.location.assign('#/billing/e-way-bill') },
+            { key: 'F12', label: 'Close',       action: () => window.location.assign('/billing/e-way-bill') },
           ].map(({ key, label, action }, idx, arr) => (
             <button
               key={key}

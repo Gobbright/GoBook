@@ -119,7 +119,7 @@ function WelcomeStep({ onNext }) {
       </button>
       <p className={`text-center text-[12.5px] mt-5 mb-0 ${MUTED}`}>
         Already have an account?{' '}
-        <a href="#/login" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>Sign In</a>
+        <a href="/login" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>Sign In</a>
       </p>
     </div>
   );
@@ -367,7 +367,7 @@ export function RegisterPage() {
         phone: form.phone,
         gstin: form.gstin.trim().toUpperCase(),
       });
-      window.location.hash = user.needsEmailVerification ? '/verify-email' : '/dashboard';
+      window.location.assign(user.needsEmailVerification ? '/verify-email' : '/dashboard');
     } catch (err) {
       setError(err.message || 'Unable to create account');
     } finally {

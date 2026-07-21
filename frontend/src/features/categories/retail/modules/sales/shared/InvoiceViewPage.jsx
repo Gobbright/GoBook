@@ -73,18 +73,19 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
 
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
   const listRoute = ({
-    invoice: '#/billing/invoice',
-    'bill-of-supply': '#/billing/bill-of-supply',
-    quotation: '#/billing/quotation',
-    'purchase-order': '#/billing/purchase-order',
-    'purchase-entry': '#/billing/purchase-entry',
-    'credit-note': '#/billing/credit-note',
-    'debit-note': '#/billing/debit-note',
-    proforma: '#/billing/proforma',
-    'delivery-challan': '#/billing/delivery-challan',
-    'e-invoice': '#/billing/e-invoice',
-    'e-way-bill': '#/billing/e-way-bill',
-  })[documentType] ?? '#/billing/invoice';
+    invoice: '/billing/invoice',
+    'bill-of-supply': '/billing/bill-of-supply',
+    quotation: '/billing/quotation',
+    'purchase-order': '/billing/purchase-order',
+    'purchase-entry': '/billing/purchase-entry',
+    'credit-note': '/billing/credit-note',
+    'debit-note': '/billing/debit-note',
+    'sales-return': '/billing/sales-return',
+    proforma: '/billing/proforma',
+    'delivery-challan': '/billing/delivery-challan',
+    'e-invoice': '/billing/e-invoice',
+    'e-way-bill': '/billing/e-way-bill',
+  })[documentType] ?? '/billing/invoice';
 
   useEffect(() => {
     api.getSettings().then(setBizSettings).catch(() => {});

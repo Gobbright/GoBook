@@ -1,4 +1,4 @@
-import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { AdminLoginPage } from '../features/admin/AdminLoginPage.jsx';
 import { AdminPanelPage } from '../features/admin/AdminPanelPage.jsx';
@@ -28,9 +28,8 @@ import { schoolRoutes } from './schoolRoutes.jsx';
 import { LegacyHashRedirect, ProtectedRoute, ProtectedShell, PublicRoute } from './RouteGuards.jsx';
 import { getLastRoute } from './routeStorage.js';
 
-// Rendered inside <HashRouter>, so useLocation() re-runs this on every hash navigation
-// (including the redirect straight after login/register), keeping `category` fresh
-// without needing a full page reload.
+// useLocation() re-runs this after navigation, keeping `category` fresh without
+// needing a full page reload.
 function AppRoutes() {
   useLocation();
   const category = getCurrentUser()?.category || 'retail';
@@ -110,9 +109,9 @@ function AppRoutes() {
 
 export function AppRouter() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <LegacyHashRedirect />
       <AppRoutes />
-    </HashRouter>
+    </BrowserRouter>
   );
 }

@@ -2,11 +2,11 @@ import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 
 const actions = [
-  { label: 'Create Invoice', route: '#/billing/invoice/new' },
-  { label: 'Create Quotation', route: '#/billing/quotation/new' },
+  { label: 'Create Invoice', route: '/billing/invoice/new' },
+  { label: 'Create Quotation', route: '/billing/quotation/new' },
   { label: 'Add Customer', route: '#customers' },
   { label: 'Add Product', route: '#products' },
-  { label: 'Record Payment', route: '#/billing/invoice' },
+  { label: 'Record Payment', route: '/billing/invoice' },
   { label: 'Stock In', route: '#stock-in' },
   { label: 'Stock Out', route: '#stock-out' },
 ];

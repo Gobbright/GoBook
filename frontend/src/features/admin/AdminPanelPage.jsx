@@ -76,13 +76,13 @@ export function AdminPanelPage() {
       setDashboard(data);
       setStatus('ready');
     } catch {
-      window.location.hash = '/admin-login';
+      window.location.assign('/admin-login');
     }
   }
 
   useEffect(() => {
     if (!isAdminAuthenticated()) {
-      window.location.hash = '/admin-login';
+      window.location.assign('/admin-login');
       return;
     }
     loadDashboard();

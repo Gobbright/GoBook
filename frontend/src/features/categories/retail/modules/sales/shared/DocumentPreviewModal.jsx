@@ -22,7 +22,12 @@ const LAYOUT_MM = {
   tableHeader: 7,
   row: 8,
   continuationHeader: 14,
-  footer: 80,
+  // Measured (not estimated) from the actual .invoice-summary + .invoice-bottom-grid
+  // markup/CSS for a fully paid invoice (Payment Mode/Amount Received/Balance Due rows
+  // showing) with 3 GST-rate rows in the tax table — the tallest realistic combination.
+  // The previous value of 80 under-budgeted this by ~19mm, which is what let a fully
+  // paid invoice's Bank Details card render past the page bottom and get cropped.
+  footer: 92,
 };
 
 function fmtDate(iso) {
@@ -45,8 +50,19 @@ const NOTES_MAX_CHARS = 220;
 // wrong edge. Plain, already-short text needs no overflow handling at all
 // and renders identically under native print and html2canvas.
 function truncateText(text, max) {
-  if (!text || text.length <= max) return text;
+  const value = text == null ? '' : String(text);
+  if (!value || value.length <= max) return value;
+  text = value;
   return `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+function lineItemExtraDescription(item = {}) {
+  return item.itemDescription
+    ?? item.lineDescription
+    ?? item.details
+    ?? item.note
+    ?? item.remark
+    ?? '';
 }
 
 function lineCalc(item) {
@@ -259,6 +275,9 @@ function ItemRow({ item, sno, showGst, isIntrastate }) {
       <td className="invoice-col-item">
         <div className="invoice-item-main">{truncateText(item.description, ITEM_NAME_MAX_CHARS) || '-'}</div>
       </td>
+      <td className="invoice-col-description">
+        <div className="invoice-item-main">{truncateText(lineItemExtraDescription(item), ITEM_NAME_MAX_CHARS) || '-'}</div>
+      </td>
       {showGst && <td className="invoice-col-hsn font-mono">{item.hsn || '-'}</td>}
       <td className="invoice-col-qty">{Number(item.qty) || 0}</td>
       <td className="invoice-col-rate invoice-money">{formatInvoiceTableCurrency(Number(item.rate) || 0)}</td>
@@ -282,6 +301,7 @@ function ChargeRow({ charge, showGst, isIntrastate }) {
     <tr>
       <td className="invoice-col-sno">-</td>
       <td className="invoice-col-item italic">{charge.label || 'Additional Charge'}</td>
+      <td className="invoice-col-description">-</td>
       {showGst && <td className="invoice-col-hsn">-</td>}
       <td className="invoice-col-qty" />
       <td className="invoice-col-rate" />
@@ -303,6 +323,7 @@ function TableHead({ showGst }) {
       <tr>
         <th className="invoice-col-sno">S.No</th>
         <th className="invoice-col-item">Item Name</th>
+        <th className="invoice-col-description">Description</th>
         {showGst && <th className="invoice-col-hsn"><span className="invoice-th-stack">HSN/SAC</span></th>}
         <th className="invoice-col-qty">Qty</th>
         <th className="invoice-col-rate">Rate</th>
@@ -579,6 +600,13 @@ export function DocumentPreviewModal({
                       ) : (
                         <div className="invoice-tax-card invoice-tax-card-empty" />
                       )}
+
+                      <div className="invoice-amount-words">
+                        <div className="invoice-amount-words-title">Amount in Words</div>
+                        <div className="invoice-amount-words-value">
+                          {numberToWords(totals.finalTotal)}
+                        </div>
+                      </div>
                     </div>
 
                     <table className="invoice-total-card">
@@ -640,26 +668,26 @@ export function DocumentPreviewModal({
                           </tr>
                         )}
                         {Number(advanceAmt) > 0 && (
-                          <>
+                          totals.balanceDue <= 0 ? (
                             <tr>
-                              <td className="invoice-total-label">Amount Received</td>
-                              <td className="invoice-total-value">- {formatCurrency(Number(advanceAmt))}</td>
+                              <td className="invoice-total-label font-bold">Paid in Full</td>
+                              <td className="invoice-total-value font-bold">{formatCurrency(Number(advanceAmt))}</td>
                             </tr>
-                            <tr>
-                              <td className="invoice-total-label font-bold">Balance Due</td>
-                              <td className="invoice-total-value font-bold">{formatCurrency(totals.balanceDue < 0 ? 0 : totals.balanceDue)}</td>
-                            </tr>
-                          </>
+                          ) : (
+                            <>
+                              <tr>
+                                <td className="invoice-total-label">Amount Received</td>
+                                <td className="invoice-total-value">- {formatCurrency(Number(advanceAmt))}</td>
+                              </tr>
+                              <tr>
+                                <td className="invoice-total-label font-bold">Balance Due</td>
+                                <td className="invoice-total-value font-bold">{formatCurrency(totals.balanceDue)}</td>
+                              </tr>
+                            </>
+                          )
                         )}
                       </tbody>
                     </table>
-                  </div>
-
-                  <div className="invoice-amount-words">
-                    <div className="invoice-amount-words-title">Amount in Words</div>
-                    <div className="invoice-amount-words-value">
-                      {numberToWords(totals.finalTotal)}
-                    </div>
                   </div>
 
                   <div className="invoice-bottom-grid">

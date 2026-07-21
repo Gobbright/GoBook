@@ -13,7 +13,7 @@ function authHeader() {
 function handleUnauthorized(res) {
   if (res.status === 401) {
     expireSession();
-    window.location.hash = '/login';
+    window.location.assign('/login');
   }
 }
 
@@ -81,6 +81,14 @@ export const api = {
   createDebitNote: (payload)           => request('POST',   '/sales/debit-notes', payload),
   updateDebitNote: (id, payload)       => request('PUT',    `/sales/debit-notes/${id}`, payload),
   deleteDebitNote: (id)                => request('DELETE', `/sales/debit-notes/${id}`),
+
+  // ── Sales Returns ─────────────────────────────────────────────────────────
+  getSalesReturnNextNumber: ()          => request('GET',    '/sales/sales-returns/next-number'),
+  listSalesReturns: (params)            => request('GET',    `/sales/sales-returns${qs(params ?? {})}`),
+  getSalesReturn:   (id)                => request('GET',    `/sales/sales-returns/${id}`),
+  createSalesReturn: (payload)          => request('POST',   '/sales/sales-returns', payload),
+  updateSalesReturn: (id, payload)      => request('PUT',    `/sales/sales-returns/${id}`, payload),
+  deleteSalesReturn: (id)               => request('DELETE', `/sales/sales-returns/${id}`),
 
   // ── Delivery Challans ─────────────────────────────────────────────────────
   getChallanNextNumber: ()           => request('GET',    '/sales/challans/next-number'),

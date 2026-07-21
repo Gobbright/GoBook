@@ -22,7 +22,7 @@ export async function apiClient(path, options = {}) {
 
   if (response.status === 401 && !path.startsWith('/auth/')) {
     expireSession();
-    window.location.hash = '/login';
+    window.location.assign('/login');
   }
 
   const data = await response.json().catch(() => ({}));

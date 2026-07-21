@@ -7,11 +7,13 @@ import { Reminders } from '../features/dashboard/Reminders.jsx';
 import { getCategoryDashboard } from '../features/dashboard/categoryDashboardData.js';
 import { useDashboard } from '../hooks/useDashboard.js';
 import { getCurrentUser } from '../services/authService.js';
+import { useLocation } from 'react-router-dom';
 
 export function DashboardPage() {
+  const location = useLocation();
   const { error, insights, isLoading, metrics, reminders, transactions, topCustomers, inventoryStatus, salesTrend, cashFlow, growthScore } = useDashboard();
   const categoryDashboard = getCategoryDashboard(getCurrentUser()?.category);
-  const activeHash = window.location.hash || '#/dashboard';
+  const activeHash = location.pathname || '/dashboard';
   const dashboard = categoryDashboard ? {
     metrics: categoryDashboard.metrics,
     topCustomers: categoryDashboard.list,

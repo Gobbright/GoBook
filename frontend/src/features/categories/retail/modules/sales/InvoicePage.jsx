@@ -194,9 +194,9 @@ function ActionMenu({ invoice, openMenu, setOpenMenu, onShare, onPayment, onDown
   function handleAction(id) {
     setOpenMenu(null);
     if (id === 'view') {
-      window.location.assign(`#/billing/invoice/${invoiceId}/view`);
+      window.location.assign(`/billing/invoice/${invoiceId}/view`);
     } else if (id === 'edit') {
-      window.location.assign(`#/billing/invoice/${invoiceId}/edit`);
+      window.location.assign(`/billing/invoice/${invoiceId}/edit`);
     } else if (id === 'payment') {
       onPayment(invoice);
     } else if (id === 'pdf') {
@@ -472,7 +472,7 @@ export function InvoicePage() {
     function handleListShortcut(e) {
       if (e.key !== 'F1') return;
       e.preventDefault();
-      window.location.assign('#/billing/invoice/new');
+      window.location.assign('/billing/invoice/new');
     }
 
     window.addEventListener('keydown', handleListShortcut);
@@ -570,7 +570,7 @@ export function InvoicePage() {
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginatedInvoices.length,
-    onOpen: (index) => window.location.assign(`#/billing/invoice/${paginatedInvoices[index].id}/view`),
+    onOpen: (index) => window.location.assign(`/billing/invoice/${paginatedInvoices[index].id}/view`),
     searchRef,
   });
 
@@ -581,7 +581,7 @@ export function InvoicePage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span>
             <span>Sales</span>
             <span>›</span>
@@ -590,7 +590,7 @@ export function InvoicePage() {
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">Bills</h1>
         </div>
         <a
-          href="#/billing/invoice/new"
+          href="/billing/invoice/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} />
@@ -750,7 +750,7 @@ export function InvoicePage() {
                       {/* Invoice number */}
                       <td className="px-4 py-3.5">
                         <a
-                          href={`#/billing/invoice/${inv.id}/view`}
+                          href={`/billing/invoice/${inv.id}/view`}
                           className="text-[13px] font-semibold text-blue-600 no-underline hover:underline"
                         >
                           {inv.number}

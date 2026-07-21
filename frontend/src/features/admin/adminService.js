@@ -55,5 +55,5 @@ export async function fetchAdminDashboard() {
 
 export function logoutAdmin() {
   clearAdminSession();
-  window.location.hash = '/admin-login';
+  window.location.assign('/admin-login');
 }

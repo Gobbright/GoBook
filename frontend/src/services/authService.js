@@ -56,5 +56,5 @@ export async function resetPasswordWithOtp({ email, otp, password }) {
 
 export function logout() {
   clearSession();
-  window.location.hash = '/login';
+  window.location.assign('/login');
 }

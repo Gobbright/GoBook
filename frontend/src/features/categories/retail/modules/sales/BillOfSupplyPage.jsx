@@ -154,8 +154,8 @@ function ActionMenu({ bill, openMenu, setOpenMenu, onShare, onPayment, onDownloa
 
   function handleAction(id) {
     setOpenMenu(null);
-    if (id === 'view')    window.location.assign(`#/billing/bill-of-supply/${billId}/view`);
-    else if (id === 'edit')    window.location.assign(`#/billing/bill-of-supply/${billId}/edit`);
+    if (id === 'view')    window.location.assign(`/billing/bill-of-supply/${billId}/view`);
+    else if (id === 'edit')    window.location.assign(`/billing/bill-of-supply/${billId}/edit`);
     else if (id === 'payment') onPayment(bill);
     else if (id === 'pdf')     onDownload(bill);
     else if (id === 'share')   onShare(bill);
@@ -340,7 +340,7 @@ export function BillOfSupplyPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span><span>Sales</span><span>›</span>
             <span className="text-[#111827]">Bills of Supply</span>
           </nav>
@@ -348,7 +348,7 @@ export function BillOfSupplyPage() {
           <p className="m-0 text-[13px] text-[#536173] mt-1">Non-GST bills for exempt goods / unregistered customers</p>
         </div>
         <a
-          href="#/billing/bill-of-supply/new"
+          href="/billing/bill-of-supply/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} />
@@ -431,7 +431,7 @@ export function BillOfSupplyPage() {
                 paginated.map((bill) => (
                   <tr key={bill.id} className="border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors">
                     <td className="px-4 py-3.5">
-                      <a href={`#/billing/bill-of-supply/${bill.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">
+                      <a href={`/billing/bill-of-supply/${bill.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">
                         {bill.number}
                       </a>
                     </td>

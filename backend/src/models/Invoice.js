@@ -5,6 +5,7 @@ const lineItemSchema = new Schema({
   productCode:  { type: String, default: '', trim: true },
   barcode:      { type: String, default: '', trim: true },
   description: { type: String, default: '' },
+  itemDescription: { type: String, default: '' },
   hsn:         { type: String, default: '' },
   qty:         { type: Number, default: 1 },
   unit:        { type: String, default: 'Nos' },

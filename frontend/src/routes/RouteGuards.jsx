@@ -7,16 +7,15 @@ import { AUTH_PATHS, getLastRoute, SESSION_KEY } from './routeStorage.js';
 
 export function LegacyHashRedirect() {
   useEffect(() => {
-    function normalizeHash() {
+    function redirectLegacyHashRoute() {
       const hash = window.location.hash;
-      if (hash && hash !== '#' && !hash.startsWith('#/')) {
-        window.location.hash = `/${hash.slice(1)}`;
+      if (hash.startsWith('#/')) {
+        const nextUrl = `${hash.slice(1)}${window.location.search || ''}`;
+        window.history.replaceState(null, '', nextUrl);
       }
     }
 
-    normalizeHash();
-    window.addEventListener('hashchange', normalizeHash);
-    return () => window.removeEventListener('hashchange', normalizeHash);
+    redirectLegacyHashRoute();
   }, []);
 
   return null;
