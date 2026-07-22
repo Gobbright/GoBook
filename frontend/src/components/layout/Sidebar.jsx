@@ -55,15 +55,15 @@ function findActiveSection(sidebarSections, path) {
 const SECTION_KEY = 'gobook.openSection';
 
 export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
+  const location = useLocation();
   // Recomputed on every mount so switching accounts (different category) within the same tab picks up fresh nav.
   const [sidebarSections] = useState(() => getSidebarSections(getCurrentUser()?.category || 'retail'));
-  const location = useLocation();
   const [openSection, setOpenSection] = useState(() => {
     // Active section from current URL takes priority; otherwise restore last saved; Sales is the default
     const fromPath = findActiveSection(sidebarSections, normalizeAppPath(window.location.pathname || '/dashboard'));
-    if (fromHash) {
-      sessionStorage.setItem(SECTION_KEY, fromHash);
-      return fromHash;
+    if (fromPath) {
+      sessionStorage.setItem(SECTION_KEY, fromPath);
+      return fromPath;
     }
     return sessionStorage.getItem(SECTION_KEY) ?? 'Dashboard';
   });

@@ -96,7 +96,7 @@ export function ReceivablesPage() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a href="//dashboard" className="text-blue-600 no-underline hover:underline">Home</a>
+            <a href="/dashboard" className="text-blue-600 no-underline hover:underline">Home</a>
             <span>›</span>
             <span>Sales</span>
             <span>›</span>

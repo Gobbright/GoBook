@@ -12,8 +12,8 @@ import { getCurrentUser } from '../services/authService.js';
 import { normalizeAppPath } from '../routes/navigation.js';
 
 export function DashboardPage() {
-  const { error, insights, isLoading, metrics, reminders, transactions, topCustomers, inventoryStatus, salesTrend, cashFlow, growthScore } = useDashboard();
   const location = useLocation();
+  const { error, insights, isLoading, metrics, reminders, transactions, topCustomers, inventoryStatus, salesTrend, cashFlow, growthScore } = useDashboard();
   const categoryDashboard = getCategoryDashboard(getCurrentUser()?.category);
   const activePath = normalizeAppPath(location.pathname || '/dashboard');
   const dashboard = categoryDashboard ? {

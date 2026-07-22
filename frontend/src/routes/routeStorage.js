@@ -3,6 +3,7 @@ export const AUTH_PATHS = new Set(['/login', '/register', '/forgot-password']);
 
 export function normalizeStoredPath(path) {
   if (!path || path === '/') return '/dashboard';
+  if (path.startsWith('#/')) return path.slice(1);
   return path.startsWith('/') ? path : `/${path}`;
 }
 

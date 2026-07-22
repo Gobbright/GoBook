@@ -227,14 +227,14 @@ export function EWayBillPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span><span>Sales</span><span>›</span>
             <span className="text-[#111827]">E-Way Bills</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">E-Way Bills</h1>
         </div>
         <a
-          href="//billing/e-way-bill/new"
+          href="/billing/e-way-bill/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} /> Generate E-Way Bill
@@ -600,7 +600,7 @@ export function EWayBillFormPage({ ewbId }) {
       const payload = buildPayload(extraMeta);
       if (ewbId) await api.updateEWayBill(ewbId, payload);
       else       await api.createEWayBill(payload);
-      window.location.assign('//billing/e-way-bill');
+      window.location.assign('/billing/e-way-bill');
     } catch (err) {
       setSaveError(err.message || 'Unable to save');
     } finally {
@@ -653,7 +653,7 @@ export function EWayBillFormPage({ ewbId }) {
       const num = Number(e.key.slice(1));
       if (num < 1 || num > 12) return;
       e.preventDefault();
-      if (num === 1)  window.location.assign('//billing/e-way-bill/new');
+      if (num === 1)  window.location.assign('/billing/e-way-bill/new');
       if (num === 2)  handleSave();
       if (num === 3)  handleGenerateGSP();
       if (num === 5)  addItem();
@@ -661,9 +661,9 @@ export function EWayBillFormPage({ ewbId }) {
       if (num === 7)  focus('vehicle');
       if (num === 8)  focus('transporter');
       if (num === 9)  focus('distance');
-      if (num === 10) window.location.assign('//dashboard');
+      if (num === 10) window.location.assign('/dashboard');
       if (num === 11) window.location.assign('/business-settings');
-      if (num === 12) window.location.assign('//billing/e-way-bill');
+      if (num === 12) window.location.assign('/billing/e-way-bill');
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -712,9 +712,9 @@ export function EWayBillFormPage({ ewbId }) {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <div className="flex flex-col gap-1">
           <nav className="flex items-center gap-1 text-[13px] text-[#536173]">
-            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span><span>Sales</span><span>›</span>
-            <a className="text-blue-600 no-underline hover:underline" href="//billing/e-way-bill">E-Way Bills</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/billing/e-way-bill">E-Way Bills</a>
             <span>›</span><span>{ewbId ? 'Edit E-Way Bill' : 'New E-Way Bill'}</span>
           </nav>
           <div className="flex items-center gap-3 mt-1">
@@ -723,7 +723,7 @@ export function EWayBillFormPage({ ewbId }) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button className={cx.btnOutline} type="button" onClick={() => window.location.assign('//billing/e-way-bill')}>
+          <button className={cx.btnOutline} type="button" onClick={() => window.location.assign('/billing/e-way-bill')}>
             <svg fill="none" height="15" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="15"><line x1="8" x2="21" y1="6" y2="6" /><line x1="8" x2="21" y1="12" y2="12" /><line x1="8" x2="21" y1="18" y2="18" /><line x1="3" x2="3.01" y1="6" y2="6" /><line x1="3" x2="3.01" y1="12" y2="12" /><line x1="3" x2="3.01" y1="18" y2="18" /></svg>
             View List
           </button>
@@ -1183,7 +1183,7 @@ export function EWayBillFormPage({ ewbId }) {
       >
         <div className="flex items-stretch" style={{ height: 50 }}>
           {[
-            { key: 'F1',  label: 'New EWB',    action: () => window.location.assign('//billing/e-way-bill/new') },
+            { key: 'F1',  label: 'New EWB',    action: () => window.location.assign('/billing/e-way-bill/new') },
             { key: 'F2',  label: 'Save',        action: () => handleSave() },
             { key: 'F3',  label: 'Generate',    action: () => handleGenerateGSP() },
             { key: 'F5',  label: 'Add Item',    action: () => addItem() },
@@ -1191,9 +1191,9 @@ export function EWayBillFormPage({ ewbId }) {
             { key: 'F7',  label: 'Vehicle',     action: () => { const el = document.querySelector('[data-fkey="vehicle"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.focus(); } },
             { key: 'F8',  label: 'Transporter', action: () => { const el = document.querySelector('[data-fkey="transporter"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.focus(); } },
             { key: 'F9',  label: 'Distance',    action: () => { const el = document.querySelector('[data-fkey="distance"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.focus(); } },
-            { key: 'F10', label: 'Home',        action: () => window.location.assign('//dashboard') },
+            { key: 'F10', label: 'Home',        action: () => window.location.assign('/dashboard') },
             { key: 'F11', label: 'Settings',    action: () => window.location.assign('/business-settings') },
-            { key: 'F12', label: 'Close',       action: () => window.location.assign('//billing/e-way-bill') },
+            { key: 'F12', label: 'Close',       action: () => window.location.assign('/billing/e-way-bill') },
           ].map(({ key, label, action }, idx, arr) => (
             <button
               key={key}

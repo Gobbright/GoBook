@@ -1002,6 +1002,7 @@ const [customFields, setCustomFields]         = useState([]);
     'purchase-entry':   '/billing/purchase-entry',
     'credit-note':      '/billing/credit-note',
     'debit-note':       '/billing/debit-note',
+    'sales-return':     '/billing/sales-return',
     proforma:           '/billing/proforma',
     'delivery-challan': '/billing/delivery-challan',
     'e-invoice':        '/billing/e-invoice',
@@ -1426,8 +1427,8 @@ const [customFields, setCustomFields]         = useState([]);
 
       // Function-key shortcuts (no modifier) — actions vary by documentType
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        const NEW_ROUTES = { invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' };
-        const F7_FKEY = { invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' };
+        const NEW_ROUTES = { invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'sales-return': '/billing/sales-return/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' };
+        const F7_FKEY = { invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'sales-return': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' };
         if (e.key === 'F1')  { e.preventDefault(); window.location.assign(NEW_ROUTES[documentType] ?? '/billing/invoice/new'); return; }
         if (e.key === 'F2')  { e.preventDefault(); if (!saveLoading) handleSave(); return; }
         if (e.key === 'F3')  { e.preventDefault(); setAutoPrintPreview(false); setShowPreview(true); return; }
@@ -3319,11 +3320,11 @@ const [customFields, setCustomFields]         = useState([]);
       >
         <div className="flex items-stretch" style={{ height: 50 }}>
           {((() => {
-            const newRoute = ({ invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' })[documentType] ?? '/billing/invoice/new';
-            const f1Label  = ({ invoice: 'New Bill', 'bill-of-supply': 'New BOS', quotation: 'New Quote', 'purchase-order': 'New PO', 'purchase-entry': 'New PE', 'credit-note': 'New Credit', 'debit-note': 'New Debit', 'delivery-challan': 'New Challan', 'e-invoice': 'New E-Inv', 'e-way-bill': 'New EWB' })[documentType] ?? 'New';
-            const f6Label  = ({ invoice: 'Party', 'bill-of-supply': 'Party', quotation: 'Party', 'purchase-order': 'Vendor', 'purchase-entry': 'Vendor', 'credit-note': 'Party', 'debit-note': 'Party', 'delivery-challan': 'Consignee', 'e-invoice': 'Party', 'e-way-bill': 'Consignee' })[documentType] ?? 'Party';
-            const f7Label  = ({ invoice: 'Discount', 'bill-of-supply': 'Discount', quotation: 'Valid Till', 'purchase-order': 'Delivery', 'purchase-entry': 'Linked PO', 'credit-note': 'Ref Invoice', 'debit-note': 'Ref Invoice', 'delivery-challan': 'Vehicle', 'e-invoice': 'IRN No.', 'e-way-bill': 'Vehicle' })[documentType] ?? 'Extra';
-            const f7fkey   = ({ invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' })[documentType];
+            const newRoute = ({ invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'sales-return': '/billing/sales-return/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' })[documentType] ?? '/billing/invoice/new';
+            const f1Label  = ({ invoice: 'New Bill', 'bill-of-supply': 'New BOS', quotation: 'New Quote', 'purchase-order': 'New PO', 'purchase-entry': 'New PE', 'credit-note': 'New Credit', 'debit-note': 'New Debit', 'sales-return': 'New Return', 'delivery-challan': 'New Challan', 'e-invoice': 'New E-Inv', 'e-way-bill': 'New EWB' })[documentType] ?? 'New';
+            const f6Label  = ({ invoice: 'Party', 'bill-of-supply': 'Party', quotation: 'Party', 'purchase-order': 'Vendor', 'purchase-entry': 'Vendor', 'credit-note': 'Party', 'debit-note': 'Party', 'sales-return': 'Party', 'delivery-challan': 'Consignee', 'e-invoice': 'Party', 'e-way-bill': 'Consignee' })[documentType] ?? 'Party';
+            const f7Label  = ({ invoice: 'Discount', 'bill-of-supply': 'Discount', quotation: 'Valid Till', 'purchase-order': 'Delivery', 'purchase-entry': 'Linked PO', 'credit-note': 'Ref Invoice', 'debit-note': 'Ref Invoice', 'sales-return': 'Ref Invoice', 'delivery-challan': 'Vehicle', 'e-invoice': 'IRN No.', 'e-way-bill': 'Vehicle' })[documentType] ?? 'Extra';
+            const f7fkey   = ({ invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'sales-return': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' })[documentType];
             return [
               { key: 'F1',  label: f1Label,   action: () => window.location.assign(newRoute) },
               { key: 'F2',  label: 'Save',     action: () => { if (!saveLoading) handleSave(); } },

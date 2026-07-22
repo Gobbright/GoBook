@@ -14,6 +14,27 @@ import {
   attachAccountingStatusList,
 } from '../../../../services/salesAccountingStatus.js';
 
+function normalizeInvoicePayload(body = {}) {
+  const items = Array.isArray(body.items)
+    ? body.items.map((item) => ({
+        ...item,
+        description: String(item.description ?? ''),
+        itemDescription: String(
+          item.itemDescription
+          ?? item.lineDescription
+          ?? item.details
+          ?? item.note
+          ?? item.remark
+          ?? '',
+        ),
+        hsn: String(item.hsn ?? ''),
+        unit: String(item.unit ?? ''),
+      }))
+    : body.items;
+
+  return { ...body, ...(items ? { items } : {}) };
+}
+
 // GET /api/sales/invoices/next-number?prefix=INV
 export async function getNextNumber(req, res, next) {
   try {
@@ -77,7 +98,8 @@ export async function getInvoice(req, res, next) {
 // POST /api/sales/invoices
 export async function createInvoice(req, res, next) {
   try {
-    const invoice = await Invoice.create({ ...req.body, userId: req.user.id, businessId: req.user.businessId });
+    const payload = normalizeInvoicePayload(req.body);
+    const invoice = await Invoice.create({ ...payload, userId: req.user.id, businessId: req.user.businessId });
     try {
       await postInventoryForDocument(invoice, req.user.id);
       await postInvoiceAccounting(invoice, req.user);
@@ -99,11 +121,12 @@ export async function createInvoice(req, res, next) {
 // PUT /api/sales/invoices/:id
 export async function updateInvoice(req, res, next) {
   try {
+    const payload = normalizeInvoicePayload(req.body);
     const existing = await Invoice.findOne({ _id: req.params.id, userId: req.user.id });
     if (!existing) return next(httpError(404, 'Invoice not found'));
     const nextInvoice = new Invoice({
       ...existing.toObject(),
-      ...req.body,
+      ...payload,
       _id: existing._id,
       userId: existing.userId,
       businessId: existing.businessId,
@@ -121,7 +144,7 @@ export async function updateInvoice(req, res, next) {
     try {
       invoice = await Invoice.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.id },
-        { $set: req.body },
+        { $set: payload },
         { new: true, runValidators: false },
       );
     } catch (err) {
@@ -177,10 +200,12 @@ export async function sendInvoiceEmail(req, res, next) {
       .map((it, idx) => {
         const taxable = (Number(it.qty) || 0) * (Number(it.rate) || 0) * (1 - (Number(it.discount) || 0) / 100);
         const gst     = taxable * ((Number(it.gstRate) || 0) / 100);
+        const itemDescription = it.itemDescription == null ? '' : String(it.itemDescription);
         calculatedTotal += taxable + gst;
         const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
         return `<tr style="background:${bg}">
           <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111827">${it.description || '-'}</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#374151">${itemDescription || '-'}</td>
           <td style="padding:11px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px;color:#374151">${it.qty}</td>
           <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;color:#374151">${fmtCurrency(it.rate)}</td>
           <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;font-weight:600;color:#1e3a8a">${fmtCurrency(taxable + gst)}</td>
@@ -194,7 +219,7 @@ export async function sendInvoiceEmail(req, res, next) {
     });
 
     const grandTotal = fmtCurrency(invoice.grandTotal || invoice.totals?.grandTotal || calculatedTotal);
-    const docLabel = { invoice: 'Invoice', quotation: 'Quotation', 'credit-note': 'Credit Note', 'debit-note': 'Debit Note', 'delivery-challan': 'Delivery Challan' }[invoice.documentType] || 'Invoice';
+    const docLabel = { invoice: 'Invoice', quotation: 'Quotation', 'credit-note': 'Credit Note', 'debit-note': 'Debit Note', 'sales-return': 'Sales Return', 'delivery-challan': 'Delivery Challan' }[invoice.documentType] || 'Invoice';
 
     const notesBlock = (invoice.notes || invoice.terms) ? `
     <tr>
@@ -296,6 +321,7 @@ export async function sendInvoiceEmail(req, res, next) {
       <!-- Items table -->
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0">
         <tr style="background:#1e3a8a">
+          <th style="padding:11px 14px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.8px">Item Name</th>
           <th style="padding:11px 14px;text-align:left;font-size:11px;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.8px">Description</th>
           <th style="padding:11px 10px;text-align:center;font-size:11px;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.8px;width:45px">Qty</th>
           <th style="padding:11px 14px;text-align:right;font-size:11px;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.8px;width:90px">Rate</th>

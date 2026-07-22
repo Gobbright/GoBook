@@ -285,6 +285,33 @@ export async function postCreditNoteAccounting(note, user) {
   });
 }
 
+export async function postSalesReturnAccounting(note, user) {
+  if (note.documentType !== 'sales-return') return null;
+
+  const amounts = calcDocumentAmounts(note, true);
+  const salesReturnAmount = netBeforeTax(amounts.total, amounts.gst);
+  const customerName = cleanName(note.customer?.name, 'Walk-in Customer');
+  const date = note.meta?.date || new Date().toISOString().slice(0, 10);
+  const costCenter = cleanName(note.extra?.costCenter, '');
+
+  return savePosting({
+    userId: user.id,
+    businessId: user.businessId,
+    sourceType: 'sales-return',
+    sourceId: note._id,
+    sourceNumber: note.number,
+    date,
+    partyName: customerName,
+    voucherType: 'Sales Return',
+    narration: `Sales return ${note.number} - ${customerName}`,
+    lines: [
+      { accountName: 'Sales Returns', group: ACCOUNT_GROUPS.sales, side: 'debit', amount: salesReturnAmount, costCenter },
+      { accountName: 'Output GST', group: ACCOUNT_GROUPS.outputGst, side: 'debit', amount: amounts.gst, costCenter },
+      { accountName: customerName, group: ACCOUNT_GROUPS.customer, side: 'credit', amount: amounts.total, costCenter },
+    ],
+  });
+}
+
 export async function postDebitNoteAccounting(note, user) {
   if (note.documentType !== 'debit-note') return null;
 

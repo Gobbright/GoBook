@@ -19,14 +19,14 @@ const MODULES = {
     section: 'Sales',
     description: 'Sales, billing, receivables, returns, and dispatch report shortcuts.',
     reports: [
-      { title: 'Bills Register', href: '//billing/invoice', icon: FileText, category: 'Sales', description: 'Invoice-wise sales value, GST, paid amount, pending balance, and payment status.' },
-      { title: 'Receivables', href: '//billing/receivables', icon: Wallet, category: 'Collections', description: 'Outstanding customer balances, overdue bills, and due-this-week collections.' },
-      { title: 'Quotation Register', href: '//billing/quotation', icon: ClipboardList, category: 'Sales Pipeline', description: 'Quotation list with customer, value, date filters, and export.' },
-      { title: 'Credit Notes', href: '//billing/credit-note', icon: FileCheck, category: 'Adjustments', description: 'Credit note register for sales returns and customer adjustments.' },
-      { title: 'Debit Notes', href: '//billing/debit-note', icon: FileCheck, category: 'Adjustments', description: 'Debit note register for additional charges and corrections.' },
-      { title: 'Delivery Challans', href: '//billing/delivery-challan', icon: Package, category: 'Dispatch', description: 'Delivery challan movement list for dispatch tracking.' },
-      { title: 'E-Invoice Register', href: '//billing/e-invoice', icon: FileSpreadsheet, category: 'Compliance', description: 'E-invoice records and IRN-related status tracking.' },
-      { title: 'E-Way Bill Register', href: '//billing/e-way-bill', icon: FileSpreadsheet, category: 'Compliance', description: 'E-way bill records, transport details, and generated EWB numbers.' },
+      { title: 'Bills Register', href: '/billing/invoice', icon: FileText, category: 'Sales', description: 'Invoice-wise sales value, GST, paid amount, pending balance, and payment status.' },
+      { title: 'Receivables', href: '/billing/receivables', icon: Wallet, category: 'Collections', description: 'Outstanding customer balances, overdue bills, and due-this-week collections.' },
+      { title: 'Quotation Register', href: '/billing/quotation', icon: ClipboardList, category: 'Sales Pipeline', description: 'Quotation list with customer, value, date filters, and export.' },
+      { title: 'Credit Notes', href: '/billing/credit-note', icon: FileCheck, category: 'Adjustments', description: 'Credit note register for sales returns and customer adjustments.' },
+      { title: 'Debit Notes', href: '/billing/debit-note', icon: FileCheck, category: 'Adjustments', description: 'Debit note register for additional charges and corrections.' },
+      { title: 'Delivery Challans', href: '/billing/delivery-challan', icon: Package, category: 'Dispatch', description: 'Delivery challan movement list for dispatch tracking.' },
+      { title: 'E-Invoice Register', href: '/billing/e-invoice', icon: FileSpreadsheet, category: 'Compliance', description: 'E-invoice records and IRN-related status tracking.' },
+      { title: 'E-Way Bill Register', href: '/billing/e-way-bill', icon: FileSpreadsheet, category: 'Compliance', description: 'E-way bill records, transport details, and generated EWB numbers.' },
     ],
   },
   purchase: {
@@ -34,8 +34,8 @@ const MODULES = {
     section: 'Purchase',
     description: 'Purchase order, purchase entry, vendor, and payable source reports.',
     reports: [
-      { title: 'Purchase Orders', href: '//billing/purchase-order', icon: ClipboardList, category: 'Procurement', description: 'PO register with supplier, expected delivery, and order values.' },
-      { title: 'Purchase Entries', href: '//billing/purchase-entry', icon: FileText, category: 'Purchases', description: 'Purchase entry list for supplier bills and purchase values.' },
+      { title: 'Purchase Orders', href: '/billing/purchase-order', icon: ClipboardList, category: 'Procurement', description: 'PO register with supplier, expected delivery, and order values.' },
+      { title: 'Purchase Entries', href: '/billing/purchase-entry', icon: FileText, category: 'Purchases', description: 'Purchase entry list for supplier bills and purchase values.' },
       { title: 'Vendor Register', href: '/vendor-management', icon: Building2, category: 'Vendors', description: 'Vendor master list with contact details, category, and export.' },
       { title: 'Supplier GST Report', href: '/gst-reports', icon: FileSpreadsheet, category: 'GST', description: 'GST purchase report area for supplier-wise and ITC analysis.' },
       { title: 'Payables', href: '/accounting-reports', icon: Wallet, category: 'Accounting', description: 'Use Accounting Reports -> Outstanding with Payables selected.' },
@@ -106,7 +106,7 @@ export function ModuleReportsPage({ type }) {
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-5">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>/</span><span>{config.section}</span><span>/</span><span>Reports</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">{config.title}</h1>

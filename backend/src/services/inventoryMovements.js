@@ -98,7 +98,7 @@ async function collectRowsFromMovements(movements, userId) {
 
 function inventoryMode(documentType) {
   if (['invoice', 'bill-of-supply'].includes(documentType)) return 'out';
-  if (documentType === 'purchase-entry') return 'in';
+  if (['purchase-entry', 'sales-return'].includes(documentType)) return 'in';
   return '';
 }
 

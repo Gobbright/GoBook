@@ -98,7 +98,6 @@ export const commonRoutes = [
 
 // Retail-only (Sales / Billing reports — tied to the Sales nav section, which stays Retail-exclusive).
 export const retailRoutes = [
-  { path: '/sales-return', element: <ModulePlaceholderPage title="Sales Return" group="Sales" category="Retail" /> },
   { path: '/supplier-returns', element: <ModulePlaceholderPage title="Supplier Returns" group="Purchase" category="Retail" /> },
   { path: '/product-categories', element: <ModulePlaceholderPage title="Categories" group="Inventory" category="Retail" /> },
   { path: '/brands', element: <ModulePlaceholderPage title="Brands" group="Inventory" category="Retail" /> },  { path: '/sales-reports', element: <ModuleReportsPage type="sales" /> },

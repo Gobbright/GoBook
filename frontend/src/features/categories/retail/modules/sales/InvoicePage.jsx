@@ -472,7 +472,7 @@ export function InvoicePage() {
     function handleListShortcut(e) {
       if (e.key !== 'F1') return;
       e.preventDefault();
-      window.location.assign('//billing/invoice/new');
+      window.location.assign('/billing/invoice/new');
     }
 
     window.addEventListener('keydown', handleListShortcut);
@@ -581,7 +581,7 @@ export function InvoicePage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span>
             <span>Sales</span>
             <span>›</span>
@@ -590,7 +590,7 @@ export function InvoicePage() {
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">Bills</h1>
         </div>
         <a
-          href="//billing/invoice/new"
+          href="/billing/invoice/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} />

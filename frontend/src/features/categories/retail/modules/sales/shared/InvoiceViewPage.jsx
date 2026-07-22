@@ -80,6 +80,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
     'purchase-entry': '/billing/purchase-entry',
     'credit-note': '/billing/credit-note',
     'debit-note': '/billing/debit-note',
+    'sales-return': '/billing/sales-return',
     proforma: '/billing/proforma',
     'delivery-challan': '/billing/delivery-challan',
     'e-invoice': '/billing/e-invoice',

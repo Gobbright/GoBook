@@ -186,7 +186,7 @@ export function GstDashboard() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div className="flex flex-col gap-1">
           <nav className="flex items-center gap-1 text-[13px] text-[#536173]">
-            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span>
             <span>GST</span>
             <span>›</span>

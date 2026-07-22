@@ -25,6 +25,14 @@ import {
   deleteDebitNote,
 } from './credit-debit-note/debitNoteController.js';
 import {
+  getNextSalesReturnNumber,
+  listSalesReturns,
+  getSalesReturn,
+  createSalesReturn,
+  updateSalesReturn,
+  deleteSalesReturn,
+} from './sales-return/salesReturnController.js';
+import {
   getNextChallanNumber,
   listChallans,
   getChallan,
@@ -101,6 +109,14 @@ salesRouter.post('/debit-notes',             createDebitNote);
 salesRouter.get('/debit-notes/:id',          getDebitNote);
 salesRouter.put('/debit-notes/:id',          updateDebitNote);
 salesRouter.delete('/debit-notes/:id',       deleteDebitNote);
+
+// ── Sales Return CRUD ────────────────────────────────────────────────────────
+salesRouter.get('/sales-returns/next-number',  getNextSalesReturnNumber);
+salesRouter.get('/sales-returns',              listSalesReturns);
+salesRouter.post('/sales-returns',             createSalesReturn);
+salesRouter.get('/sales-returns/:id',          getSalesReturn);
+salesRouter.put('/sales-returns/:id',          updateSalesReturn);
+salesRouter.delete('/sales-returns/:id',       deleteSalesReturn);
 
 // ── Delivery Challan CRUD ────────────────────────────────────────────────────
 salesRouter.get('/challans/next-number',  getNextChallanNumber);

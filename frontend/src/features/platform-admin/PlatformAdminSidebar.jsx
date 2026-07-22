@@ -38,7 +38,7 @@ export function PlatformAdminSidebar({ view, onNavigate }) {
 
       <div className="flex-none px-3 pt-3 mt-2 border-t border-white/10 flex flex-col gap-1">
         <a
-          href="//dashboard"
+          href="/dashboard"
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium no-underline text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
         >
           ← Back to app

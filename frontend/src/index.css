@@ -1114,38 +1114,68 @@ body:has(.app-form-modal)::before {
 .billing-items-panel th:nth-child(1),
 .billing-items-panel td:nth-child(1) { width: 42px !important; }
 
-.billing-items-panel th:nth-child(2),
-.billing-items-panel td:nth-child(2) { width: 19% !important; }
+.billing-items-table--gst th:nth-child(2),
+.billing-items-table--gst td:nth-child(2) { width: 17% !important; }
 
-.billing-items-panel th:nth-child(3),
-.billing-items-panel td:nth-child(3) { width: 9% !important; }
+.billing-items-table--gst th:nth-child(3),
+.billing-items-table--gst td:nth-child(3) { width: 12% !important; }
 
-.billing-items-panel th:nth-child(4),
-.billing-items-panel td:nth-child(4) { width: 7% !important; }
+.billing-items-table--gst th:nth-child(4),
+.billing-items-table--gst td:nth-child(4) { width: 8% !important; }
 
-.billing-items-panel th:nth-child(5),
-.billing-items-panel td:nth-child(5) { width: 8% !important; }
+.billing-items-table--gst th:nth-child(5),
+.billing-items-table--gst td:nth-child(5) { width: 6% !important; }
 
-.billing-items-panel th:nth-child(6),
-.billing-items-panel td:nth-child(6) { width: 10% !important; }
+.billing-items-table--gst th:nth-child(6),
+.billing-items-table--gst td:nth-child(6) { width: 7% !important; }
 
-.billing-items-panel th:nth-child(7),
-.billing-items-panel td:nth-child(7) { width: 7% !important; }
+.billing-items-table--gst th:nth-child(7),
+.billing-items-table--gst td:nth-child(7) { width: 9% !important; }
 
-.billing-items-panel th:nth-child(8),
-.billing-items-panel td:nth-child(8) { width: 10% !important; }
+.billing-items-table--gst th:nth-child(8),
+.billing-items-table--gst td:nth-child(8) { width: 6% !important; }
 
-.billing-items-panel th:nth-child(9),
-.billing-items-panel td:nth-child(9) { width: 7% !important; }
+.billing-items-table--gst th:nth-child(9),
+.billing-items-table--gst td:nth-child(9) { width: 9% !important; }
 
-.billing-items-panel th:nth-child(10),
-.billing-items-panel td:nth-child(10) { width: 9% !important; }
+.billing-items-table--gst th:nth-child(10),
+.billing-items-table--gst td:nth-child(10) { width: 6% !important; }
 
-.billing-items-panel th:nth-child(11),
-.billing-items-panel td:nth-child(11) { width: 10% !important; }
+.billing-items-table--gst th:nth-child(11),
+.billing-items-table--gst td:nth-child(11) { width: 8% !important; }
 
-.billing-items-panel th:nth-child(12),
-.billing-items-panel td:nth-child(12) { width: 42px !important; }
+.billing-items-table--gst th:nth-child(12),
+.billing-items-table--gst td:nth-child(12) { width: 8% !important; }
+
+.billing-items-table--gst th:nth-child(13),
+.billing-items-table--gst td:nth-child(13) { width: 42px !important; }
+
+.billing-items-table--no-gst th:nth-child(2),
+.billing-items-table--no-gst td:nth-child(2) { width: 23% !important; }
+
+.billing-items-table--no-gst th:nth-child(3),
+.billing-items-table--no-gst td:nth-child(3) { width: 18% !important; }
+
+.billing-items-table--no-gst th:nth-child(4),
+.billing-items-table--no-gst td:nth-child(4) { width: 10% !important; }
+
+.billing-items-table--no-gst th:nth-child(5),
+.billing-items-table--no-gst td:nth-child(5) { width: 8% !important; }
+
+.billing-items-table--no-gst th:nth-child(6),
+.billing-items-table--no-gst td:nth-child(6) { width: 9% !important; }
+
+.billing-items-table--no-gst th:nth-child(7),
+.billing-items-table--no-gst td:nth-child(7) { width: 13% !important; }
+
+.billing-items-table--no-gst th:nth-child(8),
+.billing-items-table--no-gst td:nth-child(8) { width: 8% !important; }
+
+.billing-items-table--no-gst th:nth-child(9),
+.billing-items-table--no-gst td:nth-child(9) { width: 11% !important; }
+
+.billing-items-table--no-gst th:nth-child(10),
+.billing-items-table--no-gst td:nth-child(10) { width: 42px !important; }
 
 .billing-items-panel input,
 .billing-items-panel select {
@@ -2016,6 +2046,10 @@ body:has(.app-form-modal)::before {
   text-align: left;
 }
 
+.invoice-product-table thead th.invoice-col-description {
+  text-align: left;
+}
+
 .invoice-product-table .invoice-th-stack {
   display: inline-block;
   max-width: 100%;
@@ -2064,7 +2098,8 @@ body:has(.app-form-modal)::before {
 }
 
 .invoice-product-table .invoice-col-sno { width: 4.5%; }
-.invoice-product-table .invoice-col-item { width: 26%; }
+.invoice-product-table .invoice-col-item { width: 16%; }
+.invoice-product-table .invoice-col-description { width: 10%; }
 .invoice-product-table .invoice-col-hsn { width: 7%; }
 .invoice-product-table .invoice-col-qty { width: 4.5%; }
 .invoice-product-table .invoice-col-rate { width: 9%; }
@@ -2074,7 +2109,8 @@ body:has(.app-form-modal)::before {
 .invoice-product-table .invoice-col-total { width: 11%; }
 
 .invoice-product-table--no-gst .invoice-col-sno { width: 6%; }
-.invoice-product-table--no-gst .invoice-col-item { width: 42%; }
+.invoice-product-table--no-gst .invoice-col-item { width: 30%; }
+.invoice-product-table--no-gst .invoice-col-description { width: 12%; }
 .invoice-product-table--no-gst .invoice-col-qty { width: 8%; }
 .invoice-product-table--no-gst .invoice-col-rate { width: 12%; }
 .invoice-product-table--no-gst .invoice-col-taxable { width: 14%; }
