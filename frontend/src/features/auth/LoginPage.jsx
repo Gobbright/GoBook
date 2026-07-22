@@ -1,4 +1,6 @@
+import { redirectTo } from '../../routes/navigation.js';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 
 import { login, loginWithGoogle } from '../../services/authService.js';
@@ -21,7 +23,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       const user = await login(email, password);
-      window.location.hash = user.needsEmailVerification ? '/verify-email' : '/dashboard';
+      redirectTo(user.needsEmailVerification ? '/verify-email' : '/dashboard');
     } catch (err) {
       setError(err.message || 'Invalid email or password. Please try again.');
     } finally {
@@ -35,7 +37,7 @@ export function LoginPage() {
     try {
       const credential = await signInWithGoogle();
       const user = await loginWithGoogle(credential);
-      window.location.hash = user.needsOnboarding ? '/google-onboarding' : '/dashboard';
+      redirectTo(user.needsOnboarding ? '/google-onboarding' : '/dashboard');
     } catch (err) {
       setError(err.message || 'Google sign-in failed. Please try again.');
     } finally {
@@ -89,10 +91,10 @@ export function LoginPage() {
             </button>
           </div>
           <div className="flex justify-end mt-1.5">
-            <a href="#/forgot-password" className="text-[12.5px] font-semibold no-underline hover:underline"
+            <Link to="/forgot-password" className="text-[12.5px] font-semibold no-underline hover:underline"
                style={{ color: '#4f90ff' }}>
               Forgot Password?
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -132,14 +134,14 @@ export function LoginPage() {
 
       <p className={`text-center text-[12px] mt-3 mb-0 ${MUTED}`}>
         Don&apos;t have an account?{' '}
-        <a href="#/register" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>
+        <Link to="/register" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>
           Create Account
-        </a>
+        </Link>
       </p>
       <div className="text-center mt-2">
-        <a href="#/admin-login" className="text-[12px] font-bold no-underline hover:underline" style={{ color: '#334155' }}>
+        <Link to="/admin-login" className="text-[12px] font-bold no-underline hover:underline" style={{ color: '#334155' }}>
           Admin Panel
-        </a>
+        </Link>
       </div>
       </AuthLayout>
     </LaunchExperience>

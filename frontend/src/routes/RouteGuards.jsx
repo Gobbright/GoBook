@@ -1,23 +1,50 @@
 import { useEffect } from 'react';
-import { Navigate, Outlet as RouterOutlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet as RouterOutlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { AppShell } from '../app/AppShell.jsx';
+import { AdminErrorBoundary } from '../features/admin/components/AdminErrorBoundary.jsx';
+import { isAdminAuthenticated } from '../features/admin/adminService.js';
 import { getCurrentUser, isAuthenticated } from '../services/authService.js';
 import { AUTH_PATHS, getLastRoute, SESSION_KEY } from './routeStorage.js';
 
-export function LegacyHashRedirect() {
+
+export function GlobalErrorReporter() {
   useEffect(() => {
-    function normalizeHash() {
-      const hash = window.location.hash;
-      if (hash && hash !== '#' && !hash.startsWith('#/')) {
-        window.location.hash = `/${hash.slice(1)}`;
-      }
+    function reportError(event) {
+      console.error('[GlobalRuntimeError]', event.error || event.message);
     }
 
-    normalizeHash();
-    window.addEventListener('hashchange', normalizeHash);
-    return () => window.removeEventListener('hashchange', normalizeHash);
+    function reportRejection(event) {
+      console.error('[GlobalUnhandledRejection]', event.reason);
+    }
+
+    window.addEventListener('error', reportError);
+    window.addEventListener('unhandledrejection', reportRejection);
+    return () => {
+      window.removeEventListener('error', reportError);
+      window.removeEventListener('unhandledrejection', reportRejection);
+    };
   }, []);
+
+  return null;
+}
+export function LegacyHashRedirect() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || hash === '#') return;
+
+    const nextPath = hash.startsWith('#/') ? hash.slice(1) : `/${hash.slice(1)}`;
+    window.history.replaceState(null, '', nextPath || '/dashboard');
+    navigate(nextPath || '/dashboard', { replace: true });
+  }, [navigate]);
+
+  useEffect(() => {
+    if (location.pathname.length <= 1 || !location.pathname.endsWith('/')) return;
+    navigate(`${location.pathname.replace(/\/+$/, '')}${location.search || ''}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
 
   return null;
 }
@@ -39,6 +66,16 @@ export function RouteMemory() {
 
 export function PublicRoute({ children }) {
   return isAuthenticated() ? <Navigate to={getLastRoute()} replace /> : children;
+}
+
+export function AdminPublicRoute({ children }) {
+  return isAdminAuthenticated() ? <Navigate to="/admin" replace /> : children;
+}
+
+export function AdminProtectedRoute({ children }) {
+  return isAdminAuthenticated()
+    ? <AdminErrorBoundary>{children}</AdminErrorBoundary>
+    : <Navigate to="/admin-login" replace />;
 }
 
 export function ProtectedRoute({ children }) {

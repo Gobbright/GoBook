@@ -73,18 +73,18 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
 
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
   const listRoute = ({
-    invoice: '#/billing/invoice',
-    'bill-of-supply': '#/billing/bill-of-supply',
-    quotation: '#/billing/quotation',
-    'purchase-order': '#/billing/purchase-order',
-    'purchase-entry': '#/billing/purchase-entry',
-    'credit-note': '#/billing/credit-note',
-    'debit-note': '#/billing/debit-note',
-    proforma: '#/billing/proforma',
-    'delivery-challan': '#/billing/delivery-challan',
-    'e-invoice': '#/billing/e-invoice',
-    'e-way-bill': '#/billing/e-way-bill',
-  })[documentType] ?? '#/billing/invoice';
+    invoice: '/billing/invoice',
+    'bill-of-supply': '/billing/bill-of-supply',
+    quotation: '/billing/quotation',
+    'purchase-order': '/billing/purchase-order',
+    'purchase-entry': '/billing/purchase-entry',
+    'credit-note': '/billing/credit-note',
+    'debit-note': '/billing/debit-note',
+    proforma: '/billing/proforma',
+    'delivery-challan': '/billing/delivery-challan',
+    'e-invoice': '/billing/e-invoice',
+    'e-way-bill': '/billing/e-way-bill',
+  })[documentType] ?? '/billing/invoice';
 
   useEffect(() => {
     api.getSettings().then(setBizSettings).catch(() => {});
@@ -226,7 +226,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
               <span className="rounded-md bg-blue-50 px-2 py-1 font-semibold text-blue-700">Cost Center: {invoice.extra.costCenter}</span>
             )}
             {accounting.voucherNo && (
-              <a className="rounded-md border border-[#dbe4ef] px-2 py-1 font-semibold text-[#374151] no-underline hover:bg-gray-50" href="#vouchers">View in Accounting</a>
+              <a className="rounded-md border border-[#dbe4ef] px-2 py-1 font-semibold text-[#374151] no-underline hover:bg-gray-50" href="/vouchers">View in Accounting</a>
             )}
           </div>
         </div>

@@ -2,12 +2,14 @@ import { UsersManagementPage } from './pages/UsersManagementPage.jsx';
 import { InvoicesPage } from './pages/InvoicesPage.jsx';
 import { ProductsPage } from './pages/ProductsPage.jsx';
 import { PaymentsPage } from './pages/PaymentsPage.jsx';
+import { AdminNotificationsPage } from './pages/AdminNotificationsPage.jsx';
 
 export const adminPageRoutes = [
   { path: '/admin/users', element: <UsersManagementPage /> },
   { path: '/admin/invoices', element: <InvoicesPage /> },
   { path: '/admin/products', element: <ProductsPage /> },
   { path: '/admin/payments', element: <PaymentsPage /> },
+  { path: '/admin/notifications', element: <AdminNotificationsPage /> },
 ];
 
 export const adminNavigation = {

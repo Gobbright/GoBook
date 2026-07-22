@@ -1,3 +1,4 @@
+import { redirectTo } from '../routes/navigation.js';
 import { expireSession, getToken } from './authToken.js';
 import { API_BASE_URL } from './apiBase.js';
 
@@ -22,7 +23,7 @@ export async function apiClient(path, options = {}) {
 
   if (response.status === 401 && !path.startsWith('/auth/')) {
     expireSession();
-    window.location.hash = '/login';
+    redirectTo('/login');
   }
 
   const data = await response.json().catch(() => ({}));

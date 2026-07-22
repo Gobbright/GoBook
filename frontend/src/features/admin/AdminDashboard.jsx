@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertOctagon, BarChart3, CalendarDays, Clock, Database, IndianRupee, Menu, RefreshCw, TrendingUp, UserCheck, UsersRound, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { safeNavigate } from '../../routes/navigation.js';
+import { AlertOctagon, CalendarDays, Clock, Database, IndianRupee, TrendingUp, UserCheck, UsersRound } from 'lucide-react';
 
 import { fetchAdminDashboard, isAdminAuthenticated } from './adminService.js';
 import { DataTable } from './components/DataTable.jsx';
@@ -74,9 +76,9 @@ function DonutSummary({ activeUsers, totalUsers }) {
 }
 
 export function AdminDashboard() {
+  const navigate = useNavigate();
   const [status, setStatus] = useState('loading');
   const [dashboard, setDashboard] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   async function loadDashboard() {
     setStatus('loading');
@@ -85,13 +87,13 @@ export function AdminDashboard() {
       setDashboard(data);
       setStatus('ready');
     } catch {
-      window.location.hash = '/admin-login';
+      safeNavigate(navigate, '/admin-login');
     }
   }
 
   useEffect(() => {
     if (!isAdminAuthenticated()) {
-      window.location.hash = '/admin-login';
+      safeNavigate(navigate, '/admin-login');
       return;
     }
     loadDashboard();
@@ -119,25 +121,7 @@ export function AdminDashboard() {
   return (
     <AdminLayout>
       <div className="min-h-screen text-slate-900 dark:text-slate-100">
-        <header className="sticky top-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 md:px-7 py-4">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 md:hidden mb-3">
-                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">
-                  {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-                </button>
-                <h1 className="text-[20px] font-extrabold">Admin Panel</h1>
-              </div>
-              <h1 className="hidden md:block m-0 text-[24px] font-extrabold tracking-tight">Dashboard</h1>
-              <p className="m-0 text-[12px] text-slate-500 dark:text-slate-400 mt-1">Users, renewals and revenue from MongoDB</p>
-            </div>
-            <button onClick={loadDashboard} className="h-10 px-3 rounded-lg bg-blue-600 text-white border-0 cursor-pointer flex items-center gap-2 text-[13px] font-bold hover:bg-blue-700 transition">
-              <RefreshCw size={15} /> Refresh
-            </button>
-          </div>
-        </header>
-
-        <div className="p-3 md:p-6 lg:p-7 space-y-4 md:space-y-6">
+<div className="p-3 md:p-6 lg:p-7 space-y-4 md:space-y-6 max-w-7xl mx-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             <DashboardMetric label="Total Users" value={panel.totalUsers ?? 0} icon={UsersRound} />
             <DashboardMetric label="Active Users" value={panel.activeUsers ?? 0} icon={UserCheck} tone="green" />

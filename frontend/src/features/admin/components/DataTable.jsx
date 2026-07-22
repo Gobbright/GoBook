@@ -1,5 +1,5 @@
-﻿import { useMemo, useState } from 'react';
-import { Download, Edit3, FileSpreadsheet, FileText, Search, Trash2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Edit3, Eye, FileSpreadsheet, FileText, Search, Trash2, X } from 'lucide-react';
 
 import { deleteAdminTableRow, updateAdminTableRow } from '../adminService.js';
 
@@ -43,10 +43,32 @@ function escapeCsv(value) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 
+
+const FIELD_BASE_CLASS = 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
+const SELECT_BASE_CLASS = `${FIELD_BASE_CLASS} cursor-pointer`;
+const STATUS_OPTIONS = ['Active', 'Inactive', 'Trial', 'Expired', 'Blocked', 'Deleted', 'Pending', 'Successful', 'Failed', 'Scheduled', 'Ready', 'Draft', 'Enabled', 'Disabled'];
+
+function isDateField(field) {
+  return /date|expiry|expires|createdat|updatedat/i.test(field);
+}
+
+function isNumberField(field) {
+  return /amount|price|stock|count|days|period|total|revenue|number|qty|quantity/i.test(field);
+}
+
+function toDateInputValue(value) {
+  if (!value) return '';
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(String(value))) return String(value);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
+
 export function DataTable({ section, onChanged }) {
   const allFields = section.fields || [];
   const [statusFilter, setStatusFilter] = useState('all');
   const [query, setQuery] = useState('');
+  const [viewingRow, setViewingRow] = useState(null);
   const [editingRow, setEditingRow] = useState(null);
   const [deleteRow, setDeleteRow] = useState(null);
   const [form, setForm] = useState({});
@@ -88,6 +110,11 @@ export function DataTable({ section, onChanged }) {
     win.print();
   }
 
+  function openView(row) {
+    setActionError('');
+    setViewingRow(row);
+  }
+
   function openEdit(row) {
     setActionError('');
     setEditingRow(row);
@@ -101,8 +128,7 @@ export function DataTable({ section, onChanged }) {
     try {
       await updateAdminTableRow(sourceKey, editingRow.id, form);
       setEditingRow(null);
-      onChanged?.();
-      window.location.reload();
+      await onChanged?.();
     } catch (err) {
       setActionError(err.message || 'Unable to update record');
     } finally {
@@ -110,6 +136,40 @@ export function DataTable({ section, onChanged }) {
     }
   }
 
+
+  function renderEditField(field) {
+    const value = form[field] ?? '';
+    const label = titleize(field);
+    const updateField = (nextValue) => setForm((current) => ({ ...current, [field]: nextValue }));
+
+    if (/status/i.test(field)) {
+      const options = Array.from(new Set([...STATUS_OPTIONS, ...statusValues.filter((status) => status !== 'all')])).filter(Boolean);
+      return (
+        <label key={field} className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+          {label}
+          <select value={value} onChange={(event) => updateField(event.target.value)} className={SELECT_BASE_CLASS}>
+            {options.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+      );
+    }
+
+    if (isDateField(field)) {
+      return (
+        <label key={field} className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+          {label}
+          <input type="date" value={toDateInputValue(value)} onChange={(event) => updateField(event.target.value)} className={FIELD_BASE_CLASS} />
+        </label>
+      );
+    }
+
+    return (
+      <label key={field} className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+        {label}
+        <input type={isNumberField(field) ? 'number' : 'text'} value={value} onChange={(event) => updateField(event.target.value)} className={FIELD_BASE_CLASS} />
+      </label>
+    );
+  }
   async function confirmDelete() {
     if (!deleteRow?.id || !sourceKey) return;
     setSaving(true);
@@ -117,8 +177,7 @@ export function DataTable({ section, onChanged }) {
     try {
       await deleteAdminTableRow(sourceKey, deleteRow.id);
       setDeleteRow(null);
-      onChanged?.();
-      window.location.reload();
+      await onChanged?.();
     } catch (err) {
       setActionError(err.message || 'Unable to delete record');
     } finally {
@@ -128,31 +187,32 @@ export function DataTable({ section, onChanged }) {
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 bg-slate-50 dark:bg-slate-800">
+      <div className="px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 bg-slate-50 dark:bg-slate-800">
         <div>
-          <h3 className="m-0 text-[16px] font-extrabold text-slate-900 dark:text-slate-100">{section.label}</h3>
-          <p className="m-0 text-[12px] text-slate-500 dark:text-slate-400 mt-1">{section.count?.toLocaleString?.() || rows.length} total records - Showing {rows.length.toLocaleString()}</p>
+          <h3 className="m-0 text-[14px] font-extrabold text-slate-900 dark:text-slate-100">{section.label}</h3>
+          <p className="m-0 text-[11px] text-slate-500 dark:text-slate-400 mt-1">{section.count?.toLocaleString?.() || rows.length} total records - Showing {rows.length.toLocaleString()}</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <div className="relative min-w-[220px]">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(220px,1fr)_140px_auto_auto] gap-2 sm:items-center w-full xl:w-auto">
+          <div className="relative min-w-0">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search table..." className="w-full pl-8 pr-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search table..." className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-8 pr-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" />
           </div>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none">
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
             {statusValues.map((status) => <option key={status} value={status}>{status === 'all' ? 'All Filter' : status}</option>)}
           </select>
-          <button onClick={exportPdf} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center gap-2"><FileText size={15} /> PDF</button>
-          <button onClick={exportExcel} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center gap-2"><FileSpreadsheet size={15} /> Excel</button>
+          <button onClick={exportPdf} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center justify-center gap-2"><FileText size={15} /> PDF</button>
+          <button onClick={exportExcel} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center justify-center gap-2"><FileSpreadsheet size={15} /> Excel</button>
         </div>
       </div>
 
       {/* Mobile View */}
-      <div className="md:hidden space-y-3">
+      <div className="md:hidden space-y-3 p-3">
         {rows.length === 0 ? (
           <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6 text-center text-slate-400 text-[13px]">No records found</div>
-        ) : rows.map((row, index) => (
-          <div key={row.id || index} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3">
-            {allFields.map((field, fieldIndex) => (
+        ) : (
+          rows.map((row, index) => (
+              <div key={row.id || index} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3">
+                {allFields.map((field, fieldIndex) => (
               <div key={field} className={fieldIndex < allFields.length - 1 ? 'border-b border-slate-200 dark:border-slate-700 pb-3' : 'pb-0'}>
                 <p className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">{titleize(field)}</p>
                 <p className="text-[13px] text-slate-700 dark:text-slate-300 mt-1 break-all">
@@ -160,47 +220,71 @@ export function DataTable({ section, onChanged }) {
                 </p>
               </div>
             ))}
-            <div className="flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
-              <button onClick={() => openEdit(row)} className="flex-1 p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Edit">
-                <Edit3 size={14} className="mx-auto" />
-              </button>
-              <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="flex-1 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Delete">
-                <Trash2 size={14} className="mx-auto" />
-              </button>
-            </div>
-          </div>
-        ))}
+                <div className="flex gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+                  <button onClick={() => openView(row)} className="flex-1 p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="View">
+                    <Eye size={14} className="mx-auto" />
+                  </button>
+                  <button onClick={() => openEdit(row)} className="flex-1 p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Edit">
+                    <Edit3 size={14} className="mx-auto" />
+                  </button>
+                  <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="flex-1 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Delete">
+                    <Trash2 size={14} className="mx-auto" />
+                  </button>
+                </div>
+              </div>
+            )
+          )
+        )}
       </div>
 
       {/* Desktop View */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-              {allFields.map((field) => <th key={field} className="px-4 py-3 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">{titleize(field)}</th>)}
-              <th className="px-4 py-3 text-right text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {rows.length === 0 ? (
-              <tr><td colSpan={allFields.length + 1} className="px-6 py-8 text-center text-slate-400 text-[13px]">No records found</td></tr>
-            ) : rows.map((row, index) => (
-              <tr key={row.id || index} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
-                {allFields.map((field) => <td key={field} className="px-4 py-3 text-[13px] text-slate-700 dark:text-slate-300 max-w-[220px] truncate" title={String(row[field] ?? '')}>{field.toLowerCase().includes('date') ? formatDate(row[field]) : formatValue(row[field])}</td>)}
-                <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <button onClick={() => openEdit(row)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Edit"><Edit3 size={16} /></button>
-                  <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Delete"><Trash2 size={16} /></button>
-                </td>
+      <div className="hidden md:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+        <div className="overflow-hidden">
+          <table className="w-full table-fixed">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                {allFields.map((field) => <th key={field} className="px-3 py-3 text-left text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide break-words">{titleize(field)}</th>)}
+                <th className="w-28 px-3 py-3 text-right text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {rows.length === 0 ? (
+                <tr><td colSpan={allFields.length + 1} className="px-6 py-8 text-center text-slate-400 text-[13px]">No records found</td></tr>
+              ) : (
+                rows.map((row, index) => (
+                    <tr key={row.id || index} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
+                      {allFields.map((field) => <td key={field} className="px-3 py-3 text-[12px] text-slate-700 dark:text-slate-300 break-words align-top" title={String(row[field] ?? '')}>{field.toLowerCase().includes('date') ? formatDate(row[field]) : formatValue(row[field])}</td>)}
+                      <td className="w-28 px-3 py-3 text-right align-top bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800">
+                        <button onClick={() => openView(row)} className="p-1.5 text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="View"><Eye size={16} /></button>
+                        <button onClick={() => openEdit(row)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Edit"><Edit3 size={16} /></button>
+                        <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Delete"><Trash2 size={16} /></button>
+                      </td>
+                    </tr>
+                  )
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {viewingRow && (
+        <Modal title={`View ${section.label}`} onClose={() => setViewingRow(null)}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
+            {allFields.map((field) => (
+              <div key={field} className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2">
+                <p className="m-0 text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">{titleize(field)}</p>
+                <p className="m-0 mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100 break-words">{field.toLowerCase().includes('date') ? formatDate(viewingRow[field]) : formatValue(viewingRow[field])}</p>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
 
       {editingRow && (
         <Modal title={`Edit ${section.label}`} onClose={() => setEditingRow(null)}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
-            {allFields.map((field) => <label key={field} className="text-sm font-semibold text-slate-600 dark:text-slate-300">{titleize(field)}<input value={form[field] ?? ''} onChange={(event) => setForm({ ...form, [field]: event.target.value })} className="mt-1 w-full px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm" /></label>)}
+            {allFields.map(renderEditField)}
           </div>
           {actionError && <p className="text-sm font-bold text-red-600">{actionError}</p>}
           <div className="flex justify-end gap-2 mt-4"><button onClick={() => setEditingRow(null)} className="px-4 py-2 rounded-md border">Cancel</button><button onClick={saveEdit} disabled={saving} className="px-4 py-2 rounded-md bg-blue-600 text-white border-0">{saving ? 'Saving...' : 'Confirm & Save'}</button></div>
@@ -228,3 +312,4 @@ function Modal({ title, children, onClose }) {
     </div>
   );
 }
+

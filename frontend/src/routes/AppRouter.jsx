@@ -1,12 +1,11 @@
-﻿import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { AdminLoginPage } from '../features/admin/AdminLoginPage.jsx';
 import { AdminPanelPage } from '../features/admin/AdminPanelPage.jsx';
-import { adminPageRoutes } from '../features/admin/routes.jsx';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage.jsx';
 import { InvoicesPage } from '../features/admin/pages/InvoicesPage.jsx';
-import { ProductsPage } from '../features/admin/pages/ProductsPage.jsx';
 import { PaymentsPage } from '../features/admin/pages/PaymentsPage.jsx';
+import { AdminNotificationsPage } from '../features/admin/pages/AdminNotificationsPage.jsx';
 import { AdminSectionPage } from '../features/admin/pages/AdminSectionPage.jsx';
 import { AdminUserListPage } from '../features/admin/pages/AdminUserListPage.jsx';
 import { AdminUserDetailsPage } from '../features/admin/pages/AdminUserDetailsPage.jsx';
@@ -38,73 +37,76 @@ import { hotelRoutes } from './hotelRoutes.jsx';
 import { ngoRoutes } from './ngoRoutes.jsx';
 import { commonRoutes, retailRoutes } from './retailRoutes.jsx';
 import { schoolRoutes } from './schoolRoutes.jsx';
-import { LegacyHashRedirect, ProtectedRoute, ProtectedShell, PublicRoute } from './RouteGuards.jsx';
+import { AdminProtectedRoute, AdminPublicRoute, GlobalErrorReporter, LegacyHashRedirect, ProtectedRoute, ProtectedShell, PublicRoute } from './RouteGuards.jsx';
 import { getLastRoute } from './routeStorage.js';
 
-// Rendered inside <HashRouter>, so useLocation() re-runs this on every hash navigation
-// (including the redirect straight after login/register), keeping `category` fresh
-// without needing a full page reload.
+// Rendered inside <BrowserRouter>, so useLocation() re-runs this on clean URL navigation,
+// keeping category-specific route branches fresh without needing a full page reload.
 function AppRoutes() {
   useLocation();
   const category = getCurrentUser()?.category || 'retail';
+  const adminRoute = (element) => <AdminProtectedRoute>{element}</AdminProtectedRoute>;
+  const adminRedirect = (to) => adminRoute(<Navigate to={to} replace />);
 
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
-      <Route path="/admin-login" element={<AdminLoginPage />} />
-      <Route path="/admin" element={<AdminPanelPage />} />
-      <Route path="/admin/users" element={<AdminSectionPage group="usersBusinesses" />} />
-      <Route path="/admin/users/all" element={<AdminUserListPage type="all" />} />
-      <Route path="/admin/users/active" element={<AdminUserListPage type="active" />} />
-      <Route path="/admin/users/trial" element={<AdminUserListPage type="trial" />} />
-      <Route path="/admin/users/expired" element={<AdminUserListPage type="expired" />} />
-      <Route path="/admin/users/blocked" element={<AdminUserListPage type="blocked" />} />
-      <Route path="/admin/users/deleted" element={<AdminUserListPage type="deleted" />} />
-      <Route path="/admin/user-details/business" element={<AdminUserDetailsPage type="business" />} />
-      <Route path="/admin/user-details/owner" element={<AdminUserDetailsPage type="owner" />} />
-      <Route path="/admin/user-details/category" element={<AdminUserDetailsPage type="category" />} />
-      <Route path="/admin/user-details/subscription" element={<AdminUserDetailsPage type="subscription" />} />
-      <Route path="/admin/user-details/registration" element={<AdminUserDetailsPage type="registration" />} />
-      <Route path="/admin/user-details/expiry" element={<AdminUserDetailsPage type="expiry" />} />
-      <Route path="/admin/user-details/payments" element={<AdminUserDetailsPage type="payments" />} />
-      <Route path="/admin/user-details/login" element={<AdminUserDetailsPage type="login" />} />
-      <Route path="/admin/subscription/plans" element={<AdminSubscriptionPage type="plans" />} />
-      <Route path="/admin/subscription/active" element={<AdminSubscriptionPage type="active" />} />
-      <Route path="/admin/subscription/expired" element={<AdminSubscriptionPage type="expired" />} />
-      <Route path="/admin/subscription/requests" element={<AdminSubscriptionPage type="requests" />} />
-      <Route path="/admin/subscription/history" element={<AdminSubscriptionPage type="history" />} />
-      <Route path="/admin/invoices" element={<InvoicesPage />} />
-      <Route path="/admin/products" element={<AdminSectionPage group="inventory" />} />
-      <Route path="/admin/payments" element={<PaymentsPage type="all" />} />
-      <Route path="/admin/payments/all" element={<PaymentsPage type="all" />} />
-      <Route path="/admin/payments/pending" element={<PaymentsPage type="pending" />} />
-      <Route path="/admin/payments/successful" element={<PaymentsPage type="successful" />} />
-      <Route path="/admin/payments/failed" element={<PaymentsPage type="failed" />} />
-      <Route path="/admin/payments/reports" element={<PaymentsPage type="reports" />} />
-      <Route path="/admin/notifications/renewal-reminder" element={<AdminRecordPage kind="renewalReminder" />} />
-      <Route path="/admin/notifications/expiry-reminder" element={<AdminRecordPage kind="expiryReminder" />} />
-      <Route path="/admin/notifications/payment-reminder" element={<AdminRecordPage kind="paymentReminder" />} />
-      <Route path="/admin/notifications/send-notification" element={<AdminRecordPage kind="sendNotification" />} />
-      <Route path="/admin/reports/user-report" element={<AdminRecordPage kind="userReport" />} />
-      <Route path="/admin/reports/renewal-report" element={<AdminRecordPage kind="renewalReport" />} />
-      <Route path="/admin/reports/expiry-report" element={<AdminRecordPage kind="expiryReport" />} />
-      <Route path="/admin/reports/payment-report" element={<AdminRecordPage kind="paymentReport" />} />
-      <Route path="/admin/reports/revenue-report" element={<AdminRecordPage kind="revenueReport" />} />
-      <Route path="/admin/settings/subscription-plans" element={<AdminRecordPage kind="subscriptionPlans" />} />
-      <Route path="/admin/settings/trial-days" element={<AdminRecordPage kind="trialDays" />} />
-      <Route path="/admin/settings/grace-period" element={<AdminRecordPage kind="gracePeriod" />} />
-      <Route path="/admin/settings/auto-block-after-expiry" element={<AdminRecordPage kind="autoBlockAfterExpiry" />} />
-      <Route path="/admin/settings/payment-settings" element={<AdminRecordPage kind="paymentSettings" />} />
-      <Route path="/admin/customers" element={<AdminSectionPage group="customers" />} />
-      <Route path="/admin/accounting" element={<AdminSectionPage group="accounting" />} />
-      <Route path="/admin/hr" element={<AdminSectionPage group="hr" />} />
-      <Route path="/admin/inventory" element={<AdminSectionPage group="inventory" />} />
-      <Route path="/admin/reports" element={<AdminSectionPage group="reports" />} />
-      <Route path="/admin/category/business" element={<CategoryBusinessPage />} />
-      <Route path="/admin/category/hospital" element={<CategoryHospitalPage />} />
-      <Route path="/admin/category/hotel" element={<CategoryHotelPage />} />
+      <Route path="/admin-login" element={<AdminPublicRoute><AdminLoginPage /></AdminPublicRoute>} />
+      <Route path="/admin" element={adminRoute(<AdminPanelPage />)} />
+      <Route path="/admin/users" element={adminRoute(<AdminSectionPage group="usersBusinesses" />)} />
+      <Route path="/admin/users/all" element={adminRoute(<AdminUserListPage type="all" />)} />
+      <Route path="/admin/users/active" element={adminRoute(<AdminUserListPage type="active" />)} />
+      <Route path="/admin/users/trial" element={adminRoute(<AdminUserListPage type="trial" />)} />
+      <Route path="/admin/users/expired" element={adminRoute(<AdminUserListPage type="expired" />)} />
+      <Route path="/admin/users/blocked" element={adminRoute(<AdminUserListPage type="blocked" />)} />
+      <Route path="/admin/users/deleted" element={adminRoute(<AdminUserListPage type="deleted" />)} />
+      <Route path="/admin/user-details" element={adminRedirect('/admin/user-details/business')} />
+      <Route path="/admin/user-details/business" element={adminRoute(<AdminUserDetailsPage type="business" />)} />
+      <Route path="/admin/user-details/owner" element={adminRoute(<AdminUserDetailsPage type="owner" />)} />
+      <Route path="/admin/user-details/category" element={adminRoute(<AdminUserDetailsPage type="category" />)} />
+      <Route path="/admin/user-details/subscription" element={adminRoute(<AdminUserDetailsPage type="subscription" />)} />
+      <Route path="/admin/user-details/registration" element={adminRoute(<AdminUserDetailsPage type="registration" />)} />
+      <Route path="/admin/user-details/expiry" element={adminRoute(<AdminUserDetailsPage type="expiry" />)} />
+      <Route path="/admin/user-details/payments" element={adminRoute(<AdminUserDetailsPage type="payments" />)} />
+      <Route path="/admin/user-details/login" element={adminRoute(<AdminUserDetailsPage type="login" />)} />
+      <Route path="/admin/subscription/plans" element={adminRoute(<AdminSubscriptionPage type="plans" />)} />
+      <Route path="/admin/subscription/active" element={adminRoute(<AdminSubscriptionPage type="active" />)} />
+      <Route path="/admin/subscription/expired" element={adminRoute(<AdminSubscriptionPage type="expired" />)} />
+      <Route path="/admin/subscription/requests" element={adminRoute(<AdminSubscriptionPage type="requests" />)} />
+      <Route path="/admin/subscription/history" element={adminRoute(<AdminSubscriptionPage type="history" />)} />
+      <Route path="/admin/invoices" element={adminRoute(<InvoicesPage />)} />
+      <Route path="/admin/products" element={adminRoute(<AdminSectionPage group="inventory" />)} />
+      <Route path="/admin/payments" element={adminRoute(<PaymentsPage type="all" />)} />
+      <Route path="/admin/payments/all" element={adminRoute(<PaymentsPage type="all" />)} />
+      <Route path="/admin/payments/pending" element={adminRoute(<PaymentsPage type="pending" />)} />
+      <Route path="/admin/payments/successful" element={adminRoute(<PaymentsPage type="successful" />)} />
+      <Route path="/admin/payments/failed" element={adminRoute(<PaymentsPage type="failed" />)} />
+      <Route path="/admin/payments/reports" element={adminRoute(<PaymentsPage type="reports" />)} />
+      <Route path="/admin/notifications" element={adminRoute(<AdminNotificationsPage />)} />
+      <Route path="/admin/notifications/*" element={adminRedirect('/admin/notifications')} />
+      <Route path="/admin/reports/user-report" element={adminRoute(<AdminRecordPage kind="userReport" />)} />
+      <Route path="/admin/reports/renewal-report" element={adminRoute(<AdminRecordPage kind="renewalReport" />)} />
+      <Route path="/admin/reports/expiry-report" element={adminRoute(<AdminRecordPage kind="expiryReport" />)} />
+      <Route path="/admin/reports/payment-report" element={adminRoute(<AdminRecordPage kind="paymentReport" />)} />
+      <Route path="/admin/reports/revenue-report" element={adminRoute(<AdminRecordPage kind="revenueReport" />)} />
+      <Route path="/admin/settings/subscription-plans" element={adminRoute(<AdminRecordPage kind="subscriptionPlans" />)} />
+      <Route path="/admin/settings/trial-days" element={adminRoute(<AdminRecordPage kind="trialDays" />)} />
+      <Route path="/admin/settings/grace-period" element={adminRoute(<AdminRecordPage kind="gracePeriod" />)} />
+      <Route path="/admin/settings/auto-block-after-expiry" element={adminRoute(<AdminRecordPage kind="autoBlockAfterExpiry" />)} />
+      <Route path="/admin/settings/payment-settings" element={adminRoute(<AdminRecordPage kind="paymentSettings" />)} />
+      <Route path="/admin/customers" element={adminRoute(<AdminSectionPage group="customers" />)} />
+      <Route path="/admin/accounting" element={adminRoute(<AdminSectionPage group="accounting" />)} />
+      <Route path="/admin/hr" element={adminRoute(<AdminSectionPage group="hr" />)} />
+      <Route path="/admin/inventory" element={adminRoute(<AdminSectionPage group="inventory" />)} />
+      <Route path="/admin/reports" element={adminRoute(<AdminSectionPage group="reports" />)} />
+      <Route path="/admin/category/business" element={adminRoute(<CategoryBusinessPage />)} />
+      <Route path="/admin/category/hospital" element={adminRoute(<CategoryHospitalPage />)} />
+      <Route path="/admin/category/hotel" element={adminRoute(<CategoryHotelPage />)} />
+      <Route path="/admin/subscription" element={adminRedirect('/admin/subscription/plans')} />
+      <Route path="/admin/settings" element={adminRedirect('/admin/settings/subscription-plans')} />
+      <Route path="/admin/*" element={adminRedirect('/admin')} />
       <Route path="/google-onboarding" element={<ProtectedRoute><GoogleOnboardingPage /></ProtectedRoute>} />
       <Route path="/verify-email" element={<ProtectedRoute><VerifyEmailPage /></ProtectedRoute>} />
       <Route path="/platform-admin" element={<ProtectedRoute><PlatformAdminPage /></ProtectedRoute>} />
@@ -173,10 +175,11 @@ function AppRoutes() {
 
 export function AppRouter() {
   return (
-    <HashRouter>
+    <BrowserRouter>
+      <GlobalErrorReporter />
       <LegacyHashRedirect />
       <AppRoutes />
-    </HashRouter>
+    </BrowserRouter>
   );
 }
 

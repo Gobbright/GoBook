@@ -36,7 +36,7 @@ const appUserSchema = new Schema({
   role:         { type: String, trim: true, default: 'Sales Executive' },
   branch:       { type: String, trim: true, default: '' },
   phone:        { type: String, trim: true, default: '' },
-  status:       { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
+  status:       { type: String, enum: ['Active', 'Inactive', 'Blocked', 'Deleted', 'Expired'], default: 'Active' },
   lastLogin:    { type: String, default: '' },
   isPlatformOwner: { type: Boolean, default: false },
   resetOtpHash: { type: String, select: false, default: '' },

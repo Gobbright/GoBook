@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
   Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, ChevronDown, Contact,
@@ -14,6 +15,7 @@ import {
 import { getSidebarSections } from '../../constants/navigation.js';
 import { getCurrentUser, logout } from '../../services/authService.js';
 import sidebarLogo from '../../assets/images/logo/logo.png';
+import { normalizeAppPath } from '../../routes/navigation.js';
 
 const ICON_MAP = {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
@@ -31,20 +33,20 @@ function NavIcon({ name }) {
   return Icon ? <Icon size={15} strokeWidth={1.75} /> : null;
 }
 
-function findOpenNavItem(sidebarSections, hash) {
+function findOpenNavItem(sidebarSections, path) {
   for (const section of sidebarSections) {
     for (const item of section.items) {
-      if (item.children?.some((c) => c.href === hash || hash === item.href)) return item.label;
+      if (item.children?.some((c) => normalizeAppPath(c.href) === path || path === normalizeAppPath(item.href))) return item.label;
     }
   }
   return null;
 }
 
-function findActiveSection(sidebarSections, hash) {
+function findActiveSection(sidebarSections, path) {
   for (const section of sidebarSections) {
     for (const item of section.items) {
-      if (item.href === hash) return section.title;
-      if (item.children?.some((c) => c.href === hash)) return section.title;
+      if (normalizeAppPath(item.href) === path) return section.title;
+      if (item.children?.some((c) => normalizeAppPath(c.href) === path)) return section.title;
     }
   }
   return null;
@@ -55,10 +57,10 @@ const SECTION_KEY = 'gobook.openSection';
 export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
   // Recomputed on every mount so switching accounts (different category) within the same tab picks up fresh nav.
   const [sidebarSections] = useState(() => getSidebarSections(getCurrentUser()?.category || 'retail'));
-  const [, setTick] = useState(0);
+  const location = useLocation();
   const [openSection, setOpenSection] = useState(() => {
     // Active section from current URL takes priority; otherwise restore last saved; Sales is the default
-    const fromHash = findActiveSection(sidebarSections, window.location.hash || '#/dashboard');
+    const fromPath = findActiveSection(sidebarSections, normalizeAppPath(window.location.pathname || '/dashboard'));
     if (fromHash) {
       sessionStorage.setItem(SECTION_KEY, fromHash);
       return fromHash;
@@ -66,29 +68,23 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
     return sessionStorage.getItem(SECTION_KEY) ?? 'Dashboard';
   });
   const [openNavItem, setOpenNavItem] = useState(
-    () => findOpenNavItem(sidebarSections, window.location.hash || '#/dashboard'),
+    () => findOpenNavItem(sidebarSections, normalizeAppPath(window.location.pathname || '/dashboard')),
   );
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  const currentHash = window.location.hash || '#/dashboard';
+  const currentPath = normalizeAppPath(location.pathname || '/dashboard');
 
   useEffect(() => {
-    function handleHashChange() {
-      const hash = window.location.hash || '#/dashboard';
-      setTick((t) => t + 1);
-      setOpenNavItem(findOpenNavItem(sidebarSections, hash));
-      const section = findActiveSection(sidebarSections, hash);
-      if (section) {
-        setOpenSection(section);
-        sessionStorage.setItem(SECTION_KEY, section);
-      }
-      onCloseRef.current();
+    setOpenNavItem(findOpenNavItem(sidebarSections, currentPath));
+    const section = findActiveSection(sidebarSections, currentPath);
+    if (section) {
+      setOpenSection(section);
+      sessionStorage.setItem(SECTION_KEY, section);
     }
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+    onCloseRef.current();
+  }, [currentPath, sidebarSections]);
 
   function toggleSection(title) {
     setOpenSection((s) => {
@@ -124,19 +120,19 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
             <div key={section.title}>
               {section.items.length === 1 ? (
                 /* Single-item section — render as direct link */
-                <a
-                  href={section.items[0].href}
+                <Link
+                  to={normalizeAppPath(section.items[0].href)}
                   onClick={onClose}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium no-underline transition-colors
-                    ${currentHash === section.items[0].href
+                    ${currentPath === normalizeAppPath(section.items[0].href)
                       ? 'bg-blue-600 text-white'
                       : 'text-[#c8dff2] hover:text-white hover:bg-white/8'}`}
                 >
-                  <span className={currentHash === section.items[0].href ? 'text-white' : 'text-[#7ab4d8]'}>
+                  <span className={currentPath === normalizeAppPath(section.items[0].href) ? 'text-white' : 'text-[#7ab4d8]'}>
                     <NavIcon name={section.items[0].icon} />
                   </span>
                   {section.items[0].label}
-                </a>
+                </Link>
               ) : (
                 /* Multi-item section — collapsible group */
                 <div className="mt-1">
@@ -159,16 +155,16 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                     <div className="mt-0.5 flex flex-col gap-1 animate-fade-slide-down">
                       {section.items.map((item) => {
                         if (item.children) {
-                          const hasActiveChild = item.children.some((c) => currentHash === c.href);
+                          const hasActiveChild = item.children.some((c) => currentPath === normalizeAppPath(c.href));
                           const isOpen = item.alwaysOpen || openNavItem === item.label || hasActiveChild;
-                          const activeParent = item.href && currentHash === item.href;
+                          const activeParent = item.href && currentPath === normalizeAppPath(item.href);
                           const highlighted = activeParent || hasActiveChild;
                           return (
                             <div key={item.label}>
                               <div className={`flex items-center rounded-lg transition-colors ${highlighted ? '' : 'hover:bg-white/8'}`}>
                                 {item.href ? (
-                                  <a
-                                    href={item.href}
+                                  <Link
+                                    to={normalizeAppPath(item.href)}
                                     onClick={onClose}
                                     className={`flex items-center gap-3 flex-1 px-3 py-2 text-[13px] no-underline transition-colors rounded-l-lg
                                       ${highlighted ? 'bg-blue-600 text-white' : 'text-[#c8dff2] hover:text-white'}`}
@@ -177,7 +173,7 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                                       <NavIcon name={item.icon} />
                                     </span>
                                     {item.label}
-                                  </a>
+                                  </Link>
                                 ) : (
                                   <span className={`flex items-center gap-3 flex-1 px-3 py-2 text-[13px] ${highlighted ? 'text-white' : 'text-[#c8dff2]'}`}>
                                     <span className={`flex-none ${highlighted ? 'text-white' : 'text-[#7ab4d8]'}`}>
@@ -201,16 +197,16 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                               {isOpen && (
                                 <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
                                   {item.children.map((child) => {
-                                    const active = currentHash === child.href;
+                                    const active = currentPath === normalizeAppPath(child.href);
                                     return (
-                                      <a
+                                      <Link
                                         key={child.label}
-                                        href={child.href}
+                                        to={normalizeAppPath(child.href)}
                                         className={`flex items-center px-3 py-1.5 rounded-md text-[12.5px] no-underline transition-colors
                                           ${active ? 'bg-blue-600 text-white font-semibold' : 'text-[#c8dff2] hover:text-white hover:bg-white/8'}`}
                                       >
                                         {child.label}
-                                      </a>
+                                      </Link>
                                     );
                                   })}
                                 </div>
@@ -219,11 +215,11 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                           );
                         }
 
-                        const active = currentHash === item.href;
+                        const active = currentPath === normalizeAppPath(item.href);
                         return (
-                          <a
+                          <Link
                             key={item.label}
-                            href={item.href}
+                            to={normalizeAppPath(item.href)}
                             onClick={onClose}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] no-underline transition-colors
                               ${active
@@ -234,7 +230,7 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                               <NavIcon name={item.icon} />
                             </span>
                             {item.label}
-                          </a>
+                          </Link>
                         );
                       })}
                     </div>

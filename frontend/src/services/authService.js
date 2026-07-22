@@ -1,3 +1,4 @@
+import { redirectTo } from '../routes/navigation.js';
 import { apiClient } from './apiClient.js';
 import { clearSession, getStoredUser, isAuthenticated, setSession } from './authToken.js';
 
@@ -56,5 +57,5 @@ export async function resetPasswordWithOtp({ email, otp, password }) {
 
 export function logout() {
   clearSession();
-  window.location.hash = '/login';
+  redirectTo('/login');
 }

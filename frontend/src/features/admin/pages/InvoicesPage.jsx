@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, RefreshCw, Download, Plus, Edit, Eye } from 'lucide-react';
+import { Search, Download, Plus, Edit, Eye } from 'lucide-react';
 import { fetchAdminSection } from '../adminService.js';
 import { AdminLayout } from '../AdminLayout.jsx';
 
@@ -58,9 +58,6 @@ export function InvoicesPage() {
             <button className="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-blue-700 transition text-xs md:text-sm">
               <Plus size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">New</span>
             </button>
-            <button onClick={loadData} className="px-3 md:px-4 py-2 bg-blue-100 text-blue-600 rounded-lg flex items-center gap-1 md:gap-2 hover:bg-blue-200 transition text-xs md:text-sm">
-              <RefreshCw size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">Refresh</span>
-            </button>
             <button className="px-3 md:px-4 py-2 bg-slate-900 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-slate-800 transition text-xs md:text-sm">
               <Download size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">Export</span>
             </button>
@@ -69,7 +66,7 @@ export function InvoicesPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4">
+      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -96,7 +93,7 @@ export function InvoicesPage() {
       </div>
 
       {/* Stats */}
-      <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 max-w-7xl mx-auto">
         <StatCard label="Total Invoices" value={data?.count || 0} />
         <StatCard label="Total Amount" value={`₹${totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} />
         <StatCard label="Issued" value={data?.rows?.filter(r => r.status === 'issued').length || 0} />
@@ -104,7 +101,7 @@ export function InvoicesPage() {
       </div>
 
       {/* Table */}
-      <div className="p-4 md:p-6">
+      <div className="p-4 md:p-6 max-w-7xl mx-auto">
         {/* Mobile View */}
         <div className="md:hidden space-y-3">
           {filteredRows.length === 0 ? (
@@ -153,42 +150,42 @@ export function InvoicesPage() {
 
         {/* Desktop View */}
         <div className="hidden md:block bg-white border border-slate-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-hidden">
+            <table className="w-full table-fixed [&_td]:break-words [&_th]:break-words [&_td]:whitespace-normal [&_th]:whitespace-normal">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Invoice #</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Type</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-slate-600 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-slate-600 uppercase">Actions</th>
+                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-600 uppercase">Invoice #</th>
+                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-600 uppercase">Customer</th>
+                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-600 uppercase">Type</th>
+                  <th className="px-3 py-3 text-right text-xs font-bold text-slate-600 uppercase">Amount</th>
+                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-600 uppercase">Status</th>
+                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-600 uppercase">Date</th>
+                  <th className="px-3 py-3 text-right text-xs font-bold text-slate-600 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                    <td colSpan={7} className="px-3 py-8 text-center text-slate-400">
                       No invoices found
                     </td>
                   </tr>
                 ) : (
                   filteredRows.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50 transition">
-                      <td className="px-4 py-3 text-sm font-semibold text-slate-900">{row.number || '—'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{row.customerName || '—'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{row.documentType || '—'}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-slate-900 text-right">
+                      <td className="px-3 py-3 text-sm font-semibold text-slate-900">{row.number || '—'}</td>
+                      <td className="px-3 py-3 text-sm text-slate-600">{row.customerName || '—'}</td>
+                      <td className="px-3 py-3 text-sm text-slate-600">{row.documentType || '—'}</td>
+                      <td className="px-3 py-3 text-sm font-semibold text-slate-900 text-right">
                         ₹{parseFloat(row.grandTotal || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className="px-3 py-3 text-sm">
                         <StatusBadge status={row.status} />
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-3 py-3 text-sm text-slate-600">
                         {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right flex justify-end gap-2">
+                      <td className="px-3 py-3 text-sm text-right flex justify-end gap-2">
                         <button className="p-1 text-blue-600 hover:bg-blue-50 rounded transition">
                           <Eye size={16} />
                         </button>

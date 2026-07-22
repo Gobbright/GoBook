@@ -1,3 +1,4 @@
+import { redirectTo } from '../../routes/navigation.js';
 import { useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Building2, Car, CheckCircle2, Eye, EyeOff,
@@ -119,7 +120,7 @@ function WelcomeStep({ onNext }) {
       </button>
       <p className={`text-center text-[12.5px] mt-5 mb-0 ${MUTED}`}>
         Already have an account?{' '}
-        <a href="#/login" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>Sign In</a>
+        <a href="//login" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>Sign In</a>
       </p>
     </div>
   );
@@ -286,9 +287,9 @@ function AccountStep({ form, errors, set, showPassword, setShowPassword, error, 
             <input type="checkbox" checked={form.acceptTerms} onChange={set('acceptTerms')} className="mt-0.5 w-4 h-4 rounded accent-blue-500 cursor-pointer flex-none" />
             <span>
               I agree to the{' '}
-              <a href="#terms" className="font-semibold no-underline hover:underline" style={{ color: '#4f90ff' }}>Terms of Service</a>
+              <a href="/terms" className="font-semibold no-underline hover:underline" style={{ color: '#4f90ff' }}>Terms of Service</a>
               {' '}and{' '}
-              <a href="#privacy" className="font-semibold no-underline hover:underline" style={{ color: '#4f90ff' }}>Privacy Policy</a>
+              <a href="/privacy" className="font-semibold no-underline hover:underline" style={{ color: '#4f90ff' }}>Privacy Policy</a>
             </span>
           </label>
           <FieldError message={errors.acceptTerms} />
@@ -367,7 +368,7 @@ export function RegisterPage() {
         phone: form.phone,
         gstin: form.gstin.trim().toUpperCase(),
       });
-      window.location.hash = user.needsEmailVerification ? '/verify-email' : '/dashboard';
+      redirectTo(user.needsEmailVerification ? '/verify-email' : '/dashboard');
     } catch (err) {
       setError(err.message || 'Unable to create account');
     } finally {

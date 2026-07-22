@@ -144,7 +144,7 @@ export function JournalEntryPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-1">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
             <span>›</span><span>Accounting</span><span>›</span><span>Journal Entry</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold">Journal Entry</h1>

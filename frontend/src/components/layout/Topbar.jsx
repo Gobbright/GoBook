@@ -59,7 +59,7 @@ export function Topbar({ onMenuClick }) {
       <div className="flex items-center gap-4 ml-auto max-md:hidden">
         <span className="text-[13px] text-[#536173] dark:text-slate-400">{todayLabel()}</span>
         <a
-          href="#business-settings"
+          href="/business-settings"
           className="inline-flex items-center gap-1.5 text-[13px] text-[#536173] dark:text-slate-400 no-underline hover:text-blue-600 dark:hover:text-blue-400"
           title="Business settings"
         >

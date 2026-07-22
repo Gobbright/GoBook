@@ -1,5 +1,7 @@
-﻿import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { safeNavigate } from '../../../routes/navigation.js';
+import { Search } from 'lucide-react';
 
 import { AdminLayout } from '../AdminLayout.jsx';
 import { DataTable } from '../components/DataTable.jsx';
@@ -18,6 +20,7 @@ function normalize(value) {
 }
 
 export function PaymentsPage({ type = 'all' }) {
+  const navigate = useNavigate();
   const view = PAYMENT_VIEWS[type] || PAYMENT_VIEWS.all;
   const [section, setSection] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +29,7 @@ export function PaymentsPage({ type = 'all' }) {
 
   async function loadData() {
     if (!isAdminAuthenticated()) {
-      window.location.hash = '/admin-login';
+      safeNavigate(navigate, '/admin-login');
       return;
     }
 
@@ -74,13 +77,10 @@ export function PaymentsPage({ type = 'all' }) {
               <h1 className="m-0 text-lg md:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">{view.title}</h1>
               <p className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{view.subtitle}</p>
             </div>
-            <button onClick={loadData} className="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition border-0 cursor-pointer text-xs md:text-sm">
-              <RefreshCw size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">Refresh</span>
-            </button>
           </div>
         </header>
 
-        <main className="p-4 md:p-6 space-y-4 md:space-y-5">
+        <main className="p-4 md:p-6 space-y-4 md:space-y-5 max-w-7xl mx-auto">
           <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 md:px-4 py-2 md:py-3">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 md:w-4 md:h-4" />
@@ -96,3 +96,4 @@ export function PaymentsPage({ type = 'all' }) {
     </AdminLayout>
   );
 }
+

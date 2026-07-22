@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff, Lock, Sparkles, UserRound } from 'lucide-react';
 
 import { loginAdmin } from './adminService.js';
+import { safeNavigate } from '../../routes/navigation.js';
 import { AuthLayout } from '../auth/AuthLayout.jsx';
 import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from '../auth/authTheme.jsx';
 
 export function AdminLoginPage() {
+  const navigate = useNavigate();
   const [adminId, setAdminId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,7 +21,7 @@ export function AdminLoginPage() {
     setSubmitting(true);
     try {
       await loginAdmin(adminId, password);
-      window.location.hash = '/admin';
+      safeNavigate(navigate, '/admin');
     } catch (err) {
       setError(err.message || 'Admin login failed');
     } finally {
@@ -31,7 +34,7 @@ export function AdminLoginPage() {
     setSubmitting(true);
     try {
       await loginAdmin('admin', 'admin@123');
-      window.location.hash = '/admin';
+      safeNavigate(navigate, '/admin');
     } catch (err) {
       setError(err.message || 'Quick login failed');
     } finally {
@@ -112,7 +115,7 @@ export function AdminLoginPage() {
             style={{ background: '#10b981', boxShadow: '0 6px 24px -4px rgba(16,185,129,0.4)' }}
           >
             <Sparkles size={18} />
-            {submitting ? 'Signing in…' : 'Quick Login'}
+            {submitting ? 'Signing in...' : 'Quick Login'}
           </button>
 
           {/* Submit */}
@@ -123,15 +126,15 @@ export function AdminLoginPage() {
             style={{ background: 'linear-gradient(135deg, #4f90ff 0%, #6366f1 100%)', boxShadow: '0 6px 24px -4px rgba(79,144,255,0.55)' }}
           >
             <ArrowRight size={18} />
-            {submitting ? 'Signing in…' : 'Sign In'}
+            {submitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
         <p className={`text-center text-[12px] mt-3 mb-0 ${MUTED}`}>
           Not an admin?{' '}
-          <a href="#/login" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>
+          <Link to="/login" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>
             User Login
-          </a>
+          </Link>
         </p>
     </AuthLayout>
   );

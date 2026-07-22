@@ -1,3 +1,4 @@
+import { redirectTo } from '../../routes/navigation.js';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone, ShieldCheck } from 'lucide-react';
 
@@ -65,7 +66,7 @@ export function GoogleOnboardingPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (user && !user.needsOnboarding) window.location.hash = '/dashboard';
+    if (user && !user.needsOnboarding) redirectTo('/dashboard');
   }, [user]);
 
   function updateField(field, value) {
@@ -119,7 +120,7 @@ export function GoogleOnboardingPage() {
         subscriptionAmount: selectedPlan?.amount || form.subscriptionAmount,
         gstin: form.gstin.trim().toUpperCase(),
       });
-      window.location.hash = '/dashboard';
+      redirectTo('/dashboard');
     } catch (err) {
       setError(err.message || 'Unable to save business details');
     } finally {

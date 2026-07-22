@@ -110,8 +110,7 @@ function lineItemDescription(item = {}) {
 }
 
 function getInitialLinkedPurchaseOrderId() {
-  const hash = window.location.hash || '';
-  const query = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : window.location.search.slice(1);
+  const query = window.location.search.slice(1);
   return new URLSearchParams(query).get('po') || '';
 }
 
@@ -996,17 +995,17 @@ const [customFields, setCustomFields]         = useState([]);
   }
 
   const LIST_ROUTES = {
-    invoice:            '#/billing/invoice',
-    'bill-of-supply':   '#/billing/bill-of-supply',
-    quotation:          '#/billing/quotation',
-    'purchase-order':   '#/billing/purchase-order',
-    'purchase-entry':   '#/billing/purchase-entry',
-    'credit-note':      '#/billing/credit-note',
-    'debit-note':       '#/billing/debit-note',
-    proforma:           '#/billing/proforma',
-    'delivery-challan': '#/billing/delivery-challan',
-    'e-invoice':        '#/billing/e-invoice',
-    'e-way-bill':       '#/billing/e-way-bill',
+    invoice:            '/billing/invoice',
+    'bill-of-supply':   '/billing/bill-of-supply',
+    quotation:          '/billing/quotation',
+    'purchase-order':   '/billing/purchase-order',
+    'purchase-entry':   '/billing/purchase-entry',
+    'credit-note':      '/billing/credit-note',
+    'debit-note':       '/billing/debit-note',
+    proforma:           '/billing/proforma',
+    'delivery-challan': '/billing/delivery-challan',
+    'e-invoice':        '/billing/e-invoice',
+    'e-way-bill':       '/billing/e-way-bill',
   };
 
   async function saveDocumentPayload(payload, id = invoiceId) {
@@ -1069,7 +1068,7 @@ const [customFields, setCustomFields]         = useState([]);
         setPreviewRedirectOnClose(true);
         setShowPreview(true);
       } else {
-        window.location.assign(LIST_ROUTES[documentType] ?? '#/billing/invoice');
+        window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice');
       }
     } catch (err) {
       setSaveError(err.message || 'Unable to save');
@@ -1395,7 +1394,7 @@ const [customFields, setCustomFields]         = useState([]);
         if (showPreview) {
           setShowPreview(false);
           if (previewRedirectOnClose) {
-            window.location.assign(LIST_ROUTES[documentType] ?? '#/billing/invoice');
+            window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice');
           }
         }
         return;
@@ -1427,19 +1426,19 @@ const [customFields, setCustomFields]         = useState([]);
 
       // Function-key shortcuts (no modifier) — actions vary by documentType
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        const NEW_ROUTES = { invoice: '#/billing/invoice/new', 'bill-of-supply': '#/billing/bill-of-supply/new', quotation: '#/billing/quotation/new', 'purchase-order': '#/billing/purchase-order/new', 'purchase-entry': '#/billing/purchase-entry/new', 'credit-note': '#/billing/credit-note/new', 'debit-note': '#/billing/debit-note/new', 'delivery-challan': '#/billing/delivery-challan/new', 'e-invoice': '#/billing/e-invoice/new', 'e-way-bill': '#/billing/e-way-bill/new' };
+        const NEW_ROUTES = { invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' };
         const F7_FKEY = { invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' };
-        if (e.key === 'F1')  { e.preventDefault(); window.location.assign(NEW_ROUTES[documentType] ?? '#/billing/invoice/new'); return; }
+        if (e.key === 'F1')  { e.preventDefault(); window.location.assign(NEW_ROUTES[documentType] ?? '/billing/invoice/new'); return; }
         if (e.key === 'F2')  { e.preventDefault(); if (!saveLoading) handleSave(); return; }
         if (e.key === 'F3')  { e.preventDefault(); setAutoPrintPreview(false); setShowPreview(true); return; }
         if (e.key === 'F4')  { e.preventDefault(); if (!saveLoading) handlePrintBill(); return; }
         if (e.key === 'F5')  { e.preventDefault(); addItem(); return; }
         if (e.key === 'F6')  { e.preventDefault(); document.querySelector('[data-fkey="party"]')?.focus(); return; }
         if (e.key === 'F7')  { e.preventDefault(); const f7k = F7_FKEY[documentType]; if (f7k) { document.querySelector(`[data-fkey="${f7k}"]`)?.focus(); } else { setShowAddDiscount((v) => !v); } return; }
-        if (e.key === 'F8')  { e.preventDefault(); window.location.assign(LIST_ROUTES[documentType] ?? '#/billing/invoice'); return; }
-        if (e.key === 'F10') { e.preventDefault(); window.location.assign('#/dashboard'); return; }
-        if (e.key === 'F11') { e.preventDefault(); window.location.assign('#business-settings'); return; }
-        if (e.key === 'F12') { e.preventDefault(); window.location.assign(LIST_ROUTES[documentType] ?? '#/billing/invoice'); }
+        if (e.key === 'F8')  { e.preventDefault(); window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice'); return; }
+        if (e.key === 'F10') { e.preventDefault(); window.location.assign('//dashboard'); return; }
+        if (e.key === 'F11') { e.preventDefault(); window.location.assign('/business-settings'); return; }
+        if (e.key === 'F12') { e.preventDefault(); window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice'); }
       }
     }
 
@@ -1483,9 +1482,9 @@ const [customFields, setCustomFields]         = useState([]);
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div className="flex flex-col gap-1">
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] flex-wrap">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
             <span>›</span><span>Sales</span><span>›</span>
-            <a className="text-blue-600 no-underline hover:underline" href={LIST_ROUTES[documentType] ?? '#/billing/invoice'}>{documentType === 'invoice' ? 'Bills' : `${config.title}s`}</a>
+            <a className="text-blue-600 no-underline hover:underline" href={LIST_ROUTES[documentType] ?? '/billing/invoice'}>{documentType === 'invoice' ? 'Bills' : `${config.title}s`}</a>
             <span>›</span><span>{invoiceId ? `Edit ${config.title}` : `New ${config.title}`}</span>
           </nav>
           <div className="flex items-center gap-3 mt-1">
@@ -1494,7 +1493,7 @@ const [customFields, setCustomFields]         = useState([]);
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <button className={cx.btnOutline} type="button" onClick={() => window.location.assign(LIST_ROUTES[documentType] ?? '#/billing/invoice')} title="Open list page">
+          <button className={cx.btnOutline} type="button" onClick={() => window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice')} title="Open list page">
             <svg fill="none" height="15" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="15"><line x1="8" x2="21" y1="6" y2="6" /><line x1="8" x2="21" y1="12" y2="12" /><line x1="8" x2="21" y1="18" y2="18" /><line x1="3" x2="3.01" y1="6" y2="6" /><line x1="3" x2="3.01" y1="12" y2="12" /><line x1="3" x2="3.01" y1="18" y2="18" /></svg>
             View List
           </button>
@@ -1763,7 +1762,7 @@ const [customFields, setCustomFields]         = useState([]);
                 {[bizSettings.businessEmail, bizSettings.phone].filter(Boolean).join(' · ')}
               </div>
             )}
-            <a href="#business-settings" className="text-[12px] text-blue-600 text-left hover:underline p-0 mt-1">Edit Business Profile →</a>
+            <a href="/business-settings" className="text-[12px] text-blue-600 text-left hover:underline p-0 mt-1">Edit Business Profile →</a>
           </div>
 
           {/* Bill To — with customer search */}
@@ -3203,7 +3202,7 @@ const [customFields, setCustomFields]         = useState([]);
             setAutoPrintPreview(false);
             setDownloadPdfMode(false);
             if (previewRedirectOnClose) {
-              window.location.assign(LIST_ROUTES[documentType] ?? '#/billing/invoice');
+              window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice');
             }
           }}
         />
@@ -3320,7 +3319,7 @@ const [customFields, setCustomFields]         = useState([]);
       >
         <div className="flex items-stretch" style={{ height: 50 }}>
           {((() => {
-            const newRoute = ({ invoice: '#/billing/invoice/new', 'bill-of-supply': '#/billing/bill-of-supply/new', quotation: '#/billing/quotation/new', 'purchase-order': '#/billing/purchase-order/new', 'purchase-entry': '#/billing/purchase-entry/new', 'credit-note': '#/billing/credit-note/new', 'debit-note': '#/billing/debit-note/new', 'delivery-challan': '#/billing/delivery-challan/new', 'e-invoice': '#/billing/e-invoice/new', 'e-way-bill': '#/billing/e-way-bill/new' })[documentType] ?? '#/billing/invoice/new';
+            const newRoute = ({ invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' })[documentType] ?? '/billing/invoice/new';
             const f1Label  = ({ invoice: 'New Bill', 'bill-of-supply': 'New BOS', quotation: 'New Quote', 'purchase-order': 'New PO', 'purchase-entry': 'New PE', 'credit-note': 'New Credit', 'debit-note': 'New Debit', 'delivery-challan': 'New Challan', 'e-invoice': 'New E-Inv', 'e-way-bill': 'New EWB' })[documentType] ?? 'New';
             const f6Label  = ({ invoice: 'Party', 'bill-of-supply': 'Party', quotation: 'Party', 'purchase-order': 'Vendor', 'purchase-entry': 'Vendor', 'credit-note': 'Party', 'debit-note': 'Party', 'delivery-challan': 'Consignee', 'e-invoice': 'Party', 'e-way-bill': 'Consignee' })[documentType] ?? 'Party';
             const f7Label  = ({ invoice: 'Discount', 'bill-of-supply': 'Discount', quotation: 'Valid Till', 'purchase-order': 'Delivery', 'purchase-entry': 'Linked PO', 'credit-note': 'Ref Invoice', 'debit-note': 'Ref Invoice', 'delivery-challan': 'Vehicle', 'e-invoice': 'IRN No.', 'e-way-bill': 'Vehicle' })[documentType] ?? 'Extra';
@@ -3333,10 +3332,10 @@ const [customFields, setCustomFields]         = useState([]);
               { key: 'F5',  label: 'Add Item', action: () => addItem() },
               { key: 'F6',  label: f6Label,    action: () => document.querySelector('[data-fkey="party"]')?.focus() },
               { key: 'F7',  label: f7Label,    action: () => { if (f7fkey) { document.querySelector(`[data-fkey="${f7fkey}"]`)?.focus(); } else { setShowAddDiscount((v) => !v); } } },
-              { key: 'F8',  label: 'View List', action: () => window.location.assign(LIST_ROUTES[documentType] ?? '#/billing/invoice') },
-              { key: 'F10', label: 'Home',     action: () => window.location.assign('#/dashboard') },
-              { key: 'F11', label: 'Settings', action: () => window.location.assign('#business-settings') },
-              { key: 'F12', label: 'Close',    action: () => window.location.assign(LIST_ROUTES[documentType] ?? '#/billing/invoice') },
+              { key: 'F8',  label: 'View List', action: () => window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice') },
+              { key: 'F10', label: 'Home',     action: () => window.location.assign('//dashboard') },
+              { key: 'F11', label: 'Settings', action: () => window.location.assign('/business-settings') },
+              { key: 'F12', label: 'Close',    action: () => window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice') },
             ];
           })()).map(({ key, label, action }, idx, arr) => (
             <button

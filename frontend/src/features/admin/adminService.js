@@ -1,4 +1,5 @@
-﻿import { API_BASE_URL } from '../../services/apiBase.js';
+import { redirectTo } from '../../routes/navigation.js';
+import { API_BASE_URL } from '../../services/apiBase.js';
 
 const ADMIN_TOKEN_KEY = 'gobook_admin_token';
 const ADMIN_USER_KEY = 'gobook_admin_user';
@@ -99,10 +100,12 @@ export async function deleteAdminTableRow(sourceKey, id) {
     : `/admin/section/${sourceKey}/${id}`;
   return adminRequest(path, { method: 'DELETE' });
 }
-export function logoutAdmin() {
-  clearAdminSession();
-  window.location.hash = '/admin-login';
+export async function sendRenewalReminder(userId) {
+  return adminRequest(`/admin/send-reminder/${userId}`, { method: 'POST' });
 }
 
-
+export function logoutAdmin() {
+  clearAdminSession();
+  redirectTo('/admin-login');
+}
 

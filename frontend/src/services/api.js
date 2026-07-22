@@ -1,3 +1,4 @@
+import { redirectTo } from '../routes/navigation.js';
 import { expireSession, getToken } from './authToken.js';
 import { API_BASE_URL, SERVER_ORIGIN } from './apiBase.js';
 
@@ -13,7 +14,7 @@ function authHeader() {
 function handleUnauthorized(res) {
   if (res.status === 401) {
     expireSession();
-    window.location.hash = '/login';
+    redirectTo('/login');
   }
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, RefreshCw, Download, Eye, Edit, Building2, DoorOpen, Users, Calendar } from 'lucide-react';
+import { Search, Download, Eye, Edit, Building2, DoorOpen, Users, Calendar } from 'lucide-react';
 import { fetchAdminSection } from '../adminService.js';
 import { AdminLayout } from '../AdminLayout.jsx';
 
@@ -51,9 +51,6 @@ export function CategoryHotelPage() {
               <p className="text-xs md:text-base text-amber-100">Manage properties, rooms, guests, and reservations</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={loadData} className="px-3 md:px-4 py-2 bg-white/20 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-white/30 transition text-xs md:text-sm">
-                <RefreshCw size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">Refresh</span>
-              </button>
               <button className="px-3 md:px-4 py-2 bg-white text-amber-600 rounded-lg flex items-center gap-1 md:gap-2 hover:bg-amber-50 transition font-semibold text-xs md:text-sm">
                 <Download size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">Export</span>
               </button>
@@ -62,7 +59,7 @@ export function CategoryHotelPage() {
         </div>
 
         {/* Quick Stats */}
-        <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 max-w-7xl mx-auto">
           <QuickStat
             icon={<Building2 size={20} />}
             label="Total Properties"
@@ -90,7 +87,7 @@ export function CategoryHotelPage() {
         </div>
 
         {/* Search & Filter */}
-        <div className="px-4 md:px-6 pb-4 md:pb-6">
+        <div className="px-4 md:px-6 pb-4 md:pb-6 max-w-7xl mx-auto">
           <div className="bg-white border border-amber-200 rounded-lg p-3 md:p-4">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 md:w-4 md:h-4" />
@@ -106,7 +103,7 @@ export function CategoryHotelPage() {
         </div>
 
         {/* Data Table */}
-        <div className="px-4 md:px-6 pb-4 md:pb-6">
+        <div className="px-4 md:px-6 pb-4 md:pb-6 max-w-7xl mx-auto">
           {/* Mobile View */}
           <div className="md:hidden space-y-3">
             {filteredRows.length === 0 ? (
@@ -153,31 +150,31 @@ export function CategoryHotelPage() {
 
           {/* Desktop View */}
           <div className="hidden md:block bg-white border border-amber-200 rounded-lg overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-hidden">
+              <table className="w-full table-fixed [&_td]:break-words [&_th]:break-words [&_td]:whitespace-normal [&_th]:whitespace-normal">
                 <thead className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-amber-900 uppercase tracking-wide">Property Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-amber-900 uppercase tracking-wide">City</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-amber-900 uppercase tracking-wide">Property Code</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-amber-900 uppercase tracking-wide">Status</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-amber-900 uppercase tracking-wide">Actions</th>
+                    <th className="px-3 py-3 text-left text-xs font-bold text-amber-900 uppercase tracking-wide">Property Name</th>
+                    <th className="px-3 py-3 text-left text-xs font-bold text-amber-900 uppercase tracking-wide">City</th>
+                    <th className="px-3 py-3 text-left text-xs font-bold text-amber-900 uppercase tracking-wide">Property Code</th>
+                    <th className="px-3 py-3 text-left text-xs font-bold text-amber-900 uppercase tracking-wide">Status</th>
+                    <th className="px-3 py-3 text-right text-xs font-bold text-amber-900 uppercase tracking-wide">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-amber-100">
                   {filteredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                      <td colSpan={5} className="px-3 py-8 text-center text-slate-400">
                         No properties found
                       </td>
                     </tr>
                   ) : (
                     filteredRows.map((row) => (
                       <tr key={row.id} className="hover:bg-amber-50/50 transition">
-                        <td className="px-4 py-3 text-sm font-semibold text-slate-900">{row.name || '—'}</td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{row.city || '—'}</td>
-                        <td className="px-4 py-3 text-sm font-mono text-slate-600">{row.code || '—'}</td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-3 py-3 text-sm font-semibold text-slate-900">{row.name || '—'}</td>
+                        <td className="px-3 py-3 text-sm text-slate-600">{row.city || '—'}</td>
+                        <td className="px-3 py-3 text-sm font-mono text-slate-600">{row.code || '—'}</td>
+                        <td className="px-3 py-3 text-sm">
                           <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                             row.status === 'active'
                               ? 'bg-green-100 text-green-700'
@@ -186,7 +183,7 @@ export function CategoryHotelPage() {
                             {row.status || 'Active'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-right flex justify-end gap-2">
+                        <td className="px-3 py-3 text-sm text-right flex justify-end gap-2">
                           <button className="p-1 text-amber-600 hover:bg-amber-50 rounded transition">
                             <Eye size={16} />
                           </button>
@@ -204,7 +201,7 @@ export function CategoryHotelPage() {
         </div>
 
         {/* Footer Info */}
-        <div className="px-4 md:px-6 pb-4 md:pb-6 text-center text-xs md:text-sm text-slate-500">
+        <div className="px-4 md:px-6 pb-4 md:pb-6 text-center text-xs md:text-sm text-slate-500 max-w-7xl mx-auto">
           Showing {filteredRows.length} of {data?.count || 0} properties
         </div>
       </div>

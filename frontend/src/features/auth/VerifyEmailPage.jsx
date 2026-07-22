@@ -1,3 +1,4 @@
+import { redirectTo } from '../../routes/navigation.js';
 import { useState } from 'react';
 import { CheckCircle2, Mail, RefreshCw } from 'lucide-react';
 
@@ -20,7 +21,7 @@ export function VerifyEmailPage() {
     setSubmitting(true);
     try {
       await verifyEmailOtp(otp);
-      window.location.hash = '/dashboard';
+      redirectTo('/dashboard');
     } catch (err) {
       setError(err.message || 'Invalid OTP');
     } finally {

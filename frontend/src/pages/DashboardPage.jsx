@@ -6,12 +6,16 @@ import { RecentTransactions } from '../features/dashboard/RecentTransactions.jsx
 import { Reminders } from '../features/dashboard/Reminders.jsx';
 import { getCategoryDashboard } from '../features/dashboard/categoryDashboardData.js';
 import { useDashboard } from '../hooks/useDashboard.js';
+import { useLocation } from 'react-router-dom';
+
 import { getCurrentUser } from '../services/authService.js';
+import { normalizeAppPath } from '../routes/navigation.js';
 
 export function DashboardPage() {
   const { error, insights, isLoading, metrics, reminders, transactions, topCustomers, inventoryStatus, salesTrend, cashFlow, growthScore } = useDashboard();
+  const location = useLocation();
   const categoryDashboard = getCategoryDashboard(getCurrentUser()?.category);
-  const activeHash = window.location.hash || '#/dashboard';
+  const activePath = normalizeAppPath(location.pathname || '/dashboard');
   const dashboard = categoryDashboard ? {
     metrics: categoryDashboard.metrics,
     topCustomers: categoryDashboard.list,
@@ -45,7 +49,7 @@ export function DashboardPage() {
       </section>
       {!categoryDashboard && isLoading && <p className="text-blue-600 dark:text-blue-400 text-sm mt-4">Loading dashboard from backend...</p>}
       {!categoryDashboard && error && <p className="text-amber-700 dark:text-amber-400 text-sm mt-4">Backend unavailable. Unable to load dashboard data.</p>}
-      <DashboardMetrics metrics={dashboard.metrics} activeHash={activeHash} />
+      <DashboardMetrics metrics={dashboard.metrics} activePath={activePath} />
       <DashboardOverview
         topCustomers={dashboard.topCustomers}
         inventoryStatus={dashboard.inventoryStatus}

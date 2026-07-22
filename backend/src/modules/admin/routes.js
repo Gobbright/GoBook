@@ -1,6 +1,6 @@
 ﻿import { Router } from 'express';
 
-import { createAdminRecord, deleteAdminRecord, deleteAdminSectionRow, getAdminDashboard, getAdminRecords, getAdminSection, getAdminStats, loginAdmin, updateAdminRecord, updateAdminSectionRow } from './adminController.js';
+import { createAdminRecord, deleteAdminRecord, deleteAdminSectionRow, getAdminDashboard, getAdminRecords, getAdminSection, getAdminStats, loginAdmin, updateAdminRecord, updateAdminSectionRow, sendRenewalReminder } from './adminController.js';
 import { requireAdminAuth } from './adminAuth.js';
 
 export const adminRouter = Router();
@@ -16,5 +16,5 @@ adminRouter.get('/records/:kind', requireAdminAuth, getAdminRecords);
 adminRouter.post('/records/:kind', requireAdminAuth, createAdminRecord);
 adminRouter.put('/records/:kind/:id', requireAdminAuth, updateAdminRecord);
 adminRouter.delete('/records/:kind/:id', requireAdminAuth, deleteAdminRecord);
-
+adminRouter.post('/send-reminder/:userId', requireAdminAuth, sendRenewalReminder);
 

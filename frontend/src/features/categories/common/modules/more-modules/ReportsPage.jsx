@@ -22,7 +22,7 @@ const EMPTY_SUMMARY = {
 const REPORT_AREAS = [
   {
     title: 'Sales Reports',
-    href: '#sales-reports',
+    href: '/sales-reports',
     icon: TrendingUp,
     color: '#2563eb',
     bg: '#eff6ff',
@@ -30,7 +30,7 @@ const REPORT_AREAS = [
   },
   {
     title: 'Purchase Reports',
-    href: '#purchase-reports',
+    href: '/purchase-reports',
     icon: Building2,
     color: '#0891b2',
     bg: '#ecfeff',
@@ -38,7 +38,7 @@ const REPORT_AREAS = [
   },
   {
     title: 'GST Reports',
-    href: '#gst-reports',
+    href: '/gst-reports',
     icon: FileSpreadsheet,
     color: '#7c3aed',
     bg: '#f5f3ff',
@@ -46,7 +46,7 @@ const REPORT_AREAS = [
   },
   {
     title: 'Accounting Reports',
-    href: '#accounting-reports',
+    href: '/accounting-reports',
     icon: ReceiptText,
     color: '#16a34a',
     bg: '#f0fdf4',
@@ -54,7 +54,7 @@ const REPORT_AREAS = [
   },
   {
     title: 'Inventory Reports',
-    href: '#inventory-reports',
+    href: '/inventory-reports',
     icon: Package,
     color: '#d97706',
     bg: '#fffbeb',
@@ -62,7 +62,7 @@ const REPORT_AREAS = [
   },
   {
     title: 'CRM Reports',
-    href: '#crm-reports',
+    href: '/crm-reports',
     icon: Users,
     color: '#e11d48',
     bg: '#fff1f2',
@@ -70,7 +70,7 @@ const REPORT_AREAS = [
   },
   {
     title: 'HR Reports',
-    href: '#hr-reports',
+    href: '/hr-reports',
     icon: BookOpen,
     color: '#4f46e5',
     bg: '#eef2ff',
@@ -144,7 +144,7 @@ export function ReportsPage() {
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-5">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
             <span>/</span><span>More Modules</span><span>/</span><span>Reports</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">Reports Hub</h1>

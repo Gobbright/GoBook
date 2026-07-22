@@ -173,7 +173,7 @@ export function BusinessSettingsPage() {
     <div className="p-4 md:p-7">
       <div className="mb-1">
         <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-          <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+          <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
           <span>›</span><span>Settings</span><span>›</span><span>Business Settings</span>
         </nav>
         <h1 className="m-0 text-[22px] font-bold">Business Settings</h1>

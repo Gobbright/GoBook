@@ -80,7 +80,7 @@ const WORKFLOW_STEPS = [
     desc: 'Report B2B invoices (invoice-wise to GST-registered buyers) and B2CS sales (summary for consumers/unregistered buyers).',
     due: '11th of next month',
     color: '#7c3aed', bg: '#f5f3ff',
-    href: '#gstr-1',
+    href: '/gstr-1',
     icon: (
       <svg fill="none" height="20" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="20">
         <line x1="22" x2="11" y1="2" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -93,7 +93,7 @@ const WORKFLOW_STEPS = [
     desc: 'GSTR-2B is auto-drafted by GSTN from your suppliers\' filings. Match it with your purchase register to verify ITC eligibility.',
     due: '14th of next month',
     color: '#16a34a', bg: '#f0fdf4',
-    href: '#gst-reconciliation',
+    href: '/gst-reconciliation',
     icon: (
       <svg fill="none" height="20" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="20">
         <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
@@ -107,7 +107,7 @@ const WORKFLOW_STEPS = [
     desc: 'Declare outward tax liability, claim eligible ITC from GSTR-2B, and pay the net tax in cash to the GST Electronic Cash Ledger.',
     due: '20th of next month',
     color: '#d97706', bg: '#fffbeb',
-    href: '#gstr-3b',
+    href: '/gstr-3b',
     icon: (
       <svg fill="none" height="20" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="20">
         <rect height="16" rx="2" ry="2" width="22" x="1" y="4" />
@@ -173,10 +173,10 @@ export function GstDashboard() {
   const nextFiling = pendingFilings[0];
 
   const dynamicActions = [
-    { label: `File GSTR-1${currentPeriod ? ` for ${currentPeriod}` : ''}`, href: '#gstr-1', urgent: true },
-    { label: `File GSTR-3B${currentPeriod ? ` for ${currentPeriod}` : ''}`, href: '#gstr-3b', urgent: true },
-    { label: 'Reconcile GSTR-2B', href: '#gst-reconciliation', urgent: false },
-    { label: 'Download GST Reports', href: '#gst-reports', urgent: false },
+    { label: `File GSTR-1${currentPeriod ? ` for ${currentPeriod}` : ''}`, href: '/gstr-1', urgent: true },
+    { label: `File GSTR-3B${currentPeriod ? ` for ${currentPeriod}` : ''}`, href: '/gstr-3b', urgent: true },
+    { label: 'Reconcile GSTR-2B', href: '/gst-reconciliation', urgent: false },
+    { label: 'Download GST Reports', href: '/gst-reports', urgent: false },
   ];
 
   return (
@@ -186,7 +186,7 @@ export function GstDashboard() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div className="flex flex-col gap-1">
           <nav className="flex items-center gap-1 text-[13px] text-[#536173]">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
             <span>›</span>
             <span>GST</span>
             <span>›</span>
@@ -220,7 +220,7 @@ export function GstDashboard() {
             </svg>
             Export
           </button>
-          <a className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-white bg-blue-600 border border-blue-600 rounded-md cursor-pointer hover:bg-blue-700 no-underline" href="#gstr-1">
+          <a className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-white bg-blue-600 border border-blue-600 rounded-md cursor-pointer hover:bg-blue-700 no-underline" href="/gstr-1">
             <svg fill="none" height="14" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="14">
               <line x1="22" x2="11" y1="2" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
             </svg>
@@ -238,7 +238,7 @@ export function GstDashboard() {
           </svg>
           <div className="text-[13px] text-amber-800">
             <strong>{pendingFilings.length} return{pendingFilings.length > 1 ? 's' : ''} pending.</strong>{' '}
-            <a className="font-semibold underline" href="#gstr-1">File GSTR-1 now →</a>
+            <a className="font-semibold underline" href="/gstr-1">File GSTR-1 now →</a>
           </div>
         </div>
       )}

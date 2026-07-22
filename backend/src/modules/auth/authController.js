@@ -216,8 +216,8 @@ export async function login(req, res, next) {
     if (!user || !user.password || !(await bcrypt.compare(password, user.password))) {
       return next(httpError(401, 'Invalid email or password'));
     }
-    if (user.status === 'Inactive') {
-      return next(httpError(403, 'Account is inactive'));
+    if (user.status !== 'Active') {
+      return next(httpError(403, 'Account is not active'));
     }
     if (!user.googleId && !user.emailVerified) {
       await sendEmailVerificationOtp(user);
@@ -265,9 +265,9 @@ export async function googleLogin(req, res, next) {
     let user = await AppUser.findOne({ $or: [{ email }, { googleId: payload.sub }] });
 
     if (user) {
-      if (user.status === 'Inactive') {
-        return next(httpError(403, 'Account is inactive'));
-      }
+      if (user.status !== 'Active') {
+      return next(httpError(403, 'Account is not active'));
+    }
 
       user.googleId = payload.sub;
       user.authProvider = 'google';
@@ -415,8 +415,8 @@ export async function forgotPassword(req, res, next) {
     if (!user) {
       return next(httpError(404, 'Email is not registered'));
     }
-    if (user.status === 'Inactive') {
-      return next(httpError(403, 'Account is inactive'));
+    if (user.status !== 'Active') {
+      return next(httpError(403, 'Account is not active'));
     }
 
     const otp = createResetOtp();

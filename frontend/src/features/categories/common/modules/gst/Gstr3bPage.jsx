@@ -285,9 +285,9 @@ export function Gstr3bPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div className="flex flex-col gap-1">
           <nav className="flex items-center gap-1 text-[13px] text-[#536173]">
-            <a className="text-blue-600 no-underline hover:underline" href="#/dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
             <span>›</span>
-            <a className="text-blue-600 no-underline hover:underline" href="#gst-dashboard">GST</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/gst-dashboard">GST</a>
             <span>›</span>
             <span>GSTR-3B</span>
           </nav>
@@ -713,7 +713,7 @@ export function Gstr3bPage() {
                   </div>
                   {accounting.voucherNo && (
                     <div className="mt-2 text-[12px] text-green-700">
-                      Posted as <a className="font-semibold text-green-700 underline" href="#vouchers">{accounting.voucherNo}</a>
+                      Posted as <a className="font-semibold text-green-700 underline" href="/vouchers">{accounting.voucherNo}</a>
                       {accounting.postedAt ? ` on ${new Date(accounting.postedAt).toLocaleDateString()}` : ''}
                     </div>
                   )}

@@ -1,4 +1,5 @@
-﻿import { AccountingPosting } from '../../models/AccountingPosting.js';
+import { AccountingPosting } from '../../models/AccountingPosting.js';
+import { AdminRecord } from '../../models/AdminRecord.js';
 import { AccountingVoucher } from '../../models/AccountingVoucher.js';
 import { AppUser } from '../../models/AppUser.js';
 import { Attendance } from '../../models/Attendance.js';
@@ -68,6 +69,54 @@ const COLLECTIONS = [
 ];
 
 
+const ADMIN_RECORD_TYPES = {
+  renewalReminder: { group: 'Notifications', label: 'Renewal Reminder', title: 'Renewal Reminder data', status: 'Scheduled', amount: 0, target: 'All Users', notes: 'Renewal reminder admin data' },
+  expiryReminder: { group: 'Notifications', label: 'Expiry Reminder', title: 'Expiry Reminder data', status: 'Scheduled', amount: 0, target: 'All Users', notes: 'Expiry reminder admin data' },
+  paymentReminder: { group: 'Notifications', label: 'Payment Reminder', title: 'Payment Reminder data', status: 'Pending', amount: 0, target: 'All Users', notes: 'Payment reminder admin data' },
+  sendNotification: { group: 'Notifications', label: 'Send Notification', title: 'Send Notification data', status: 'Draft', amount: 0, target: 'All Users', notes: 'Notification draft data' },
+  userReport: { group: 'Reports', label: 'User Report', title: 'User Report data', status: 'Ready', amount: 0, target: 'All Users', notes: 'User report admin data' },
+  renewalReport: { group: 'Reports', label: 'Renewal Report', title: 'Renewal Report data', status: 'Ready', amount: 0, target: 'All Users', notes: 'Renewal report admin data' },
+  expiryReport: { group: 'Reports', label: 'Expiry Report', title: 'Expiry Report data', status: 'Ready', amount: 0, target: 'All Users', notes: 'Expiry report admin data' },
+  paymentReport: { group: 'Reports', label: 'Payment Report', title: 'Payment Report data', status: 'Ready', amount: 0, target: 'All Users', notes: 'Payment report admin data' },
+  revenueReport: { group: 'Reports', label: 'Revenue Report', title: 'Revenue Report data', status: 'Ready', amount: 0, target: 'All Users', notes: 'Revenue report admin data' },
+  subscriptionPlans: { group: 'Settings', label: 'Subscription Plans', title: 'Subscription Plans data', status: 'Active', amount: 0, target: 'All Users', notes: 'Subscription plan settings data' },
+  trialDays: { group: 'Settings', label: 'Trial Days', title: 'Trial Days data', status: 'Active', amount: 0, target: 'Trial Users', notes: 'Trial day settings data' },
+  gracePeriod: { group: 'Settings', label: 'Grace Period', title: 'Grace Period data', status: 'Active', amount: 0, target: 'Expired Users', notes: 'Grace period settings data' },
+  autoBlockAfterExpiry: { group: 'Settings', label: 'Auto Block After Expiry', title: 'Auto Block After Expiry data', status: 'Enabled', amount: 0, target: 'Expired Users', notes: 'Auto block settings data' },
+  paymentSettings: { group: 'Settings', label: 'Payment Settings', title: 'Payment Settings data', status: 'Active', amount: 0, target: 'All Users', notes: 'Payment settings admin data' },
+};
+
+function pickAdminRecord(doc) {
+  return {
+    id: doc._id,
+    title: doc.title || '',
+    status: doc.status || '',
+    amount: doc.amount ?? 0,
+    target: doc.target || '',
+    scheduledDate: doc.scheduledDate || '',
+    notes: doc.notes || '',
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+async function ensureAdminRecord(kind) {
+  const config = ADMIN_RECORD_TYPES[kind];
+  if (!config) return null;
+  const existing = await AdminRecord.exists({ kind });
+  if (existing) return existing;
+  return AdminRecord.create({
+    kind,
+    group: config.group,
+    title: config.title,
+    status: config.status,
+    amount: config.amount || 0,
+    target: config.target || 'All Users',
+    notes: config.notes || '',
+    scheduledDate: new Date().toISOString().slice(0, 10),
+  });
+}
+
 function getCollectionConfig(section) {
   return COLLECTIONS.find((c) => c.key === section);
 }
@@ -98,12 +147,28 @@ function startOfToday() {
   return date;
 }
 
+function isTrialUser(user) {
+  return !user.subscriptionPlan || user.subscriptionPlan === '';
+}
+
+function filterUsersByType(section, users) {
+  if (section === 'users') return users;
+  if (section === 'active') return users.filter((u) => u.status === 'Active' && !isTrialUser(u));
+  if (section === 'trial') return users.filter(isTrialUser);
+  if (section === 'blocked') return users.filter((u) => u.status === 'Blocked');
+  if (section === 'deleted') return users.filter((u) => u.status === 'Deleted');
+  if (section === 'expired') return users.filter((u) => u.status === 'Expired');
+  return users;
+}
+
 async function getAdminPanelStats() {
   const today = startOfToday();
   const [
     totalUsers,
     activeUsers,
     blockedUsers,
+    expiredUsers,
+    deletedUsers,
     todayRegistrations,
     allUsers,
     payments,
@@ -111,6 +176,8 @@ async function getAdminPanelStats() {
     AppUser.countDocuments(),
     AppUser.countDocuments({ status: /^active$/i }),
     AppUser.countDocuments({ status: /^blocked$/i }),
+    AppUser.countDocuments({ status: /^expired$/i }),
+    AppUser.countDocuments({ status: /^deleted$/i }),
     AppUser.countDocuments({ createdAt: { $gte: today } }),
     AppUser.find({}).select('name email businessName category subscriptionPlan subscriptionAmount status createdAt lastLogin phone').lean(),
     Payment.find({}).select('amount status date createdAt customerName mode').lean(),
@@ -130,11 +197,12 @@ async function getAdminPanelStats() {
   return {
     totalUsers,
     activeUsers,
-    expiredUsers: 0,
+    expiredUsers,
     blockedUsers,
     todayRegistrations,
     upcomingRenewals: 0,
     totalRevenue,
+    deletedUsers,
     trialUsers: subscriptionCounts.noPlan || 0,
     activeSubscriptions: totalUsers - (subscriptionCounts.noPlan || 0),
     expiredSubscriptions: 0,
@@ -149,17 +217,23 @@ async function getAdminPanelStats() {
     payments: payments.slice(0, 20),
   };
 }
-async function summarizeCollection(item) {
+async function summarizeCollection(item, section) {
   const [count, latest] = await Promise.all([
     item.model.countDocuments(),
     item.model.find({}).sort({ createdAt: -1, _id: -1 }).limit(1000).lean(),
   ]);
+
+  let rows = latest.map((doc) => pickFields(doc, item.fields));
+  if (item.key === 'users' && section) {
+    rows = filterUsersByType(section, rows);
+  }
+
   return {
     key: item.key,
     label: item.label,
     count,
     fields: item.fields,
-    rows: latest.map((doc) => pickFields(doc, item.fields)),
+    rows,
   };
 }
 
@@ -203,7 +277,7 @@ export async function getAdminSection(req, res, next) {
     if (!collectionConfig) {
       return next(httpError(404, `Section "${section}" not found`));
     }
-    const data = await summarizeCollection(collectionConfig);
+    const data = await summarizeCollection(collectionConfig, section);
     res.json(data);
   } catch (err) {
     next(err);
@@ -317,6 +391,31 @@ export async function deleteAdminRecord(req, res, next) {
     const deleted = await AdminRecord.findOneAndDelete({ _id: id, kind }).lean();
     if (!deleted) return next(httpError(404, 'Record not found'));
     res.json({ deleted: true, id });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function sendRenewalReminder(req, res, next) {
+  try {
+    const { userId } = req.params;
+    const user = await AppUser.findById(userId);
+    if (!user) return next(httpError(404, 'User not found'));
+
+    // Create admin notification
+    await AdminRecord.create({
+      kind: 'renewalReminder',
+      group: 'Notifications',
+      title: `Renewal Reminder for ${user.name}`,
+      status: 'Scheduled',
+      amount: user.subscriptionAmount || 0,
+      target: user.name,
+      notes: `Reminder sent for ${user.businessName} - ${user.email}`,
+      scheduledDate: new Date().toISOString().slice(0, 10),
+    });
+
+    // In real app, send email/push notification to user
+    res.json({ success: true, message: `Reminder sent to ${user.email}` });
   } catch (err) {
     next(err);
   }
