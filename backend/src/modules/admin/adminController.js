@@ -1,3 +1,5 @@
+import bcrypt from 'bcryptjs';
+
 import { AccountingPosting } from '../../models/AccountingPosting.js';
 import { AdminRecord } from '../../models/AdminRecord.js';
 import { AccountingVoucher } from '../../models/AccountingVoucher.js';
@@ -33,6 +35,8 @@ import { WhatsAppCampaign } from '../../models/WhatsAppCampaign.js';
 import { env } from '../../config/env.js';
 import { httpError } from '../../utils/httpError.js';
 import { signAdminToken } from './adminAuth.js';
+
+const SALT_ROUNDS = 12;
 
 const COLLECTIONS = [
   { key: 'businesses', label: 'Businesses', model: Business, fields: ['name', 'category', 'createdAt'] },
@@ -128,6 +132,22 @@ function cleanMutationPayload(payload = {}) {
   delete clean.createdAt;
   delete clean.updatedAt;
   delete clean.__v;
+  return clean;
+}
+async function cleanSectionMutationPayload(section, payload = {}) {
+  const clean = cleanMutationPayload(payload);
+  if (section !== 'users') return clean;
+
+  if (clean.email !== undefined) clean.email = String(clean.email || '').trim().toLowerCase();
+  if (clean.password !== undefined) {
+    const password = String(clean.password || '').trim();
+    if (!password) {
+      delete clean.password;
+    } else {
+      if (password.length < 8) throw httpError(400, 'Password must be at least 8 characters');
+      clean.password = await bcrypt.hash(password, SALT_ROUNDS);
+    }
+  }
   return clean;
 }
 function pickFields(doc, fields) {
@@ -300,6 +320,99 @@ export async function getAdminStats(_req, res, next) {
 
 
 
+function buildNotification(id, type, title, message, relatedUser, createdAt, extra = {}) {
+  return {
+    id: String(id),
+    type,
+    title,
+    message,
+    relatedUser: relatedUser || '',
+    read: false,
+    createdAt: createdAt || new Date(),
+    ...extra,
+  };
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+export async function getAdminNotifications(_req, res, next) {
+  try {
+    const today = startOfToday();
+    const tomorrow = addDays(today, 1);
+    const threeDaysFromNow = addDays(today, 3);
+
+    const [newUsers, expiringUsers, renewalReminders, recentPayments] = await Promise.all([
+      AppUser.find({ createdAt: { $gte: today } }).sort({ createdAt: -1, _id: -1 }).limit(25).select('name email businessName createdAt').lean(),
+      AppUser.find({ status: /^expired$/i }).sort({ updatedAt: -1, _id: -1 }).limit(10).select('name email businessName updatedAt createdAt').lean(),
+      AdminRecord.find({ group: 'Notifications' }).sort({ createdAt: -1, _id: -1 }).limit(10).lean(),
+      Payment.find({ createdAt: { $gte: today } }).sort({ createdAt: -1, _id: -1 }).limit(10).select('customerName amount method createdAt').lean(),
+    ]);
+
+    const notifications = [
+      ...newUsers.map((user) => {
+        const displayName = user.businessName || user.name || user.email || 'New user';
+        return buildNotification(
+          `new-user-${user._id}`,
+          'new_user',
+          'New User Registration',
+          `${displayName} registered today`,
+          displayName,
+          user.createdAt,
+          { userId: user._id }
+        );
+      }),
+      ...expiringUsers.map((user) => {
+        const displayName = user.businessName || user.name || user.email || 'User';
+        return buildNotification(
+          `expired-${user._id}`,
+          'expiry_1day',
+          'Expired User Alert',
+          `${displayName} account is marked expired`,
+          displayName,
+          user.updatedAt || user.createdAt,
+          { userId: user._id }
+        );
+      }),
+      ...renewalReminders.map((record) => buildNotification(
+        `admin-record-${record._id}`,
+        'reminder_sent',
+        record.title || 'Admin Notification',
+        record.notes || `${record.title || 'Notification'} is ${record.status || 'scheduled'}`,
+        record.target || '',
+        record.createdAt,
+        { recordId: record._id }
+      )),
+      ...recentPayments.map((payment) => {
+        const displayName = payment.customerName || 'Customer';
+        return buildNotification(
+          `payment-${payment._id}`,
+          'payment',
+          'Payment Received',
+          `${displayName} paid Rs. ${Number(payment.amount || 0).toLocaleString('en-IN')}`,
+          displayName,
+          payment.createdAt,
+          { paymentId: payment._id }
+        );
+      }),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json({
+      count: notifications.length,
+      unreadCount: notifications.filter((item) => !item.read).length,
+      newUserCount: newUsers.length,
+      expiringCount: expiringUsers.length,
+      generatedAt: new Date().toISOString(),
+      notifications,
+      window: { from: today, to: tomorrow, expiryTo: threeDaysFromNow },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
 export async function getAdminRecords(req, res, next) {
   try {
     const { kind } = req.params;
@@ -350,7 +463,8 @@ export async function updateAdminSectionRow(req, res, next) {
     const collectionConfig = getCollectionConfig(section);
     if (!collectionConfig) return next(httpError(404, `Section "${section}" not found`));
 
-    const updated = await collectionConfig.model.findByIdAndUpdate(id, cleanMutationPayload(req.body), { new: true, runValidators: true }).lean();
+    const updatePayload = await cleanSectionMutationPayload(section, req.body);
+    const updated = await collectionConfig.model.findByIdAndUpdate(id, updatePayload, { new: true, runValidators: true }).lean();
     if (!updated) return next(httpError(404, 'Record not found'));
     res.json({ row: pickFields(updated, collectionConfig.fields) });
   } catch (err) {
@@ -420,3 +534,4 @@ export async function sendRenewalReminder(req, res, next) {
     next(err);
   }
 }
+

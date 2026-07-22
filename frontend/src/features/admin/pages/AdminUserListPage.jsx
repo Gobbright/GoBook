@@ -85,6 +85,7 @@ export function AdminUserListPage({ type = 'all' }) {
 
   const mainSection = {
     key: `users-main-${type}`,
+    sourceKey: 'users',
     label: type === 'all' ? 'Active Users (Main View)' : view.title,
     count: mainData.length,
     fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'status', 'createdAt', 'lastLogin'],
@@ -165,6 +166,7 @@ export function AdminUserListPage({ type = 'all' }) {
                     <div key={sectionData.key} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 md:p-6">
                       <DataTable section={{
                         key: sectionData.key,
+                        sourceKey: 'users',
                         label: sectionData.label,
                         count: sectionData.rows.length,
                         fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'status', 'createdAt', 'lastLogin'],

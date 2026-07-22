@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Edit3, Eye, FileSpreadsheet, FileText, Search, Trash2, X } from 'lucide-react';
+import { Edit3, Eye, EyeOff, FileSpreadsheet, FileText, Search, Trash2, X } from 'lucide-react';
 
 import { deleteAdminTableRow, updateAdminTableRow } from '../adminService.js';
 
@@ -65,7 +65,11 @@ function toDateInputValue(value) {
 }
 
 export function DataTable({ section, onChanged }) {
+  const sourceKey = getSourceKey(section);
   const allFields = section.fields || [];
+  const isUsersTable = sourceKey === 'users';
+  const viewFields = isUsersTable ? Array.from(new Set(['id', ...allFields, 'role', 'authProvider', 'updatedAt', 'lastLogin', 'password'])) : allFields;
+  const editFields = isUsersTable ? Array.from(new Set(['name', 'email', 'password', 'phone', 'businessName', 'category', 'role', 'subscriptionPlan', 'subscriptionAmount', 'status', ...allFields.filter((field) => !['id', 'createdAt', 'updatedAt', 'lastLogin', 'authProvider'].includes(field))])) : allFields;
   const [statusFilter, setStatusFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [viewingRow, setViewingRow] = useState(null);
@@ -74,7 +78,7 @@ export function DataTable({ section, onChanged }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
-  const sourceKey = getSourceKey(section);
+  const [showPassword, setShowPassword] = useState(false);
 
   const statusValues = useMemo(() => {
     const values = new Set((section.rows || []).map((row) => row.status).filter(Boolean).map(String));
@@ -118,7 +122,8 @@ export function DataTable({ section, onChanged }) {
   function openEdit(row) {
     setActionError('');
     setEditingRow(row);
-    setForm(Object.fromEntries(allFields.map((field) => [field, row[field] ?? ''])));
+    setShowPassword(false);
+    setForm({ ...Object.fromEntries(allFields.map((field) => [field, row[field] ?? ''])), ...(isUsersTable ? { password: '' } : {}) });
   }
 
   async function saveEdit() {
@@ -126,7 +131,9 @@ export function DataTable({ section, onChanged }) {
     setSaving(true);
     setActionError('');
     try {
-      await updateAdminTableRow(sourceKey, editingRow.id, form);
+      const payload = { ...form };
+      if (isUsersTable && !String(payload.password || '').trim()) delete payload.password;
+      await updateAdminTableRow(sourceKey, editingRow.id, payload);
       setEditingRow(null);
       await onChanged?.();
     } catch (err) {
@@ -142,6 +149,33 @@ export function DataTable({ section, onChanged }) {
     const label = titleize(field);
     const updateField = (nextValue) => setForm((current) => ({ ...current, [field]: nextValue }));
 
+    if (isUsersTable && field === 'password') {
+      return (
+        <label key={field} className="text-sm font-semibold text-slate-600 dark:text-slate-300 md:col-span-2">
+          New / Reset Password
+          <div className="relative mt-1">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={value}
+              onChange={(event) => updateField(event.target.value)}
+              className={`${FIELD_BASE_CLASS} pr-11`}
+              placeholder="Enter new password to update"
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md border-0 bg-transparent p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              title={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">Current password cannot be viewed because it is encrypted. Type a new password here to reset it.</span>
+        </label>
+      );
+    }
     if (/status/i.test(field)) {
       const options = Array.from(new Set([...STATUS_OPTIONS, ...statusValues.filter((status) => status !== 'all')])).filter(Boolean);
       return (
@@ -271,10 +305,10 @@ export function DataTable({ section, onChanged }) {
       {viewingRow && (
         <Modal title={`View ${section.label}`} onClose={() => setViewingRow(null)}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
-            {allFields.map((field) => (
+            {viewFields.map((field) => (
               <div key={field} className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2">
                 <p className="m-0 text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">{titleize(field)}</p>
-                <p className="m-0 mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100 break-words">{field.toLowerCase().includes('date') ? formatDate(viewingRow[field]) : formatValue(viewingRow[field])}</p>
+                <p className="m-0 mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100 break-words">{field === 'password' ? 'Encrypted - reset from Edit User' : field.toLowerCase().includes('date') ? formatDate(viewingRow[field]) : formatValue(viewingRow[field])}</p>
               </div>
             ))}
           </div>
@@ -284,7 +318,7 @@ export function DataTable({ section, onChanged }) {
       {editingRow && (
         <Modal title={`Edit ${section.label}`} onClose={() => setEditingRow(null)}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
-            {allFields.map(renderEditField)}
+            {editFields.map(renderEditField)}
           </div>
           {actionError && <p className="text-sm font-bold text-red-600">{actionError}</p>}
           <div className="flex justify-end gap-2 mt-4"><button onClick={() => setEditingRow(null)} className="px-4 py-2 rounded-md border">Cancel</button><button onClick={saveEdit} disabled={saving} className="px-4 py-2 rounded-md bg-blue-600 text-white border-0">{saving ? 'Saving...' : 'Confirm & Save'}</button></div>

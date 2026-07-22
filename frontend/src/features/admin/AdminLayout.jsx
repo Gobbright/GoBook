@@ -4,7 +4,7 @@ import { AlertTriangle, Bell, CalendarDays, Menu, RefreshCw, ShieldCheck, UserPl
 
 import { Sidebar } from './components/Sidebar.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
-import { clearAdminSession, fetchAdminDashboard } from './adminService.js';
+import { clearAdminSession, fetchAdminDashboard, fetchAdminNotifications } from './adminService.js';
 import { safeNavigate } from '../../routes/navigation.js';
 
 const PAGE_TITLES = [
@@ -94,35 +94,41 @@ export function AdminLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [navCounts, setNavCounts] = useState({ newUsers: 0, expiredUsers: 0 });
+  const [navCounts, setNavCounts] = useState({ newUsers: 0, expiredUsers: 0, unreadNotifications: 0 });
   const pageTitle = useMemo(() => getPageTitle(location.pathname), [location.pathname]);
   const unreadCount = notifications.filter((item) => !item.read).length;
 
 
-  async function loadNavCounts() {
+  async function loadAdminShellData() {
     try {
-      const data = await fetchAdminDashboard();
+      const dashboard = await fetchAdminDashboard();
+      const notificationData = await fetchAdminNotifications(dashboard);
+      const nextNotifications = notificationData?.notifications || [];
+      setNotifications(nextNotifications);
       setNavCounts({
-        newUsers: Number(data?.panel?.todayRegistrations || 0),
-        expiredUsers: Number(data?.panel?.expiredUsers || 0),
+        newUsers: Number(notificationData?.newUserCount ?? dashboard?.panel?.todayRegistrations ?? 0),
+        expiredUsers: Number(notificationData?.expiringCount ?? dashboard?.panel?.expiredUsers ?? 0),
+        unreadNotifications: Number(notificationData?.unreadCount ?? nextNotifications.filter((item) => !item.read).length),
       });
     } catch (error) {
-      console.error('[AdminNavCountsError]', error);
+      console.error('[AdminShellDataError]', error);
+      setNotifications((current) => (current.length ? current : DEFAULT_NOTIFICATIONS));
     }
   }
 
   useEffect(() => {
-    loadNavCounts();
+    loadAdminShellData();
 
     function handleRefresh() {
-      loadNavCounts();
+      loadAdminShellData();
     }
 
     window.addEventListener('gobook:admin-refresh', handleRefresh);
     return () => window.removeEventListener('gobook:admin-refresh', handleRefresh);
   }, []);
+
   const handleLogout = () => {
     clearAdminSession();
     safeNavigate(navigate, '/admin-login');
@@ -139,33 +145,24 @@ export function AdminLayout({ children }) {
   const refreshCurrentPage = () => {
     setRefreshing(true);
     window.dispatchEvent(new CustomEvent('gobook:admin-refresh'));
-    loadNavCounts();
+    loadAdminShellData();
     setTimeout(() => {
       window.location.reload();
     }, 120);
   };
 
   const refreshNotifications = () => {
-    setNotifications((current) => [
-      {
-        id: `refresh-${Date.now()}`,
-        title: 'Notifications Refreshed',
-        message: 'Latest admin notification status checked.',
-        read: false,
-        createdAt: new Date(),
-      },
-      ...current.slice(0, 5),
-    ]);
+    loadAdminShellData();
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex">
       <div className="hidden lg:block fixed left-0 top-0 bottom-0 w-[280px] z-40">
-        <Sidebar open={true} onClose={() => {}} onLogout={handleLogout} />
+        <Sidebar open={true} onClose={() => {}} onLogout={handleLogout} counts={navCounts} />
       </div>
 
       <div className="lg:hidden">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} />
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} counts={navCounts} />
       </div>
 
       <div className="flex-1 lg:ml-[280px] min-w-0">
@@ -241,3 +238,7 @@ export function AdminLayout({ children }) {
     </div>
   );
 }
+
+
+
+

@@ -76,10 +76,16 @@ function getDropdownForPath(path = window.location.pathname) {
   if (path === '/admin/customers' || path.startsWith('/admin/user-details/')) return 'userDetails';
   if (path.startsWith('/admin/subscription/')) return 'subscription';
   if (path === '/admin/payments' || path.startsWith('/admin/payments/')) return 'payments';
-  if (path.startsWith('/admin/notifications/')) return 'notifications';
+  if (path === '/admin/notifications' || path.startsWith('/admin/notifications/')) return 'notifications';
   if (path.startsWith('/admin/reports/')) return 'reports';
   if (path.startsWith('/admin/settings/')) return 'settings';
   return '';
+}
+
+function CountBadge({ count }) {
+  const value = Number(count || 0);
+  if (!value) return null;
+  return <span className="ml-auto min-w-5 rounded-full bg-blue-600 px-1.5 py-0.5 text-center text-[10px] font-black leading-4 text-white">{value > 99 ? '99+' : value}</span>;
 }
 
 function SubNavButton({ label, path, onClose, navigate }) {
@@ -98,11 +104,12 @@ function SubNavButton({ label, path, onClose, navigate }) {
   );
 }
 
-function CollapsibleNav({ icon: Icon, title, open, onToggle, links, onClose, navigate }) {
+function CollapsibleNav({ icon: Icon, title, open, onToggle, links, onClose, navigate, count = 0 }) {
   return (
     <div>
-      <button onClick={onToggle} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer">
-        <span className="min-w-0 inline-flex items-center gap-3 whitespace-normal break-words"><Icon size={16} className="flex-shrink-0" /> <span>{title}</span></span>
+      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer">
+        <span className="min-w-0 inline-flex flex-1 items-center gap-3 whitespace-normal break-words"><Icon size={16} className="flex-shrink-0" /> <span>{title}</span></span>
+        <CountBadge count={count} />
         <ChevronDown size={14} className={`flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -114,7 +121,7 @@ function CollapsibleNav({ icon: Icon, title, open, onToggle, links, onClose, nav
   );
 }
 
-export function Sidebar({ open, onClose, onLogout }) {
+export function Sidebar({ open, onClose, onLogout, counts = {} }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [openDropdown, setOpenDropdown] = useState(() => getDropdownForPath(window.location.pathname));
@@ -144,14 +151,13 @@ export function Sidebar({ open, onClose, onLogout }) {
                   const Icon = item.icon;
                   return (
                     <li key={item.path || item.key}>
-                      {item.label === 'Users & Businesses' ? <CollapsibleNav icon={Icon} title="User Management" open={openDropdown === 'users'} onToggle={() => toggleDropdown('users')} links={USER_MANAGEMENT_LINKS} onClose={onClose} navigate={navigate} />
+                      {item.label === 'Users & Businesses' ? <CollapsibleNav icon={Icon} title="User Management" open={openDropdown === 'users'} onToggle={() => toggleDropdown('users')} links={USER_MANAGEMENT_LINKS} onClose={onClose} navigate={navigate} count={counts.newUsers} />
                         : item.label === 'Customers & Vendors' ? <CollapsibleNav icon={Icon} title="User Details" open={openDropdown === 'userDetails'} onToggle={() => toggleDropdown('userDetails')} links={USER_DETAILS_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Subscription' ? <CollapsibleNav icon={Icon} title="Subscription" open={openDropdown === 'subscription'} onToggle={() => toggleDropdown('subscription')} links={SUBSCRIPTION_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Payments' ? <CollapsibleNav icon={Icon} title="Payments" open={openDropdown === 'payments'} onToggle={() => toggleDropdown('payments')} links={PAYMENT_LINKS} onClose={onClose} navigate={navigate} />
-
                         : item.label === 'Reports' ? <CollapsibleNav icon={Icon} title="Reports" open={openDropdown === 'reports'} onToggle={() => toggleDropdown('reports')} links={REPORT_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Settings' ? <CollapsibleNav icon={Icon} title="Settings" open={openDropdown === 'settings'} onToggle={() => toggleDropdown('settings')} links={SETTINGS_LINKS} onClose={onClose} navigate={navigate} />
-                        : <button onClick={() => { safeNavigate(navigate, item.path); onClose?.(); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer"><Icon size={16} className="flex-shrink-0" />{item.label}</button>}
+                        : <button onClick={() => { safeNavigate(navigate, item.path); onClose?.(); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer"><Icon size={16} className="flex-shrink-0" /><span className="min-w-0 flex-1">{item.label}</span>{item.label === 'Notifications' ? <CountBadge count={counts.unreadNotifications} /> : null}</button>}
                     </li>
                   );
                 })}

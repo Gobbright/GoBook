@@ -1,49 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { safeNavigate } from '../../../routes/navigation.js';
-import { ArrowLeft, Trash2, Eye, EyeOff, Bell, AlertCircle, AlertTriangle, CreditCard, MailCheck, Megaphone, UserPlus } from 'lucide-react';
+import { ArrowLeft, Trash2, Eye, EyeOff, Bell, AlertCircle, AlertTriangle, CreditCard, MailCheck, Megaphone, UserPlus, RefreshCw } from 'lucide-react';
 import { AdminLayout } from '../AdminLayout.jsx';
+import { fetchAdminNotifications } from '../adminService.js';
 
 export function AdminNotificationsPage() {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'expiry_3day',
-      title: 'Subscription Expiring in 3 Days',
-      message: 'User "Acme Corp" subscription expires in 3 days',
-      relatedUser: 'Acme Corp',
-      read: false,
-      createdAt: new Date(),
-    },
-    {
-      id: 2,
-      type: 'new_user',
-      title: 'New User Registration',
-      message: 'New user "John Doe" registered',
-      relatedUser: 'John Doe',
-      read: false,
-      createdAt: new Date(Date.now() - 3600000),
-    },
-    {
-      id: 3,
-      type: 'expiry_1day',
-      title: 'Subscription Expiring Tomorrow',
-      message: 'User "Tech Solutions" subscription expires tomorrow',
-      relatedUser: 'Tech Solutions',
-      read: true,
-      createdAt: new Date(Date.now() - 7200000),
-    },
-    {
-      id: 4,
-      type: 'reminder_sent',
-      title: 'Renewal Reminder Sent',
-      message: 'Renewal reminder sent to "Global Enterprises"',
-      relatedUser: 'Global Enterprises',
-      read: true,
-      createdAt: new Date(Date.now() - 86400000),
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  async function loadNotifications() {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await fetchAdminNotifications();
+      setNotifications(data?.notifications || []);
+    } catch (err) {
+      setError(err.message || 'Unable to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadNotifications();
+
+    function handleRefresh() {
+      loadNotifications();
+    }
+
+    window.addEventListener('gobook:admin-refresh', handleRefresh);
+    return () => window.removeEventListener('gobook:admin-refresh', handleRefresh);
+  }, []);
 
   function getNotificationMeta(type) {
     const meta = {
@@ -84,7 +74,6 @@ export function AdminNotificationsPage() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100">
-        {/* Header */}
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-4 md:py-5">
           <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
             <div className="flex items-center gap-3">
@@ -104,12 +93,31 @@ export function AdminNotificationsPage() {
                 </p>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={loadNotifications}
+              disabled={loading}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-[12px] font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+              title="Refresh notifications"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
           </div>
         </header>
 
-        {/* Content */}
         <main className="p-4 md:p-6 max-w-7xl mx-auto">
-          {notifications.length === 0 ? (
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+              {error}
+            </div>
+          )}
+          {loading ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-12 text-center">
+              <RefreshCw size={40} className="mx-auto mb-4 animate-spin text-blue-500" />
+              <p className="m-0 text-sm font-bold text-slate-600 dark:text-slate-300">Loading notifications...</p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-12 text-center">
               <AlertCircle size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-600" />
               <h3 className="m-0 text-lg font-bold text-slate-600 dark:text-slate-300">No Notifications</h3>
@@ -144,7 +152,6 @@ export function AdminNotificationsPage() {
                     </p>
                   </div>
 
-                  {/* Action Buttons */}
                   <div className="flex gap-2 flex-shrink-0">
                     <button
                       onClick={() => toggleRead(notification.id)}
