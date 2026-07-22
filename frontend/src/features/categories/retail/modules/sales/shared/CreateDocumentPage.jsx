@@ -81,10 +81,6 @@ const PAYMENT_METHODS = [
   { id: 'credit', label: 'Credit', emoji: '📅', color: '#dc2626', method: null            },
 ];
 
-function productOptionId(itemId) {
-  return `product-options-${itemId}`;
-}
-
 function partyKindFromLabel(label = '') {
   if (/vendor|supplier/i.test(label)) return 'Vendor';
   if (/consignee/i.test(label)) return 'Consignee';
@@ -342,7 +338,7 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
     ? { ..._baseConfig, showGst: false, title: 'Bill of Supply' }
     : _baseConfig;
   const effectiveDocumentType = (documentType === 'invoice' && billType === 'without-gst') ? 'bill-of-supply' : documentType;
-  const allowManualItemDescription = ['quotation', 'purchase-order', 'purchase-entry'].includes(documentType);
+  const allowManualItemDescription = true;
   const partyLabel = cleanPartyNameLabel(config.partyNameLabel);
   const partyKind = partyKindFromLabel(config.partyNameLabel);
   const partyKindLower = partyKind.toLowerCase();
@@ -351,7 +347,7 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   const partyDetailsText = `${partyKind} details will be used automatically in this bill.`;
   const documentNumberLabel = `${config.title} No.`;
 
-  const [items, setItems]               = useState([{ id: 1000, productId: null, productCode: '', description: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
+  const [items, setItems]               = useState([{ id: 1000, productId: null, productCode: '', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
   const [supplyType, setSupplyType]     = useState('intrastate');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [paymentData, setPaymentData]   = useState({ chequeNo: '',
@@ -399,6 +395,7 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   const [saveError, setSaveError] = useState('');
   const [loadError, setLoadError] = useState('');
   const [quickProductBarcode, setQuickProductBarcode] = useState('');
+  const [bulkGstRate, setBulkGstRate] = useState(18);
 
   const [notes, setNotes]   = useState('Thank you for your business! Payment should be made within the due date.');
   const [terms, setTerms]   = useState(
@@ -803,6 +800,7 @@ const [customFields, setCustomFields]         = useState([]);
         productId,
         productCode: item.productCode || item.code || matchedProduct?.code || '',
         description: lineItemDescription(item) || matchedProduct?.description || '',
+        itemDescription: item.itemDescription ?? item.lineDescription ?? item.details ?? item.note ?? item.remark ?? '',
         hsn: item.hsn || matchedProduct?.hsn || '',
         qty: Number(item.qty) || 1,
         unit: item.unit || matchedProduct?.unit || 'Nos',
@@ -822,9 +820,14 @@ const [customFields, setCustomFields]         = useState([]);
     ));
   }
 
+  function applyGstRateToAllItems() {
+    const rate = Number(bulkGstRate) || 0;
+    setItems((prev) => prev.map((item) => ({ ...item, gstRate: rate })));
+  }
+
   function addItem() {
     const id = nextItemId.current++;
-    setItems((prev) => [...prev, { id, productId: null, productCode: '', description: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
+    setItems((prev) => [...prev, { id, productId: null, productCode: '', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
   }
 
   function removeItem(id) { setItems((prev) => prev.filter((item) => item.id !== id)); }
@@ -838,7 +841,7 @@ const [customFields, setCustomFields]         = useState([]);
     const col = cell.dataset.col;
     if (Number.isNaN(row) || !col) return;
 
-    const columns = ['description', 'hsn', 'qty', 'unit', 'rate', 'discount', ...(config.showGst ? ['gstRate'] : [])];
+    const columns = ['description', 'itemDescription', 'hsn', 'qty', 'unit', 'rate', 'discount', ...(config.showGst ? ['gstRate'] : [])];
     const colIndex = columns.indexOf(col);
 
     function focusCell(targetRow, targetCol) {
@@ -912,7 +915,7 @@ const [customFields, setCustomFields]         = useState([]);
     }
 
     const id = nextItemId.current++;
-    setItems((prev) => [...prev, { id, productId: null, productCode: '', description: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
+    setItems((prev) => [...prev, { id, productId: null, productCode: '', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
     window.setTimeout(() => selectProduct(id, normalized), 0);
   }
 
@@ -929,7 +932,7 @@ const [customFields, setCustomFields]         = useState([]);
     } else if (target) {
       updateItem(target.id, 'description', query);
     } else {
-      setItems((prev) => [...prev, { id: nextItemId.current++, productId: null, productCode: '', description: query, hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
+      setItems((prev) => [...prev, { id: nextItemId.current++, productId: null, productCode: '', description: query, itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
     }
 
     setProductSearch('');
@@ -1003,6 +1006,7 @@ const [customFields, setCustomFields]         = useState([]);
     'credit-note':      '/billing/credit-note',
     'debit-note':       '/billing/debit-note',
     'sales-return':     '/billing/sales-return',
+    'supplier-return':  '/billing/supplier-return',
     proforma:           '/billing/proforma',
     'delivery-challan': '/billing/delivery-challan',
     'e-invoice':        '/billing/e-invoice',
@@ -1427,8 +1431,8 @@ const [customFields, setCustomFields]         = useState([]);
 
       // Function-key shortcuts (no modifier) — actions vary by documentType
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        const NEW_ROUTES = { invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'sales-return': '/billing/sales-return/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' };
-        const F7_FKEY = { invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'sales-return': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' };
+        const NEW_ROUTES = { invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'sales-return': '/billing/sales-return/new', 'supplier-return': '/billing/supplier-return/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' };
+        const F7_FKEY = { invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'sales-return': 'ref-invoice', 'supplier-return': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' };
         if (e.key === 'F1')  { e.preventDefault(); window.location.assign(NEW_ROUTES[documentType] ?? '/billing/invoice/new'); return; }
         if (e.key === 'F2')  { e.preventDefault(); if (!saveLoading) handleSave(); return; }
         if (e.key === 'F3')  { e.preventDefault(); setAutoPrintPreview(false); setShowPreview(true); return; }
@@ -2229,8 +2233,28 @@ const [customFields, setCustomFields]         = useState([]);
 
         {/* ── Items & Services ── */}
         <div className="billing-items-panel px-6 py-5 border-b border-[#edf2f7]">
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <h3 className="m-0 text-[15px] font-semibold">Items &amp; Services</h3>
+            {config.showGst && (
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-[12px] font-medium text-[#536173]" htmlFor="bulk-gst-rate">GST for whole bill</label>
+                <select
+                  id="bulk-gst-rate"
+                  className="border border-[#dbe4ef] rounded-md px-2.5 py-1.5 text-[13px] text-[#111827] bg-white outline-none focus:border-blue-500 font-[inherit]"
+                  value={bulkGstRate}
+                  onChange={(e) => setBulkGstRate(Number(e.target.value))}
+                >
+                  {GST_RATES.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
+                </select>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md cursor-pointer hover:bg-blue-100 font-[inherit]"
+                  onClick={applyGstRateToAllItems}
+                >
+                  Apply to all items
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="billing-product-search">
@@ -2268,6 +2292,18 @@ const [customFields, setCustomFields]         = useState([]);
                 })}
               </datalist>
             </div>
+            {config.showGst && (
+              <button
+                type="button"
+                className="billing-add-new-item-btn"
+                onClick={() => {
+                  setBulkGstRate(18);
+                  setItems((prev) => prev.map((item) => ({ ...item, gstRate: 18 })));
+                }}
+              >
+                Apply 18% GST
+              </button>
+            )}
             <button type="button" className="billing-add-new-item-btn" onClick={addItem}>
               <Plus size={14} /> Add New Item (F5)
             </button>
@@ -2275,29 +2311,39 @@ const [customFields, setCustomFields]         = useState([]);
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-245">
+            <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {[
-                    { w: 32,  label: 'S.No',        align: 'center' },
-                    { w: null,label: 'Item Description', align: 'left' },
-                    { w: 90,  label: 'HSN / SAC',  align: 'left' },
-                    { w: 70,  label: 'Qty',         align: 'right' },
-                    { w: 84,  label: 'Unit',        align: 'left' },
-                    { w: 110, label: 'Rate (₹)',    align: 'right' },
-                    { w: 70,  label: 'Disc %',      align: 'right' },
-                    ...(config.showGst ? [
-                      { w: 110, label: 'Taxable',   align: 'right' },
-                      { w: 78,  label: 'GST %',     align: 'left' },
-                      { w: 100, label: 'Tax Amt',   align: 'right' },
-                    ] : []),
-                    { w: 120, label: config.showGst ? 'Total (₹)' : 'Amount (₹)', align: 'right' },
-                    { w: 38,  label: '',            align: 'center' },
-                  ].map((col, i) => (
+                  {(config.showGst ? [
+                    { w: '5%',  label: 'S.No',             align: 'center' },
+                    { w: '17%', label: 'Item Name', align: 'left' },
+                    { w: '17%', label: 'Description', align: 'left' },
+                    { w: '9%',  label: 'HSN / SAC',        align: 'left' },
+                    { w: '7%',  label: 'Qty',               align: 'right' },
+                    { w: '10%', label: 'Unit',              align: 'left' },
+                    { w: '9%',  label: 'Rate (₹)',          align: 'right' },
+                    { w: '7%',  label: 'Disc %',            align: 'right' },
+                    { w: '8%',  label: 'Taxable',           align: 'right' },
+                    { w: '6%',  label: 'GST %',             align: 'left' },
+                    { w: '8%',  label: 'Tax Amt',           align: 'right' },
+                    { w: '9%',  label: 'Total (₹)',         align: 'right' },
+                    { w: '5%',  label: '',                  align: 'center' },
+                  ] : [
+                    { w: '5%',  label: 'S.No',             align: 'center' },
+                    { w: '25%', label: 'Item Name', align: 'left' },
+                    { w: '25%', label: 'Description', align: 'left' },
+                    { w: '12%', label: 'HSN / SAC',        align: 'left' },
+                    { w: '9%',  label: 'Qty',               align: 'right' },
+                    { w: '10%', label: 'Unit',              align: 'left' },
+                    { w: '12%', label: 'Rate (₹)',          align: 'right' },
+                    { w: '8%',  label: 'Disc %',            align: 'right' },
+                    { w: '14%', label: 'Amount (₹)',        align: 'right' },
+                    { w: '5%',  label: '',                  align: 'center' },
+                  ]).map((col, i) => (
                     <th
                       key={i}
-                      className={`text-xs font-semibold uppercase text-[#536173] pb-2 px-2 ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
-                      style={col.w ? { width: col.w } : undefined}
+                      className={`text-xs font-semibold uppercase text-[#536173] pb-2 px-2 whitespace-nowrap overflow-hidden text-ellipsis ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
+                      style={{ width: col.w }}
                     >
                       {col.label}
                     </th>
@@ -2312,7 +2358,7 @@ const [customFields, setCustomFields]         = useState([]);
                     <tr key={item.id}>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-center text-[#536173] text-xs pt-3">{idx + 1}</td>
 
-                      {/* Description: manual typing only for Quotation and Purchase Order; billing uses existing products */}
+                      {/* Add saved products from the top search; row item name stays simple for manual entry. */}
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         {allowManualItemDescription ? (
                           <>
@@ -2320,30 +2366,30 @@ const [customFields, setCustomFields]         = useState([]);
                               data-row={idx}
                               data-col="description"
                               className={`w-full border ${!item.description && errors.items ? 'border-red-400 bg-red-50' : 'border-[#dbe4ef]'} rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none bg-white focus:border-blue-500`}
-                              list={productOptionId(item.id)}
-                              placeholder="Type item or select product..."
+                              placeholder="Type item name..."
                               value={item.description}
                               onChange={(e) => {
-                                const value = e.target.value;
-                                const chosen = findProductByScan(products, value);
-                                if (chosen) {
-                                  selectProduct(item.id, chosen);
-                                } else {
-                                  updateItem(item.id, 'description', value);
-                                  clearError('items');
-                                }
+                                updateItem(item.id, 'description', e.target.value);
+                                clearError('items');
                               }}
                             />
-                            <datalist id={productOptionId(item.id)}>
-                              {products.flatMap((p) => {
-                                const key = p._id ?? p.id ?? p.description;
-                                return [
-                                  <option key={`${key}-name`} value={p.description} />,
-                                  p.barcode ? <option key={`${key}-barcode`} value={p.barcode}>{p.description}</option> : null,
-                                  p.code ? <option key={`${key}-code`} value={p.code}>{p.description}</option> : null,
-                                ];
-                              })}
-                            </datalist>
+                            {products.length > 0 && (
+                              <select
+                                className="mt-1 w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[12px] text-[#536173] font-[inherit] outline-none bg-white focus:border-blue-500"
+                                value=""
+                                onChange={(e) => {
+                                  const chosen = products.find((p) => String(p._id ?? p.id ?? p.description) === e.target.value);
+                                  if (chosen) selectProduct(item.id, chosen);
+                                }}
+                              >
+                                <option value="">Select existing product...</option>
+                                {products.map((p) => (
+                                  <option key={p._id ?? p.id ?? p.description} value={p._id ?? p.id ?? p.description}>
+                                    {p.description}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </>
                         ) : (
                           <select
@@ -2367,6 +2413,17 @@ const [customFields, setCustomFields]         = useState([]);
                             ))}
                           </select>
                         )}
+                      </td>
+
+                      <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                        <input
+                          data-row={idx}
+                          data-col="itemDescription"
+                          className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none focus:border-blue-500 min-w-0"
+                          placeholder="Type text or number..."
+                          value={item.itemDescription ?? ''}
+                          onChange={(e) => updateItem(item.id, 'itemDescription', e.target.value)}
+                        />
                       </td>
 
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
@@ -3320,11 +3377,11 @@ const [customFields, setCustomFields]         = useState([]);
       >
         <div className="flex items-stretch" style={{ height: 50 }}>
           {((() => {
-            const newRoute = ({ invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'sales-return': '/billing/sales-return/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' })[documentType] ?? '/billing/invoice/new';
-            const f1Label  = ({ invoice: 'New Bill', 'bill-of-supply': 'New BOS', quotation: 'New Quote', 'purchase-order': 'New PO', 'purchase-entry': 'New PE', 'credit-note': 'New Credit', 'debit-note': 'New Debit', 'sales-return': 'New Return', 'delivery-challan': 'New Challan', 'e-invoice': 'New E-Inv', 'e-way-bill': 'New EWB' })[documentType] ?? 'New';
-            const f6Label  = ({ invoice: 'Party', 'bill-of-supply': 'Party', quotation: 'Party', 'purchase-order': 'Vendor', 'purchase-entry': 'Vendor', 'credit-note': 'Party', 'debit-note': 'Party', 'sales-return': 'Party', 'delivery-challan': 'Consignee', 'e-invoice': 'Party', 'e-way-bill': 'Consignee' })[documentType] ?? 'Party';
-            const f7Label  = ({ invoice: 'Discount', 'bill-of-supply': 'Discount', quotation: 'Valid Till', 'purchase-order': 'Delivery', 'purchase-entry': 'Linked PO', 'credit-note': 'Ref Invoice', 'debit-note': 'Ref Invoice', 'sales-return': 'Ref Invoice', 'delivery-challan': 'Vehicle', 'e-invoice': 'IRN No.', 'e-way-bill': 'Vehicle' })[documentType] ?? 'Extra';
-            const f7fkey   = ({ invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'sales-return': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' })[documentType];
+            const newRoute = ({ invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'sales-return': '/billing/sales-return/new', 'supplier-return': '/billing/supplier-return/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' })[documentType] ?? '/billing/invoice/new';
+            const f1Label  = ({ invoice: 'New Bill', 'bill-of-supply': 'New BOS', quotation: 'New Quote', 'purchase-order': 'New PO', 'purchase-entry': 'New PE', 'credit-note': 'New Credit', 'debit-note': 'New Debit', 'sales-return': 'New Return', 'supplier-return': 'New Return', 'delivery-challan': 'New Challan', 'e-invoice': 'New E-Inv', 'e-way-bill': 'New EWB' })[documentType] ?? 'New';
+            const f6Label  = ({ invoice: 'Party', 'bill-of-supply': 'Party', quotation: 'Party', 'purchase-order': 'Vendor', 'purchase-entry': 'Vendor', 'credit-note': 'Party', 'debit-note': 'Party', 'sales-return': 'Party', 'supplier-return': 'Vendor', 'delivery-challan': 'Consignee', 'e-invoice': 'Party', 'e-way-bill': 'Consignee' })[documentType] ?? 'Party';
+            const f7Label  = ({ invoice: 'Discount', 'bill-of-supply': 'Discount', quotation: 'Valid Till', 'purchase-order': 'Delivery', 'purchase-entry': 'Linked PO', 'credit-note': 'Ref Invoice', 'debit-note': 'Ref Invoice', 'sales-return': 'Ref Invoice', 'supplier-return': 'Ref Invoice', 'delivery-challan': 'Vehicle', 'e-invoice': 'IRN No.', 'e-way-bill': 'Vehicle' })[documentType] ?? 'Extra';
+            const f7fkey   = ({ invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'sales-return': 'ref-invoice', 'supplier-return': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' })[documentType];
             return [
               { key: 'F1',  label: f1Label,   action: () => window.location.assign(newRoute) },
               { key: 'F2',  label: 'Save',     action: () => { if (!saveLoading) handleSave(); } },

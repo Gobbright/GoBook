@@ -16,7 +16,7 @@ function emptyForm(fields) {
   return Object.fromEntries(fields.map((f) => [f.key, '']));
 }
 
-function FieldInput({ field, value, onChange }) {
+function FieldInput({ field, value, onChange, lookupOptions }) {
   const common = {
     id: `field-${field.key}`,
     value: value ?? '',
@@ -35,6 +35,18 @@ function FieldInput({ field, value, onChange }) {
   if (field.type === 'textarea') {
     return <textarea {...common} rows={2} />;
   }
+  if (field.type === 'lookup') {
+    const listId = `lookup-${field.key}`;
+    const options = lookupOptions?.[field.lookupModule] ?? [];
+    return (
+      <>
+        <input {...common} type="text" list={listId} placeholder={field.placeholder || `Search or type ${field.label.toLowerCase()}...`} autoComplete="off" />
+        <datalist id={listId}>
+          {options.map((opt) => <option key={opt} value={opt} />)}
+        </datalist>
+      </>
+    );
+  }
   return <input {...common} type={field.type || 'text'} />;
 }
 
@@ -48,6 +60,23 @@ export function GenericModulePage({ title, group, category, moduleKey, fields })
   const [form, setForm] = useState(() => emptyForm(fields));
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [lookupOptions, setLookupOptions] = useState({});
+
+  function loadLookupOptions() {
+    const lookupModules = [...new Set(fields.filter((f) => f.type === 'lookup').map((f) => f.lookupModule))];
+    if (lookupModules.length === 0) return;
+    Promise.all(lookupModules.map((mod) =>
+      listModuleRecords(mod)
+        .then((res) => [mod, (res.records ?? []).map((r) => r.data?.name).filter(Boolean)])
+        .catch(() => [mod, []]),
+    )).then((pairs) => {
+      setLookupOptions(Object.fromEntries(pairs.map(([mod, names]) => [mod, [...new Set(names)].sort()])));
+    });
+  }
+
+  useEffect(() => {
+    loadLookupOptions();
+  }, [moduleKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function load() {
     setLoading(true);
@@ -78,6 +107,7 @@ export function GenericModulePage({ title, group, category, moduleKey, fields })
     setEditingId(null);
     setFormError('');
     setShowForm(true);
+    loadLookupOptions();
   }
 
   function openEdit(record) {
@@ -85,6 +115,7 @@ export function GenericModulePage({ title, group, category, moduleKey, fields })
     setEditingId(record._id);
     setFormError('');
     setShowForm(true);
+    loadLookupOptions();
   }
 
   function closeForm() {
@@ -150,7 +181,7 @@ export function GenericModulePage({ title, group, category, moduleKey, fields })
                     <label htmlFor={`field-${field.key}`} className="text-xs text-[#536173] font-medium">
                       {field.label}{field.required && <span className="text-blue-600"> *</span>}
                     </label>
-                    <FieldInput field={field} value={form[field.key]} onChange={(v) => setForm((p) => ({ ...p, [field.key]: v }))} />
+                    <FieldInput field={field} value={form[field.key]} onChange={(v) => setForm((p) => ({ ...p, [field.key]: v }))} lookupOptions={lookupOptions} />
                   </div>
                 ))}
               </div>

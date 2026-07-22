@@ -5,7 +5,7 @@ const SECTIONS = {
       { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
     ],
   },  sales: {
-    title: 'Sales',
+    title: 'Sales & Bill',
     items: [
       { label: 'Bills', href: '/billing/invoice/new', icon: 'FileText' },
       { label: 'Quotation', href: '/billing/quotation/new', icon: 'ClipboardList' },
@@ -23,7 +23,7 @@ const SECTIONS = {
     items: [
       { label: 'Purchase Order', href: '/billing/purchase-order/new', icon: 'ShoppingCart' },
       { label: 'Purchase Entry', href: '/billing/purchase-entry/new', icon: 'FileCheck' },
-      { label: 'Supplier Returns', href: '/supplier-returns', icon: 'ArrowRightLeft' },
+      { label: 'Supplier Returns', href: '/billing/supplier-return/new', icon: 'ArrowRightLeft' },
       { label: 'Purchase Reports', href: '/purchase-reports', icon: 'BarChart3' },
     ],
   },  gst: {
@@ -86,10 +86,10 @@ const SECTIONS = {
   moreModules: {
     title: 'Marketing',
     items: [
-      { label: 'WhatsApp Business', href: '//whatsapp-business', icon: 'MessageCircle' },
-      { label: 'Email Marketing', href: '//email-marketing', icon: 'Mail' },
-      { label: 'Sales Management', href: '//sales-management', icon: 'TrendingUp' },
-      { label: 'Vendor Management', href: '//vendor-management', icon: 'UserCheck' },
+      { label: 'WhatsApp Business', href: '/whatsapp-business', icon: 'MessageCircle' },
+      { label: 'Email Marketing', href: '/email-marketing', icon: 'Mail' },
+      { label: 'Sales Management', href: '/sales-management', icon: 'TrendingUp' },
+      { label: 'Vendor Management', href: '/vendor-management', icon: 'UserCheck' },
     ],
   },
   reports: {

@@ -33,6 +33,14 @@ import {
   deleteSalesReturn,
 } from './sales-return/salesReturnController.js';
 import {
+  getNextSupplierReturnNumber,
+  listSupplierReturns,
+  getSupplierReturn,
+  createSupplierReturn,
+  updateSupplierReturn,
+  deleteSupplierReturn,
+} from './supplier-return/supplierReturnController.js';
+import {
   getNextChallanNumber,
   listChallans,
   getChallan,
@@ -117,6 +125,14 @@ salesRouter.post('/sales-returns',             createSalesReturn);
 salesRouter.get('/sales-returns/:id',          getSalesReturn);
 salesRouter.put('/sales-returns/:id',          updateSalesReturn);
 salesRouter.delete('/sales-returns/:id',       deleteSalesReturn);
+
+// ── Supplier Return CRUD ─────────────────────────────────────────────────────
+salesRouter.get('/supplier-returns/next-number',  getNextSupplierReturnNumber);
+salesRouter.get('/supplier-returns',              listSupplierReturns);
+salesRouter.post('/supplier-returns',             createSupplierReturn);
+salesRouter.get('/supplier-returns/:id',          getSupplierReturn);
+salesRouter.put('/supplier-returns/:id',          updateSupplierReturn);
+salesRouter.delete('/supplier-returns/:id',       deleteSupplierReturn);
 
 // ── Delivery Challan CRUD ────────────────────────────────────────────────────
 salesRouter.get('/challans/next-number',  getNextChallanNumber);

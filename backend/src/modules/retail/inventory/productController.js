@@ -120,6 +120,7 @@ function normalizeProductPayload(body = {}) {
   if ('code' in body) payload.code = String(body.code ?? '').trim().toUpperCase();
   if ('hsn' in body) payload.hsn = String(body.hsn ?? '').trim();
   if ('category' in body) payload.category = String(body.category ?? '').trim();
+  if ('brand' in body) payload.brand = String(body.brand ?? '').trim();
   if ('unit' in body) payload.unit = String(body.unit ?? '').trim() || 'Nos';
   if ('barcode' in body) payload.barcode = String(body.barcode ?? '').trim();
   if ('status' in body) payload.status = String(body.status ?? '').trim() || 'Active';
@@ -309,6 +310,16 @@ export async function getCategories(req, res, next) {
   try {
     const categories = await Product.distinct('category', { userId: req.user.id });
     res.json(categories.filter(Boolean).sort());
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/inventory/products/brands
+export async function getBrands(req, res, next) {
+  try {
+    const brands = await Product.distinct('brand', { userId: req.user.id });
+    res.json(brands.filter(Boolean).sort());
   } catch (err) {
     next(err);
   }

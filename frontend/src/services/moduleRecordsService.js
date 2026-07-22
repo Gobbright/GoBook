@@ -15,3 +15,11 @@ export function updateModuleRecord(id, data) {
 export function deleteModuleRecord(id) {
   return apiClient(`/module-records/${id}`, { method: 'DELETE' });
 }
+
+export function importModuleRecords(moduleKey, fields, file) {
+  const formData = new FormData();
+  formData.append('moduleKey', moduleKey);
+  formData.append('fields', JSON.stringify(fields.map((f) => ({ key: f.key, label: f.label, type: f.type, required: !!f.required }))));
+  formData.append('file', file);
+  return apiClient('/module-records/import', { method: 'POST', body: formData });
+}

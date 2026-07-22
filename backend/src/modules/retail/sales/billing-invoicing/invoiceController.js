@@ -7,6 +7,8 @@ import { postInventoryForDocument, reverseInventoryForDocument } from '../../../
 import {
   postInvoiceAccounting,
   postPurchaseEntryAccounting,
+  postSalesReturnAccounting,
+  postSupplierReturnAccounting,
   reverseAccountingPosting,
 } from '../../../../services/accountingPostings.js';
 import {
@@ -104,10 +106,14 @@ export async function createInvoice(req, res, next) {
       await postInventoryForDocument(invoice, req.user.id);
       await postInvoiceAccounting(invoice, req.user);
       await postPurchaseEntryAccounting(invoice, req.user);
+      await postSalesReturnAccounting(invoice, req.user);
+      await postSupplierReturnAccounting(invoice, req.user);
     } catch (err) {
       await reverseInventoryForDocument(invoice, req.user.id).catch(() => {});
       await reverseAccountingPosting({ userId: req.user.id, sourceType: 'invoice', sourceId: invoice._id }).catch(() => {});
       await reverseAccountingPosting({ userId: req.user.id, sourceType: 'purchase-entry', sourceId: invoice._id }).catch(() => {});
+      await reverseAccountingPosting({ userId: req.user.id, sourceType: 'sales-return', sourceId: invoice._id }).catch(() => {});
+      await reverseAccountingPosting({ userId: req.user.id, sourceType: 'supplier-return', sourceId: invoice._id }).catch(() => {});
       await Invoice.deleteOne({ _id: invoice._id, userId: req.user.id });
       throw err;
     }
@@ -155,6 +161,8 @@ export async function updateInvoice(req, res, next) {
 
     await postInvoiceAccounting(invoice, req.user);
     await postPurchaseEntryAccounting(invoice, req.user);
+    await postSalesReturnAccounting(invoice, req.user);
+    await postSupplierReturnAccounting(invoice, req.user);
 
     res.json(await attachAccountingStatus(req.user.id, invoice.toObject()));
   } catch (err) {
@@ -170,6 +178,8 @@ export async function deleteInvoice(req, res, next) {
     await reverseInventoryForDocument(invoice, req.user.id);
     await reverseAccountingPosting({ userId: req.user.id, sourceType: 'invoice', sourceId: invoice._id });
     await reverseAccountingPosting({ userId: req.user.id, sourceType: 'purchase-entry', sourceId: invoice._id });
+    await reverseAccountingPosting({ userId: req.user.id, sourceType: 'sales-return', sourceId: invoice._id });
+    await reverseAccountingPosting({ userId: req.user.id, sourceType: 'supplier-return', sourceId: invoice._id });
     const payments = await Payment.find({ invoiceId: invoice._id, userId: req.user.id }).lean();
     for (const payment of payments) {
       await reverseAccountingPosting({ userId: req.user.id, sourceType: 'payment', sourceId: payment._id });

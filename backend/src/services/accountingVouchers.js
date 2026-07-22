@@ -7,6 +7,8 @@ const DEFAULT_LEDGER_GROUP = 'Indirect Expenses';
 const VOUCHER_PREFIX = {
   Sales: 'SAL',
   Purchase: 'PUR',
+  'Sales Return': 'SRN',
+  'Purchase Return': 'PRN',
   Receipt: 'RCT',
   Payment: 'PAY',
   Contra: 'CON',
