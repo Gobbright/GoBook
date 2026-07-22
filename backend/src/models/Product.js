@@ -9,6 +9,7 @@ const productSchema = new Schema({
   rate:          { type: Number, required: true, min: 0 },
   gstRate:       { type: Number, default: 18, enum: [0, 5, 12, 18, 28] },
   category:      { type: String, trim: true, default: '' },
+  brand:         { type: String, trim: true, default: '' },
   stock:         { type: Number, default: 0, min: 0 },
   minStockLevel: { type: Number, default: 0, min: 0 },
   barcode:       { type: String, trim: true, default: '' },

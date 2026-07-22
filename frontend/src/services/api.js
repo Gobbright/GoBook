@@ -91,6 +91,14 @@ export const api = {
   updateSalesReturn: (id, payload)      => request('PUT',    `/sales/sales-returns/${id}`, payload),
   deleteSalesReturn: (id)               => request('DELETE', `/sales/sales-returns/${id}`),
 
+  // ── Supplier Returns ──────────────────────────────────────────────────────
+  getSupplierReturnNextNumber: ()          => request('GET',    '/sales/supplier-returns/next-number'),
+  listSupplierReturns: (params)            => request('GET',    `/sales/supplier-returns${qs(params ?? {})}`),
+  getSupplierReturn:   (id)                => request('GET',    `/sales/supplier-returns/${id}`),
+  createSupplierReturn: (payload)          => request('POST',   '/sales/supplier-returns', payload),
+  updateSupplierReturn: (id, payload)      => request('PUT',    `/sales/supplier-returns/${id}`, payload),
+  deleteSupplierReturn: (id)               => request('DELETE', `/sales/supplier-returns/${id}`),
+
   // ── Delivery Challans ─────────────────────────────────────────────────────
   getChallanNextNumber: ()           => request('GET',    '/sales/challans/next-number'),
   listChallans:  (params)            => request('GET',    `/sales/challans${qs(params ?? {})}`),
@@ -134,6 +142,7 @@ export const api = {
   invProductStats:      ()               => request('GET', '/inventory/products/stats'),
   invProductNextCode:   ()               => request('GET', '/inventory/products/next-code'),
   invProductCategories: ()               => request('GET', '/inventory/products/categories'),
+  invProductBrands:     ()               => request('GET', '/inventory/products/brands'),
   invListProducts:      (params)         => request('GET', `/inventory/products${qs(params ?? {})}`),
   invCreateProduct:     (payload)        => request('POST',   '/inventory/products', payload),
   invUpdateProduct:     (id, payload)    => request('PUT',    `/inventory/products/${id}`, payload),
@@ -166,6 +175,20 @@ export const api = {
   invCreateWarehouse:  (payload)        => request('POST',   '/inventory/warehouses', payload),
   invUpdateWarehouse:  (id, payload)    => request('PUT',    `/inventory/warehouses/${id}`, payload),
   invDeleteWarehouse:  (id)             => request('DELETE', `/inventory/warehouses/${id}`),
+
+  // ── Inventory: Categories ─────────────────────────────────────────────────
+  invCategoryStats:   ()               => request('GET', '/inventory/categories/stats'),
+  invListCategories:  (params)         => request('GET', `/inventory/categories${qs(params ?? {})}`),
+  invCreateCategory:  (payload)        => request('POST',   '/inventory/categories', payload),
+  invUpdateCategory:  (id, payload)    => request('PUT',    `/inventory/categories/${id}`, payload),
+  invDeleteCategory:  (id)             => request('DELETE', `/inventory/categories/${id}`),
+
+  // ── Inventory: Brands ──────────────────────────────────────────────────────
+  invBrandStats:   ()               => request('GET', '/inventory/brands/stats'),
+  invListBrands:   (params)         => request('GET', `/inventory/brands${qs(params ?? {})}`),
+  invCreateBrand:  (payload)        => request('POST',   '/inventory/brands', payload),
+  invUpdateBrand:  (id, payload)    => request('PUT',    `/inventory/brands/${id}`, payload),
+  invDeleteBrand:  (id)             => request('DELETE', `/inventory/brands/${id}`),
 
   // ── Inventory: Alerts ─────────────────────────────────────────────────────
   invAlertStats: ()       => request('GET', '/inventory/alerts/stats'),

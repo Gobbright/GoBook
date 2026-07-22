@@ -10,6 +10,7 @@ const SOURCE_BY_DOCUMENT_TYPE = {
   'credit-note': 'credit-note',
   'debit-note': 'debit-note',
   'sales-return': 'sales-return',
+  'supplier-return': 'supplier-return',
 };
 
 function sourceTypeForDocument(doc = {}) {

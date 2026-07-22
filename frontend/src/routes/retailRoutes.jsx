@@ -24,6 +24,8 @@ import { EmployeesPage } from '../features/categories/common/modules/hr-payroll/
 import { LeaveManagementPage } from '../features/categories/common/modules/hr-payroll/LeaveManagementPage.jsx';
 import { PayrollPage } from '../features/categories/common/modules/hr-payroll/PayrollPage.jsx';
 import { BarcodePage } from '../features/categories/common/modules/inventory/BarcodePage.jsx';
+import { BrandsPage } from '../features/categories/common/modules/inventory/BrandsPage.jsx';
+import { CategoriesPage } from '../features/categories/common/modules/inventory/CategoriesPage.jsx';
 import { ProductsPage } from '../features/categories/common/modules/inventory/ProductsPage.jsx';
 import { StockAlertsPage } from '../features/categories/common/modules/inventory/StockAlertsPage.jsx';
 import { StockInPage } from '../features/categories/common/modules/inventory/StockInPage.jsx';
@@ -37,7 +39,6 @@ import { SalesManagementPage } from '../features/categories/common/modules/more-
 import { VendorManagementPage } from '../features/categories/common/modules/more-modules/VendorManagementPage.jsx';
 import { WhatsAppBusinessPage } from '../features/categories/common/modules/more-modules/WhatsAppBusinessPage.jsx';
 import { ModuleReportsPage } from '../features/categories/common/modules/reports/ModuleReportsPage.jsx';
-import { ModulePlaceholderPage } from '../components/common/ModulePlaceholderPage.jsx';
 import { BusinessSettingsPage } from '../features/categories/common/modules/settings/BusinessSettingsPage.jsx';
 import { MultiBranchPage } from '../features/categories/common/modules/settings/MultiBranchPage.jsx';
 import { UsersRolesPage } from '../features/categories/common/modules/settings/UsersRolesPage.jsx';
@@ -69,6 +70,8 @@ export const commonRoutes = [
   { path: '/crm-reports', element: <ModuleReportsPage type="crm" /> },
 
   { path: '/products', element: <ProductsPage /> },
+  { path: '/product-categories', element: <CategoriesPage /> },
+  { path: '/brands', element: <BrandsPage /> },
   { path: '/stock-summary', element: <StockSummaryPage /> },
   { path: '/stock-ledger', element: <StockLedgerPage /> },
   { path: '/inventory-reports', element: <ModuleReportsPage type="inventory" /> },
@@ -98,8 +101,6 @@ export const commonRoutes = [
 
 // Retail-only (Sales / Billing reports — tied to the Sales nav section, which stays Retail-exclusive).
 export const retailRoutes = [
-  { path: '/supplier-returns', element: <ModulePlaceholderPage title="Supplier Returns" group="Purchase" category="Retail" /> },
-  { path: '/product-categories', element: <ModulePlaceholderPage title="Categories" group="Inventory" category="Retail" /> },
-  { path: '/brands', element: <ModulePlaceholderPage title="Brands" group="Inventory" category="Retail" /> },  { path: '/sales-reports', element: <ModuleReportsPage type="sales" /> },
+  { path: '/sales-reports', element: <ModuleReportsPage type="sales" /> },
   { path: '/purchase-reports', element: <ModuleReportsPage type="purchase" /> },
 ];

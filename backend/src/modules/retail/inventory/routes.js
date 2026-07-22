@@ -5,6 +5,7 @@ import {
   getNextProductCode,
   listProducts,
   getCategories,
+  getBrands,
   getProduct,
   createProduct,
   updateProduct,
@@ -42,6 +43,22 @@ import {
 } from './warehouseController.js';
 import { getAlertStats, listAlerts } from './alertsController.js';
 import { getStockLedger, getStockSummary } from './reportController.js';
+import {
+  getCategoryStats,
+  listCategories,
+  getCategory,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} from './categoryController.js';
+import {
+  getBrandStats,
+  listBrands,
+  getBrand,
+  createBrand,
+  updateBrand,
+  deleteBrand,
+} from './brandController.js';
 
 export const inventoryRouter = Router();
 
@@ -52,6 +69,7 @@ inventoryRouter.get('/reports/ledger',  getStockLedger);
 inventoryRouter.get('/products/stats',      getProductStats);
 inventoryRouter.get('/products/next-code',  getNextProductCode);
 inventoryRouter.get('/products/categories', getCategories);
+inventoryRouter.get('/products/brands',     getBrands);
 inventoryRouter.post('/products/import',    uploadProductsFile.single('file'), importProducts);
 inventoryRouter.get('/products',            listProducts);
 inventoryRouter.post('/products',           createProduct);
@@ -89,3 +107,19 @@ inventoryRouter.delete('/warehouses/:id',deleteWarehouse);
 // ── Alerts ────────────────────────────────────────────────────────────────────
 inventoryRouter.get('/alerts/stats', getAlertStats);
 inventoryRouter.get('/alerts',       listAlerts);
+
+// ── Categories ────────────────────────────────────────────────────────────────
+inventoryRouter.get('/categories/stats', getCategoryStats);
+inventoryRouter.get('/categories',       listCategories);
+inventoryRouter.post('/categories',      createCategory);
+inventoryRouter.get('/categories/:id',   getCategory);
+inventoryRouter.put('/categories/:id',   updateCategory);
+inventoryRouter.delete('/categories/:id',deleteCategory);
+
+// ── Brands ────────────────────────────────────────────────────────────────────
+inventoryRouter.get('/brands/stats', getBrandStats);
+inventoryRouter.get('/brands',       listBrands);
+inventoryRouter.post('/brands',      createBrand);
+inventoryRouter.get('/brands/:id',   getBrand);
+inventoryRouter.put('/brands/:id',   updateBrand);
+inventoryRouter.delete('/brands/:id',deleteBrand);

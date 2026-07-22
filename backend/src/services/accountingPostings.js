@@ -367,6 +367,33 @@ export async function postPurchaseEntryAccounting(invoice, user) {
   });
 }
 
+export async function postSupplierReturnAccounting(note, user) {
+  if (note.documentType !== 'supplier-return') return null;
+
+  const amounts = calcDocumentAmounts(note, true);
+  const purchaseReturnAmount = netBeforeTax(amounts.total, amounts.gst);
+  const vendorName = cleanName(note.customer?.name, 'Unknown Vendor');
+  const date = note.meta?.date || new Date().toISOString().slice(0, 10);
+  const costCenter = cleanName(note.extra?.costCenter, '');
+
+  return savePosting({
+    userId: user.id,
+    businessId: user.businessId,
+    sourceType: 'supplier-return',
+    sourceId: note._id,
+    sourceNumber: note.number,
+    date,
+    partyName: vendorName,
+    voucherType: 'Purchase Return',
+    narration: `Supplier return ${note.number} - ${vendorName}`,
+    lines: [
+      { accountName: vendorName, group: ACCOUNT_GROUPS.vendor, side: 'debit', amount: amounts.total, costCenter },
+      { accountName: 'Purchase Returns', group: ACCOUNT_GROUPS.purchase, side: 'credit', amount: purchaseReturnAmount, costCenter },
+      { accountName: 'Input GST', group: ACCOUNT_GROUPS.inputGst, side: 'credit', amount: amounts.gst, costCenter },
+    ],
+  });
+}
+
 export async function postPaymentAccounting(payment, invoice, user) {
   const customerName = cleanName(payment.customerName || invoice?.customer?.name, 'Walk-in Customer');
   const isCash = payment.method === 'Cash';

@@ -11,7 +11,7 @@ const LABEL = 'block text-[12px] font-medium text-[#374151] mb-1';
 const GST_RATES = [0, 5, 12, 18, 28];
 const UNITS = ['Nos', 'Pcs', 'Kg', 'Box', 'Ltr', 'Mtr', 'Set'];
 
-const EMPTY_FORM = { description: '', code: '', hsn: '', category: '', unit: 'Nos', rate: '', gstRate: 18, stock: 0, minStockLevel: 0, barcode: '', status: 'Active' };
+const EMPTY_FORM = { description: '', code: '', hsn: '', category: '', brand: '', unit: 'Nos', rate: '', gstRate: 18, stock: 0, minStockLevel: 0, barcode: '', status: 'Active' };
 
 function genBarcode() {
   return Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
@@ -41,7 +41,7 @@ const UploadIcon = () => (
   </svg>
 );
 
-function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories, onSave, onClose }) {
+function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories, brands, onSave, onClose }) {
   const [form, setForm] = useState(() => {
     if (mode === 'add') return { ...EMPTY_FORM, code: nextCode ?? '', barcode: initialBarcode || genBarcode() };
     return initial ?? EMPTY_FORM;
@@ -119,6 +119,11 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
               <datalist id="cat-list">{categories.filter((c) => c !== 'All Categories').map((c) => <option key={c} value={c} />)}</datalist>
             </div>
             <div>
+              <label className={LABEL}>Brand</label>
+              <input className={INPUT} value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} placeholder="e.g. Samsung" list="brand-list" />
+              <datalist id="brand-list">{brands.map((b) => <option key={b} value={b} />)}</datalist>
+            </div>
+            <div>
               <label className={LABEL}>Unit</label>
               <select className={INPUT} value={form.unit} onChange={(e) => set('unit', e.target.value)}>
                 {UNITS.map((u) => <option key={u}>{u}</option>)}
@@ -175,6 +180,7 @@ export function ProductsPage() {
   const [search, setSearch]         = useState('');
   const [category, setCategory]     = useState('All Categories');
   const [categories, setCategories] = useState(['All Categories']);
+  const [brands, setBrands]         = useState([]);
   const [products, setProducts]     = useState([]);
   const [stats, setStats]           = useState(null);
   const [total, setTotal]           = useState(0);
@@ -199,6 +205,10 @@ export function ProductsPage() {
     api.invProductCategories().then((cats) => setCategories(['All Categories', ...cats])).catch(() => {});
   }
 
+  function loadBrands() {
+    api.invProductBrands().then(setBrands).catch(() => {});
+  }
+
   function loadProducts() {
     setLoading(true);
     setError('');
@@ -211,7 +221,7 @@ export function ProductsPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { loadStats(); loadCategories(); }, []);
+  useEffect(() => { loadStats(); loadCategories(); loadBrands(); }, []);
   useEffect(() => { loadProducts(); }, [search, category, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSave(saved) {
@@ -221,6 +231,7 @@ export function ProductsPage() {
     setPage(1);
     loadStats();
     loadCategories();
+    loadBrands();
     api.invListProducts({ page: 1, limit: LIMIT })
       .then((res) => {
         setProducts(res.data);
@@ -287,6 +298,7 @@ export function ProductsPage() {
       setImportResult(result);
       loadStats();
       loadCategories();
+      loadBrands();
       loadProducts();
     } catch (e) {
       setImportResult({ error: e.message || 'Import failed' });
@@ -313,6 +325,7 @@ export function ProductsPage() {
           nextCode={modal.nextCode}
           initialBarcode={modal.initialBarcode || ''}
           categories={categories}
+          brands={brands}
           onSave={handleSave}
           onClose={() => setModal(null)}
         />
@@ -440,6 +453,7 @@ export function ProductsPage() {
                 <th className={TH}>Product Name</th>
                 <th className={TH}>HSN / SAC</th>
                 <th className={TH}>Category</th>
+                <th className={TH}>Brand</th>
                 <th className={TH}>Sale Price</th>
                 <th className={TH}>GST</th>
                 <th className={TH}>Stock</th>
@@ -449,14 +463,15 @@ export function ProductsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
+                <tr><td colSpan={9} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
               ) : products.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-8 text-center text-[13px] text-[#536173]">No products found</td></tr>
+                <tr><td colSpan={9} className="px-5 py-8 text-center text-[13px] text-[#536173]">No products found</td></tr>
               ) : products.map((row) => (
                 <tr key={row._id} className="hover:bg-gray-50">
                   <td className={`${TD} font-medium text-[#111827]`}>{row.description}</td>
                   <td className={`${TD} text-[#536173] font-mono`}>{row.hsn || '-'}</td>
                   <td className={`${TD} text-[#536173]`}>{row.category || '—'}</td>
+                  <td className={`${TD} text-[#536173]`}>{row.brand || '—'}</td>
                   <td className={`${TD} font-medium text-[#111827]`}>{formatCurrency(row.rate)}</td>
                   <td className={`${TD} text-[#536173]`}>{Number(row.gstRate ?? 0)}%</td>
                   <td className={`${TD} text-[#111827]`}>{row.stock}</td>

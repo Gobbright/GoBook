@@ -1108,79 +1108,13 @@ body:has(.app-form-modal)::before {
 
 .billing-items-panel td {
   border-color: #e8eef6 !important;
-  padding: 8px 7px !important;
+  padding: 8px 6px !important;
 }
-
-.billing-items-panel th:nth-child(1),
-.billing-items-panel td:nth-child(1) { width: 42px !important; }
-
-.billing-items-table--gst th:nth-child(2),
-.billing-items-table--gst td:nth-child(2) { width: 17% !important; }
-
-.billing-items-table--gst th:nth-child(3),
-.billing-items-table--gst td:nth-child(3) { width: 12% !important; }
-
-.billing-items-table--gst th:nth-child(4),
-.billing-items-table--gst td:nth-child(4) { width: 8% !important; }
-
-.billing-items-table--gst th:nth-child(5),
-.billing-items-table--gst td:nth-child(5) { width: 6% !important; }
-
-.billing-items-table--gst th:nth-child(6),
-.billing-items-table--gst td:nth-child(6) { width: 7% !important; }
-
-.billing-items-table--gst th:nth-child(7),
-.billing-items-table--gst td:nth-child(7) { width: 9% !important; }
-
-.billing-items-table--gst th:nth-child(8),
-.billing-items-table--gst td:nth-child(8) { width: 6% !important; }
-
-.billing-items-table--gst th:nth-child(9),
-.billing-items-table--gst td:nth-child(9) { width: 9% !important; }
-
-.billing-items-table--gst th:nth-child(10),
-.billing-items-table--gst td:nth-child(10) { width: 6% !important; }
-
-.billing-items-table--gst th:nth-child(11),
-.billing-items-table--gst td:nth-child(11) { width: 8% !important; }
-
-.billing-items-table--gst th:nth-child(12),
-.billing-items-table--gst td:nth-child(12) { width: 8% !important; }
-
-.billing-items-table--gst th:nth-child(13),
-.billing-items-table--gst td:nth-child(13) { width: 42px !important; }
-
-.billing-items-table--no-gst th:nth-child(2),
-.billing-items-table--no-gst td:nth-child(2) { width: 23% !important; }
-
-.billing-items-table--no-gst th:nth-child(3),
-.billing-items-table--no-gst td:nth-child(3) { width: 18% !important; }
-
-.billing-items-table--no-gst th:nth-child(4),
-.billing-items-table--no-gst td:nth-child(4) { width: 10% !important; }
-
-.billing-items-table--no-gst th:nth-child(5),
-.billing-items-table--no-gst td:nth-child(5) { width: 8% !important; }
-
-.billing-items-table--no-gst th:nth-child(6),
-.billing-items-table--no-gst td:nth-child(6) { width: 9% !important; }
-
-.billing-items-table--no-gst th:nth-child(7),
-.billing-items-table--no-gst td:nth-child(7) { width: 13% !important; }
-
-.billing-items-table--no-gst th:nth-child(8),
-.billing-items-table--no-gst td:nth-child(8) { width: 8% !important; }
-
-.billing-items-table--no-gst th:nth-child(9),
-.billing-items-table--no-gst td:nth-child(9) { width: 11% !important; }
-
-.billing-items-table--no-gst th:nth-child(10),
-.billing-items-table--no-gst td:nth-child(10) { width: 42px !important; }
 
 .billing-items-panel input,
 .billing-items-panel select {
-  padding-left: 8px !important;
-  padding-right: 8px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
   font-size: 12.5px !important;
 }
 

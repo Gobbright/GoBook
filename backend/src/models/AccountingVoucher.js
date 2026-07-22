@@ -3,6 +3,8 @@ import { Schema, model } from 'mongoose';
 export const VOUCHER_TYPES = [
   'Sales',
   'Purchase',
+  'Sales Return',
+  'Purchase Return',
   'Receipt',
   'Payment',
   'Contra',
