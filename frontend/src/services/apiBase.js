@@ -1,9 +1,9 @@
 const LOCAL_API_URL = 'http://localhost:5000/api';
-const PRODUCTION_API_URL = 'https://api-gobook.gobrightglobal.com/api';
+const PRODUCTION_API_URL = LOCAL_API_URL;
 
 function isProductionHost() {
   if (typeof window === 'undefined') return false;
-  return ['gobook.gobrightglobal.com', 'www.gobook.gobrightglobal.com'].includes(window.location.hostname);
+  return ['gobooksuite.com', 'www.gobooksuite.com'].includes(window.location.hostname);
 }
 
 function normalizeApiUrl(url) {

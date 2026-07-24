@@ -8,6 +8,8 @@ import { CATEGORIES } from '../../constants/categories.js';
 import { AppUser } from '../../models/AppUser.js';
 import { Business } from '../../models/Business.js';
 import { BusinessSettings } from '../../models/BusinessSettings.js';
+import { PendingSignup } from '../../models/PendingSignup.js';
+import { PendingGoogleLogin } from '../../models/PendingGoogleLogin.js';
 import { httpError } from '../../utils/httpError.js';
 import { sendMail } from '../../utils/mailer.js';
 
@@ -16,6 +18,10 @@ const RESET_OTP_EXPIRES_MINUTES = 10;
 const RESET_OTP_MAX_ATTEMPTS = 5;
 const EMAIL_VERIFY_OTP_EXPIRES_MINUTES = 10;
 const EMAIL_VERIFY_OTP_MAX_ATTEMPTS = 5;
+const SIGNUP_OTP_EXPIRES_MINUTES = 10;
+const SIGNUP_OTP_MAX_ATTEMPTS = 5;
+const GOOGLE_OTP_EXPIRES_MINUTES = 10;
+const GOOGLE_OTP_MAX_ATTEMPTS = 5;
 const SUBSCRIPTION_AMOUNTS = { starter: 499, professional: 999, enterprise: 1999 };
 const SUBSCRIPTION_PLANS = Object.keys(SUBSCRIPTION_AMOUNTS);
 
@@ -50,7 +56,7 @@ function toSafeUser(user) {
     onboardingCompleted: Boolean(user.onboardingCompleted),
     emailVerified: Boolean(user.emailVerified || user.googleId),
     needsEmailVerification: Boolean(!user.googleId && !user.emailVerified),
-    needsOnboarding: Boolean(user.googleId && !user.onboardingCompleted),
+    needsOnboarding: Boolean(!user.onboardingCompleted),
     status: user.status,
     lastLogin: user.lastLogin,
     authProvider: user.authProvider || (user.googleId ? 'google' : 'email'),
@@ -131,6 +137,28 @@ function getEmailVerificationHtml({ name, otp }) {
   `;
 }
 
+function getGoogleOtpEmailHtml({ name, otp }) {
+  return `
+    <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+      <h2 style="margin: 0 0 12px;">Your GoBook Google login OTP</h2>
+      <p style="margin: 0 0 12px;">Hi ${name || 'there'},</p>
+      <p style="margin: 0 0 16px;">Use this OTP to continue with Google email login. It expires in ${GOOGLE_OTP_EXPIRES_MINUTES} minutes.</p>
+      <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 0 0 16px;">${otp}</p>
+      <p style="margin: 0; color: #536173;">If you did not request this, you can ignore this email.</p>
+    </div>
+  `;
+}
+function getSignupOtpEmailHtml({ name, otp }) {
+  return `
+    <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+      <h2 style="margin: 0 0 12px;">Verify your GoBook signup</h2>
+      <p style="margin: 0 0 12px;">Hi ${name || 'there'},</p>
+      <p style="margin: 0 0 16px;">Use this OTP to finish creating your GoBook account. It expires in ${SIGNUP_OTP_EXPIRES_MINUTES} minutes.</p>
+      <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 0 0 16px;">${otp}</p>
+      <p style="margin: 0; color: #536173;">Your account will be created only after this OTP is verified.</p>
+    </div>
+  `;
+}
 async function sendEmailVerificationOtp(user) {
   const otp = createResetOtp();
   user.emailVerificationOtpHash = await bcrypt.hash(otp, SALT_ROUNDS);
@@ -145,54 +173,145 @@ async function sendEmailVerificationOtp(user) {
   });
 }
 
+async function createPendingSignupOtp() {
+  const otp = createResetOtp();
+  return {
+    otp,
+    otpHash: await bcrypt.hash(otp, SALT_ROUNDS),
+    otpExpiresAt: new Date(Date.now() + SIGNUP_OTP_EXPIRES_MINUTES * 60 * 1000),
+  };
+}
+
+function getSignupPayload(req) {
+  const name = String(req.body.name ?? '').trim();
+  const email = normalizeEmail(req.body.email);
+  const password = String(req.body.password ?? '');
+  const businessName = String(req.body.businessName ?? '').trim();
+  const category = String(req.body.category ?? '').trim();
+  const phone = String(req.body.phone ?? '').trim();
+  const gstin = String(req.body.gstin ?? '').trim().toUpperCase();
+  const subscriptionPlan = String(req.body.subscriptionPlan ?? '').trim();
+
+  return {
+    name,
+    email,
+    password,
+    businessName,
+    category,
+    phone,
+    gstin,
+    subscriptionPlan,
+    subscriptionAmount: SUBSCRIPTION_AMOUNTS[subscriptionPlan] || 0,
+  };
+}
+
+async function validateSignupPayload(payload) {
+  if (!payload.name || !payload.email || !payload.password) throw httpError(400, 'Name, email and password are required');
+  if (payload.password.length < 8) throw httpError(400, 'Password must be at least 8 characters');
+  if (!payload.businessName || payload.businessName.length < 2) throw httpError(400, 'Business name is required');
+  if (!payload.phone) throw httpError(400, 'Phone number is required');
+  if (!CATEGORIES.includes(payload.category)) throw httpError(400, 'Select a valid business category');
+  if (!SUBSCRIPTION_PLANS.includes(payload.subscriptionPlan)) throw httpError(400, 'Select a valid plan');
+
+  const existing = await AppUser.findOne({ email: payload.email }).select('_id');
+  if (existing) throw httpError(409, 'Email already registered');
+}
+
 // POST /api/auth/register
-export async function register(req, res, next) {
+export async function startRegistration(req, res, next) {
   try {
-    const { name, email, password, businessName = '', category = '', phone = '', gstin = '' } = req.body;
-    const normalizedEmail = normalizeEmail(email);
+    const payload = getSignupPayload(req);
+    await validateSignupPayload(payload);
 
-    if (!name || !normalizedEmail || !password) {
-      return next(httpError(400, 'Name, email and password are required'));
+    const { otp, otpHash, otpExpiresAt } = await createPendingSignupOtp();
+    await PendingSignup.findOneAndUpdate(
+      { email: payload.email },
+      {
+        $set: {
+          ...payload,
+          password: await bcrypt.hash(payload.password, SALT_ROUNDS),
+          otpHash,
+          otpExpiresAt,
+          otpAttempts: 0,
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+
+    await sendMail({
+      to: payload.email,
+      subject: 'Your GoBook signup OTP',
+      html: getSignupOtpEmailHtml({ name: payload.name, otp }),
+    });
+
+    res.status(202).json({
+      message: 'OTP sent to your email. Verify it to create your account.',
+      email: payload.email,
+      expiresInMinutes: SIGNUP_OTP_EXPIRES_MINUTES,
+    });
+  } catch (err) {
+    if (err.code === 11000) return next(httpError(409, 'Email already registered'));
+    next(err);
+  }
+}
+
+export async function register(req, res, next) {
+  return startRegistration(req, res, next);
+}
+
+// POST /api/auth/register/verify-otp
+export async function verifyRegistrationOtp(req, res, next) {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const otp = String(req.body.otp || '').trim();
+
+    if (!email) return next(httpError(400, 'Email is required'));
+    if (!/^\d{6}$/.test(otp)) return next(httpError(400, 'OTP must be 6 digits'));
+
+    const existing = await AppUser.findOne({ email }).select('_id');
+    if (existing) return next(httpError(409, 'Email already registered'));
+
+    const pending = await PendingSignup.findOne({ email }).select('+password +otpHash +otpExpiresAt +otpAttempts');
+    if (!pending || !pending.otpHash || !pending.otpExpiresAt) return next(httpError(400, 'Invalid or expired OTP'));
+    if (pending.otpExpiresAt.getTime() < Date.now()) {
+      await PendingSignup.deleteOne({ _id: pending._id });
+      return next(httpError(400, 'Invalid or expired OTP'));
     }
-    if (password.length < 8) {
-      return next(httpError(400, 'Password must be at least 8 characters'));
-    }
-    if (!CATEGORIES.includes(category)) {
-      return next(httpError(400, 'Select a valid business category'));
+    if (pending.otpAttempts >= SIGNUP_OTP_MAX_ATTEMPTS) return next(httpError(429, 'Too many OTP attempts. Request a new OTP'));
+
+    const valid = await bcrypt.compare(otp, pending.otpHash);
+    if (!valid) {
+      pending.otpAttempts += 1;
+      await pending.save();
+      return next(httpError(400, 'Invalid or expired OTP'));
     }
 
-    const existing = await AppUser.findOne({ email: normalizedEmail });
-    if (existing) {
-      return next(httpError(409, 'Email already registered'));
-    }
-
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const business = await createBusinessForNewUser(businessName, name, category);
-
+    const business = await createBusinessForNewUser(pending.businessName, pending.name, pending.category);
     const user = await AppUser.create({
-      name: name.trim(),
-      email: normalizedEmail,
-      password: passwordHash,
+      name: pending.name,
+      email: pending.email,
+      password: pending.password,
       businessId: business._id,
-      businessName: businessName.trim(),
-      category,
-      phone: phone.trim(),
+      businessName: pending.businessName,
+      category: pending.category,
+      phone: pending.phone,
       role: 'Super Admin',
       lastLogin: new Date().toISOString(),
-      subscriptionPlan: 'professional',
+      subscriptionPlan: pending.subscriptionPlan,
+      subscriptionAmount: pending.subscriptionAmount,
       onboardingCompleted: true,
-      emailVerified: false,
+      emailVerified: true,
     });
 
     await BusinessSettings.create({
       userId: user._id,
-      businessName: businessName.trim(),
-      businessEmail: normalizedEmail,
-      phone: phone.trim(),
-      gstin: gstin.trim(),
+      businessName: pending.businessName,
+      businessEmail: pending.email,
+      phone: pending.phone,
+      gstin: pending.gstin,
     });
 
-    await sendEmailVerificationOtp(user);
+    await PendingSignup.deleteOne({ _id: pending._id });
 
     const token = signToken(user);
     res.status(201).json({ token, user: toSafeUser(user) });
@@ -235,6 +354,93 @@ export async function login(req, res, next) {
   }
 }
 
+// POST /api/auth/google-otp/start
+export async function startGoogleOtpLogin(req, res, next) {
+  try {
+    const email = normalizeEmail(req.body.email);
+    if (!email) return next(httpError(400, 'Email is required'));
+
+    const existing = await AppUser.findOne({ email }).select('name email status');
+    if (existing && existing.status !== 'Active') return next(httpError(403, 'Account is not active'));
+
+    const otp = createResetOtp();
+    await PendingGoogleLogin.findOneAndUpdate(
+      { email },
+      {
+        $set: {
+          email,
+          otpHash: await bcrypt.hash(otp, SALT_ROUNDS),
+          otpExpiresAt: new Date(Date.now() + GOOGLE_OTP_EXPIRES_MINUTES * 60 * 1000),
+          otpAttempts: 0,
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+
+    await sendMail({
+      to: email,
+      subject: 'Your GoBook Google login OTP',
+      html: getGoogleOtpEmailHtml({ name: existing?.name || email.split('@')[0], otp }),
+    });
+
+    res.json({ message: 'OTP sent to your email', email, expiresInMinutes: GOOGLE_OTP_EXPIRES_MINUTES });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/auth/google-otp/verify
+export async function verifyGoogleOtpLogin(req, res, next) {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const otp = String(req.body.otp || '').trim();
+
+    if (!email) return next(httpError(400, 'Email is required'));
+    if (!/^\d{6}$/.test(otp)) return next(httpError(400, 'OTP must be 6 digits'));
+
+    const pending = await PendingGoogleLogin.findOne({ email }).select('+otpHash +otpExpiresAt +otpAttempts');
+    if (!pending || !pending.otpHash || !pending.otpExpiresAt) return next(httpError(400, 'Invalid or expired OTP'));
+    if (pending.otpExpiresAt.getTime() < Date.now()) {
+      await PendingGoogleLogin.deleteOne({ _id: pending._id });
+      return next(httpError(400, 'Invalid or expired OTP'));
+    }
+    if (pending.otpAttempts >= GOOGLE_OTP_MAX_ATTEMPTS) return next(httpError(429, 'Too many OTP attempts. Request a new OTP'));
+
+    const valid = await bcrypt.compare(otp, pending.otpHash);
+    if (!valid) {
+      pending.otpAttempts += 1;
+      await pending.save();
+      return next(httpError(400, 'Invalid or expired OTP'));
+    }
+
+    let user = await AppUser.findOne({ email }).select('+password');
+    if (user && user.status !== 'Active') return next(httpError(403, 'Account is not active'));
+
+    if (!user) {
+      const name = email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+      user = await AppUser.create({
+        name,
+        email,
+        authProvider: 'email',
+        emailVerified: true,
+        role: 'Super Admin',
+        lastLogin: new Date().toISOString(),
+        onboardingCompleted: false,
+      });
+    } else {
+      user.emailVerified = true;
+      user.lastLogin = new Date().toISOString();
+      await user.save();
+    }
+
+    await PendingGoogleLogin.deleteOne({ _id: pending._id });
+
+    const token = signToken(user);
+    res.json({ token, user: toSafeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+}
 // POST /api/auth/google
 export async function googleLogin(req, res, next) {
   try {
@@ -303,8 +509,6 @@ export async function completeGoogleOnboarding(req, res, next) {
   try {
     const user = await AppUser.findById(req.user.id);
     if (!user) return next(httpError(404, 'User not found'));
-    if (!user.googleId) return next(httpError(400, 'Google onboarding is only for Google sign-in accounts'));
-
     const businessName = String(req.body.businessName ?? '').trim();
     const category = String(req.body.category ?? '').trim();
     const phone = String(req.body.phone ?? '').trim();
@@ -498,4 +702,5 @@ export async function getMe(req, res, next) {
     next(err);
   }
 }
+
 

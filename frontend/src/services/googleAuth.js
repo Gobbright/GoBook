@@ -39,6 +39,7 @@ export async function signInWithGoogle() {
   return new Promise((resolve, reject) => {
     window.google.accounts.id.initialize({
       client_id: clientId,
+      ux_mode: 'popup',
       callback: (response) => {
         if (response?.credential) resolve(response.credential);
         else reject(new Error('Google sign-in was cancelled'));

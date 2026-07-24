@@ -18,6 +18,22 @@ export async function loginWithGoogle(credential) {
 
 
 
+
+export async function startGoogleOtpLogin(email) {
+  return apiClient('/auth/google-otp/start', {
+    method: 'POST',
+    body: JSON.stringify({ email: email.trim() }),
+  });
+}
+
+export async function verifyGoogleOtpLogin({ email, otp }) {
+  const data = await apiClient('/auth/google-otp/verify', {
+    method: 'POST',
+    body: JSON.stringify({ email: email.trim(), otp }),
+  });
+  setSession(data.token, data.user);
+  return data.user;
+}
 export async function resendEmailVerificationOtp() {
   return apiClient('/auth/resend-email-otp', { method: 'POST', body: JSON.stringify({}) });
 }
@@ -35,13 +51,24 @@ export async function completeGoogleOnboarding(payload) {
   setSession(data.token, data.user);
   return data.user;
 }
-export async function register(payload) {
-  const data = await apiClient('/auth/register', {
+export async function sendRegisterOtp(payload) {
+  return apiClient('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ ...payload, email: payload.email.trim() }),
   });
+}
+
+export async function verifyRegisterOtp({ email, otp }) {
+  const data = await apiClient('/auth/register/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email: email.trim(), otp }),
+  });
   setSession(data.token, data.user);
   return data.user;
+}
+
+export async function register(payload) {
+  return sendRegisterOtp(payload);
 }
 
 export async function requestPasswordReset(email) {
@@ -59,3 +86,4 @@ export function logout() {
   clearSession();
   redirectTo('/login');
 }
+
