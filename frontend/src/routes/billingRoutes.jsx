@@ -13,6 +13,7 @@ import { QuotationPage } from '../features/categories/retail/modules/sales/Quota
 import { ReceivablesPage } from '../features/categories/retail/modules/sales/ReceivablesPage.jsx';
 import { SalesReturnPage } from '../features/categories/retail/modules/sales/SalesReturnPage.jsx';
 import { SupplierReturnPage } from '../features/categories/retail/modules/sales/SupplierReturnPage.jsx';
+import { PharmacyBillListPage } from '../features/categories/hospital/modules/pharmacy/PharmacyBillListPage.jsx';
 import { documentConfigs } from '../features/categories/retail/modules/sales/documentConfigs.js';
 import { CreateDocumentPage } from '../features/categories/retail/modules/sales/shared/CreateDocumentPage.jsx';
 import { InvoiceViewPage } from '../features/categories/retail/modules/sales/shared/InvoiceViewPage.jsx';
@@ -63,3 +64,10 @@ export const eWayBillRoutes = {
 };
 
 export const receivablesRoute = <ReceivablesPage />;
+
+export const pharmacyBillRoutes = {
+  list: <PharmacyBillListPage />,
+  form: <CreateDocumentPage documentType="pharmacy-bill" />,
+  edit: <InvoiceEditRoute documentType="pharmacy-bill" />,
+  view: <InvoiceViewRoute documentType="pharmacy-bill" />,
+};

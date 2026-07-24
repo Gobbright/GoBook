@@ -81,7 +81,7 @@ function buildNotificationsFromDashboard(dashboard = {}) {
         `payment-${payment.id || payment._id || payment.customerName || payment.createdAt}`,
         'payment',
         'Payment Received',
-        `${displayName} paid Rs. ${Number(payment.amount || 0).toLocaleString('en-IN')}`,
+        `${displayName} paid ₹ ${Number(payment.amount || 0).toLocaleString('en-IN')}`,
         displayName,
         payment.createdAt || payment.date
       );

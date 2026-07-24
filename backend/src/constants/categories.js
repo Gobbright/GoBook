@@ -19,5 +19,5 @@ export const CATEGORY_LABELS = {
 // settings, dashboard, ai, search) are common to every category.
 export const EXCLUSIVE_MODULES_BY_CATEGORY = {
   retail: ['sales'],
-  hospital: ['hospital'],
+  hospital: ['hospital', 'sales'],
 };

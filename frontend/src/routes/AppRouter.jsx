@@ -28,6 +28,7 @@ import {
   GenericBillingRoute,
   InvoiceEditRoute,
   InvoiceViewRoute,
+  pharmacyBillRoutes,
   receivablesRoute,
 } from './billingRoutes.jsx';
 import { automobileRoutes } from './automobileRoutes.jsx';
@@ -133,6 +134,15 @@ function AppRoutes() {
             <Route path="/billing/receivables" element={receivablesRoute} />
             <Route path="/billing/:documentType" element={<GenericBillingRoute />} />
           </>
+        )}
+
+        {category === 'hospital' && (
+          <Route path="/billing/pharmacy-bill">
+            <Route index element={pharmacyBillRoutes.list} />
+            <Route path="new" element={pharmacyBillRoutes.form} />
+            <Route path=":id/edit" element={pharmacyBillRoutes.edit} />
+            <Route path=":id/view" element={pharmacyBillRoutes.view} />
+          </Route>
         )}
 
         {commonRoutes.map(({ path, element }) => (

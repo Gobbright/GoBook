@@ -1,14 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
-import { useModuleRecords, useLookupRecords, names } from '../../../shared/recordUi/useModuleRecords.js';
+import { api } from '../../../../../services/api.js';
+import { useModuleRecords } from '../../../shared/recordUi/useModuleRecords.js';
 import { FormModal } from '../../../shared/recordUi/FormModal.jsx';
 import { PageHeader } from '../../../shared/recordUi/PageHeader.jsx';
 import { RowActions } from '../../../shared/recordUi/RowActions.jsx';
 import { fmtDate, daysUntil } from '../../../shared/recordUi/dateUtils.js';
 
 const FIELDS = [
-  { key: 'medicineName', label: 'Medicine', required: true, type: 'lookup', lookupModule: 'hospital/medicines' },
+  { key: 'medicineName', label: 'Medicine', required: true, type: 'lookup', lookupModule: 'products' },
   { key: 'batchNumber', label: 'Batch Number' },
   { key: 'expiryDate', label: 'Expiry Date', type: 'date', required: true },
   { key: 'quantity', label: 'Quantity', type: 'number' },
@@ -23,10 +24,19 @@ const GROUPS = [
 
 export function ExpiryAlertsPage() {
   const { records, loading, create, update, remove } = useModuleRecords('hospital/expiry-alerts');
-  const medicines = useLookupRecords('hospital/medicines');
+  const [medicineNames, setMedicineNames] = useState([]);
   const [modal, setModal] = useState(null);
 
-  const lookupOptions = { 'hospital/medicines': names(medicines.records) };
+  useEffect(() => {
+    api.invListProducts({ limit: 500 })
+      .then((res) => {
+        const active = (res.data ?? []).filter((p) => p.status === 'Active');
+        setMedicineNames([...new Set(active.map((p) => p.description).filter(Boolean))].sort());
+      })
+      .catch(() => setMedicineNames([]));
+  }, []);
+
+  const lookupOptions = { products: medicineNames };
 
   const grouped = useMemo(() => {
     return GROUPS.map((g) => ({

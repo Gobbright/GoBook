@@ -344,6 +344,24 @@ html.dark body {
   -webkit-overflow-scrolling: touch;
 }
 
+.app-content .overflow-x-auto:has(.sales-list-table) {
+  overflow-x: hidden;
+}
+
+.app-content .overflow-x-auto .sales-list-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed;
+}
+
+.app-content .sales-list-table th,
+.app-content .sales-list-table td {
+  min-width: 0;
+  max-width: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 table {
   border-spacing: 0;
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Download, Eye, Edit, Settings, BarChart3, DollarSign, Package, Users } from 'lucide-react';
+import { Search, Download, Eye, Edit, Settings, BarChart3, IndianRupee, Package, Users } from 'lucide-react';
 import { fetchAdminSection } from '../adminService.js';
 import { AdminLayout } from '../AdminLayout.jsx';
 
@@ -73,7 +73,7 @@ export function CategoryBusinessPage() {
             color="green"
           />
           <QuickStat
-            icon={<DollarSign size={20} />}
+            icon={<IndianRupee size={20} />}
             label="Categories"
             value={[...new Set(data?.rows?.map(r => r.category))].length || 0}
             color="purple"

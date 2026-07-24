@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Calendar, CheckCircle2, Download, Eye, FileText, IndianRupee,
   MoreVertical, Pencil, Plus, Search, Share2, TriangleAlert,
@@ -69,7 +70,7 @@ function pageNumbers(current, total) {
   return [1, '...', current - 1, current, current + 1, '...', total];
 }
 
-function ActionMenu({ entry, openMenu, setOpenMenu, onShare, onDownload, onDelete }) {
+function ActionMenu({ entry, openMenu, setOpenMenu, onShare, onDownload, onDelete, onNavigate }) {
   const isOpen = openMenu === entry.id;
   const btnRef = useRef(null);
   const [menuPos, setMenuPos] = useState({ top: 'auto', bottom: 'auto', right: 0 });
@@ -88,8 +89,8 @@ function ActionMenu({ entry, openMenu, setOpenMenu, onShare, onDownload, onDelet
 
   function handleAction(id) {
     setOpenMenu(null);
-    if (id === 'view') window.location.assign(`/billing/purchase-entry/${entry.id}/view`);
-    else if (id === 'edit') window.location.assign(`/billing/purchase-entry/${entry.id}/edit`);
+    if (id === 'view') onNavigate(`/billing/purchase-entry/${entry.id}/view`);
+    else if (id === 'edit') onNavigate(`/billing/purchase-entry/${entry.id}/edit`);
     else if (id === 'pdf') onDownload(entry);
     else if (id === 'share') onShare(entry);
     else if (id === 'delete') onDelete(entry);
@@ -128,6 +129,7 @@ function StatCard({ label, amount, icon, tone = '#2563eb', format = 'currency' }
 }
 
 export function PurchaseEntryPage() {
+  const navigate = useNavigate();
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState(null);
@@ -188,7 +190,7 @@ export function PurchaseEntryPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginated.length,
-    onOpen: (index) => window.location.assign(`/billing/purchase-entry/${paginated[index].id}/view`),
+    onOpen: (index) => navigate(`/billing/purchase-entry/${paginated[index].id}/view`),
     searchRef,
   });
 
@@ -219,16 +221,16 @@ export function PurchaseEntryPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
+            <Link className="text-blue-600 no-underline hover:underline" to="/dashboard">Home</Link>
             <span>›</span><span>Sales</span><span>›</span>
             <span className="text-[#111827]">Purchase Entries</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">Purchase Entries</h1>
         </div>
-        <a href="/billing/purchase-entry/new" className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors">
+        <Link to="/billing/purchase-entry/new" className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors">
           <Plus size={15} />
           Create Purchase Entry
-        </a>
+        </Link>
       </div>
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 mb-6">{error}</div>}
@@ -252,7 +254,7 @@ export function PurchaseEntryPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ minWidth: 1120 }}>
+          <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
                 {['PE No.', 'Vendor Invoice', 'Linked PO', 'Vendor', 'Date', 'PO Amount', 'PE Amount', 'Difference', 'Status', ''].map((label, i) => (
@@ -265,7 +267,7 @@ export function PurchaseEntryPage() {
                 <tr><td colSpan={10} className="text-center py-16 text-[#536173] text-[13px]">No purchase entries match your search.</td></tr>
               ) : paginated.map((entry, rowIndex) => (
                 <tr key={entry.id} className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}>
-                  <td className="px-4 py-3.5"><a href={`/billing/purchase-entry/${entry.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">{entry.number}</a></td>
+                  <td className="px-4 py-3.5"><Link to={`/billing/purchase-entry/${entry.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">{entry.number}</Link></td>
                   <td className="px-4 py-3.5 text-[13px] text-[#374151]">{entry.vendorInvoiceNo || <span className="text-[#b0bec5]">-</span>}</td>
                   <td className="px-4 py-3.5 text-[13px] text-[#374151]">{entry.linkedPoNumber || <span className="text-[#b0bec5]">Not linked</span>}</td>
                   <td className="px-4 py-3.5"><div className="text-[13px] font-medium text-[#111827]">{entry.customer?.name}</div><div className="text-xs text-[#94a3b8] mt-0.5">{entry.customer?.city}</div></td>
@@ -279,7 +281,7 @@ export function PurchaseEntryPage() {
                       {entry.matchStatus === 'matched' ? 'Matched' : 'Mismatch'}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 text-right"><ActionMenu entry={entry} openMenu={openMenu} setOpenMenu={setOpenMenu} onShare={setShareDoc} onDownload={setPdfDoc} onDelete={handleDelete} /></td>
+                  <td className="px-4 py-3.5 text-right"><ActionMenu entry={entry} openMenu={openMenu} setOpenMenu={setOpenMenu} onShare={setShareDoc} onDownload={setPdfDoc} onDelete={handleDelete} onNavigate={navigate} /></td>
                 </tr>
               ))}
             </tbody>
@@ -301,3 +303,4 @@ export function PurchaseEntryPage() {
     </div>
   );
 }
+

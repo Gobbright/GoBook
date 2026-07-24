@@ -179,7 +179,7 @@ export function ReceivablesPage() {
           <div className="py-16 text-center text-[13px] text-[#94a3b8]">Loading…</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse" style={{ minWidth: 900 }}>
+            <table className="w-full border-collapse sales-list-table">
               <thead>
                 <tr className="bg-[#f8fafc]">
                   {[
@@ -276,3 +276,4 @@ export function ReceivablesPage() {
     </div>
   );
 }
+

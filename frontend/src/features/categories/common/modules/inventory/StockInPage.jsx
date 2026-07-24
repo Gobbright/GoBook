@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { IndianRupee } from 'lucide-react';
 
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
@@ -185,8 +186,8 @@ export function StockInPage() {
         {[
           { label: 'Total Stock In',value: stats ? stats.totalStockIn.toLocaleString('en-IN') : '—', sub: 'This Month', color: '#2563eb', bg: '#eff6ff', icon: <svg fill="none" height="20" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> },
           { label: 'Total Items',    value: stats ? stats.totalItems.toLocaleString('en-IN') : '—',   sub: 'This Month', color: '#16a34a', bg: '#f0fdf4', icon: <svg fill="none" height="20" stroke="#16a34a" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg> },
-          { label: 'Total Value',    value: stats ? formatINR(stats.totalValue) : '—',                sub: 'This Month', color: '#7c3aed', bg: '#f5f3ff', icon: <svg fill="none" height="20" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24" width="20"><line x1="12" x2="12" y1="1" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> },
-          { label: 'Avg. Cost',      value: stats ? formatINR(Math.round(stats.avgCost * 100) / 100) : '—', sub: 'Per Item', color: '#0891b2', bg: '#ecfeff', icon: <svg fill="none" height="20" stroke="#0891b2" strokeWidth="2" viewBox="0 0 24 24" width="20"><line x1="12" x2="12" y1="1" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> },
+          { label: 'Total Value',    value: stats ? formatINR(stats.totalValue) : '—',                sub: 'This Month', color: '#7c3aed', bg: '#f5f3ff', icon: <IndianRupee size={20} color="#7c3aed" /> },
+          { label: 'Avg. Cost',      value: stats ? formatINR(Math.round(stats.avgCost * 100) / 100) : '—', sub: 'Per Item', color: '#0891b2', bg: '#ecfeff', icon: <IndianRupee size={20} color="#0891b2" /> },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-[#dfe7f1] rounded-xl p-4 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-none" style={{ background: s.bg }}>{s.icon}</div>
@@ -283,3 +284,4 @@ export function StockInPage() {
     </div>
   );
 }
+

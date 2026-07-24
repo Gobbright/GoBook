@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   CheckCircle2, Download, Eye, FileCheck, IndianRupee,
   MoreVertical, Pencil, Plus, Search, Share2, FileText,
@@ -56,7 +57,7 @@ function StatCard({ label, amount, countLabel, accentColor, icon, format = 'curr
 
 // ── Action menu ────────────────────────────────────────────────
 
-function ActionMenu({ order, openMenu, setOpenMenu, onShare, onDownload, onDelete }) {
+function ActionMenu({ order, openMenu, setOpenMenu, onShare, onDownload, onDelete, onNavigate }) {
   const isOpen = openMenu === order.id;
   const btnRef = useRef(null);
   const [menuPos, setMenuPos] = useState({ top: 'auto', bottom: 'auto', right: 0 });
@@ -77,9 +78,9 @@ function ActionMenu({ order, openMenu, setOpenMenu, onShare, onDownload, onDelet
 
   function handleAction(id) {
     setOpenMenu(null);
-    if (id === 'view') window.location.assign(`/billing/purchase-order/${order.id}/view`);
-    else if (id === 'edit') window.location.assign(`/billing/purchase-order/${order.id}/edit`);
-    else if (id === 'entry') window.location.assign(`/billing/purchase-entry/new?po=${encodeURIComponent(order.id)}`);
+    if (id === 'view') onNavigate(`/billing/purchase-order/${order.id}/view`);
+    else if (id === 'edit') onNavigate(`/billing/purchase-order/${order.id}/edit`);
+    else if (id === 'entry') onNavigate(`/billing/purchase-entry/new?po=${encodeURIComponent(order.id)}`);
     else if (id === 'pdf') onDownload(order);
     else if (id === 'share') onShare(order);
     else if (id === 'delete') onDelete(order);
@@ -171,6 +172,7 @@ function pageNumbers(current, total) {
 }
 
 export function PurchaseOrderPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState(null);
   const [shareDoc, setShareDoc] = useState(null);
@@ -274,7 +276,7 @@ export function PurchaseOrderPage() {
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginated.length,
-    onOpen: (index) => window.location.assign(`/billing/purchase-order/${paginated[index].id}/view`),
+    onOpen: (index) => navigate(`/billing/purchase-order/${paginated[index].id}/view`),
     searchRef,
   });
 
@@ -295,19 +297,19 @@ export function PurchaseOrderPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
-            <span>›</span><span>Sales</span><span>›</span>
+            <Link className="text-blue-600 no-underline hover:underline" to="/dashboard">Home</Link>
+            <span>›</span><span>Purchase</span><span>›</span>
             <span className="text-[#111827]">Purchase Orders</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">Purchase Orders</h1>
         </div>
-        <a
-          href="/billing/purchase-order/new"
+        <Link
+          to="/billing/purchase-order/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} />
           Create Purchase Order
-        </a>
+        </Link>
       </div>
 
       {/* ── Error / Loading ── */}
@@ -376,7 +378,7 @@ export function PurchaseOrderPage() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ minWidth: 1240 }}>
+          <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
                 {[
@@ -418,12 +420,12 @@ export function PurchaseOrderPage() {
 
                     {/* PO number */}
                     <td className="px-4 py-3.5">
-                      <a
-                        href={`/billing/purchase-order/${o.id}/view`}
+                      <Link
+                        to={`/billing/purchase-order/${o.id}/view`}
                         className="text-[13px] font-semibold text-blue-600 no-underline hover:underline"
                       >
                         {o.number}
-                      </a>
+                      </Link>
                     </td>
 
                     {/* Vendor */}
@@ -485,7 +487,7 @@ export function PurchaseOrderPage() {
 
                     {/* Actions */}
                     <td className="px-4 py-3.5 text-right">
-                      <ActionMenu order={o} openMenu={openMenu} setOpenMenu={setOpenMenu} onShare={setShareDoc} onDownload={setPdfDoc} onDelete={handleDelete} />
+                      <ActionMenu order={o} openMenu={openMenu} setOpenMenu={setOpenMenu} onShare={setShareDoc} onDownload={setPdfDoc} onDelete={handleDelete} onNavigate={navigate} />
                     </td>
                   </tr>
                 ))
@@ -515,3 +517,6 @@ export function PurchaseOrderPage() {
     </div>
   );
 }
+
+
+

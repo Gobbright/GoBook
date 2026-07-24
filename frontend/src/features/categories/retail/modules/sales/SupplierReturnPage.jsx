@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Calendar, Download, Eye, FileText, IndianRupee,
   MoreVertical, Pencil, Plus, Search, Share2, Trash2, TrendingUp,
@@ -44,7 +45,7 @@ function StatCard({ label, amount, countLabel, accentColor, icon, format = 'curr
 
 // ── Row action menu ─────────────────────────────────────────────
 
-function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload }) {
+function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload, onNavigate }) {
   const isOpen = openMenu === note.id;
   const btnRef = useRef(null);
   const [menuPos, setMenuPos] = useState({ top: 'auto', bottom: 'auto', right: 0 });
@@ -65,8 +66,8 @@ function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload
 
   function close() { setOpenMenu(null); }
 
-  function handleView()   { close(); window.location.assign(`/billing/supplier-return/${note.id}/view`); }
-  function handleEdit()   { close(); window.location.assign(`/billing/supplier-return/${note.id}/edit`); }
+  function handleView()   { close(); onNavigate(`/billing/supplier-return/${note.id}/view`); }
+  function handleEdit()   { close(); onNavigate(`/billing/supplier-return/${note.id}/edit`); }
   function handleDelete() { close(); onDelete(note.id, note.number); }
 
   return (
@@ -186,6 +187,7 @@ function pageNumbers(current, total) {
 }
 
 export function SupplierReturnPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -276,7 +278,7 @@ export function SupplierReturnPage() {
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginated.length,
-    onOpen: (index) => window.location.assign(`/billing/supplier-return/${paginated[index].id}/view`),
+    onOpen: (index) => navigate(`/billing/supplier-return/${paginated[index].id}/view`),
     searchRef,
   });
 
@@ -295,7 +297,7 @@ export function SupplierReturnPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
-            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
+            <Link className="text-blue-600 no-underline hover:underline" to="/dashboard">Home</Link>
             <span>›</span>
             <span>Purchase</span>
             <span>›</span>
@@ -303,13 +305,13 @@ export function SupplierReturnPage() {
           </nav>
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">Supplier Returns</h1>
         </div>
-        <a
-          href="/billing/supplier-return/new"
+        <Link
+          to="/billing/supplier-return/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} />
           Create Supplier Return
-        </a>
+        </Link>
       </div>
 
       {/* ── Error / Loading ── */}
@@ -377,7 +379,7 @@ export function SupplierReturnPage() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ minWidth: 1020 }}>
+          <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
                 {[
@@ -420,12 +422,12 @@ export function SupplierReturnPage() {
                   >
                     {/* Return number */}
                     <td className="px-4 py-3.5">
-                      <a
-                        href={`/billing/supplier-return/${note.id}/view`}
+                      <Link
+                        to={`/billing/supplier-return/${note.id}/view`}
                         className="text-[13px] font-semibold text-blue-600 no-underline hover:underline"
                       >
                         {note.number}
-                      </a>
+                      </Link>
                     </td>
 
                     {/* Vendor */}
@@ -477,6 +479,7 @@ export function SupplierReturnPage() {
                         onDelete={handleDeleteRequest}
                         onShare={setShareDoc}
                         onDownload={setPdfDoc}
+                        onNavigate={navigate}
                       />
                     </td>
                   </tr>
@@ -507,3 +510,4 @@ export function SupplierReturnPage() {
     </div>
   );
 }
+

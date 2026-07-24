@@ -316,7 +316,7 @@ export function DeliveryChallanPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ minWidth: 980 }}>
+          <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
                 {[
@@ -386,3 +386,4 @@ export function DeliveryChallanPage() {
     </div>
   );
 }
+

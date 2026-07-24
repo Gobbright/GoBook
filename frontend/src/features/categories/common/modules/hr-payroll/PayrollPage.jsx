@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { IndianRupee } from 'lucide-react';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { api } from '../../../../../services/api.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
@@ -228,7 +229,7 @@ export function PayrollPage() {
         {[
           { label: 'Total Employees', value: stats.totalEmployees,              sub: month || 'All', color: '#2563eb', bg: '#eff6ff', icon: <svg fill="none" height="20" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> },
           { label: 'Total Payroll',   value: formatCurrency(stats.totalNet),    sub: month || 'All', color: '#0891b2', bg: '#ecfeff', icon: <svg fill="none" height="20" stroke="#0891b2" strokeWidth="2" viewBox="0 0 24 24" width="20"><rect height="14" rx="2" width="22" x="1" y="4"/><line x1="1" x2="23" y1="10" y2="10"/></svg> },
-          { label: 'Gross Salary',    value: formatCurrency(stats.grossSalary), sub: month || 'All', color: '#16a34a', bg: '#f0fdf4', icon: <svg fill="none" height="20" stroke="#16a34a" strokeWidth="2" viewBox="0 0 24 24" width="20"><line x1="12" x2="12" y1="1" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> },
+          { label: 'Gross Salary',    value: formatCurrency(stats.grossSalary), sub: month || 'All', color: '#16a34a', bg: '#f0fdf4', icon: <IndianRupee size={20} color="#16a34a" /> },
           { label: 'Deductions',      value: formatCurrency(stats.totalDeductions), sub: month || 'All', color: '#dc2626', bg: '#fef2f2', icon: <svg fill="none" height="20" stroke="#dc2626" strokeWidth="2" viewBox="0 0 24 24" width="20"><circle cx="12" cy="12" r="10"/><line x1="8" x2="16" y1="12" y2="12"/></svg> },
           { label: 'Net Pay',         value: formatCurrency(stats.totalNet),    sub: month || 'All', color: '#7c3aed', bg: '#f5f3ff', icon: <svg fill="none" height="20" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24" width="20"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> },
         ].map((s) => (
@@ -324,3 +325,4 @@ export function PayrollPage() {
     </div>
   );
 }
+

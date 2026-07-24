@@ -8,8 +8,8 @@ import { api } from '../../../../../services/api.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
-import { RecordPaymentModal } from './shared/RecordPaymentModal.jsx';
-import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
+import { RecordPaymentModal } from '../../../retail/modules/sales/shared/RecordPaymentModal.jsx';
+import { DocumentPdfDownload } from '../../../retail/modules/sales/shared/DocumentPdfDownload.jsx';
 
 const PAGE_SIZE = 5;
 const BILL_NUMBER_COLLATOR = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
@@ -63,7 +63,7 @@ function ShareModal({ bill, onClose }) {
   const [result, setResult]   = useState(null);
 
   const phone = (bill.customer?.phone || '').replace(/\D/g, '');
-  const msg = `Hi ${bill.customer?.name || 'Customer'}, your bill ${bill.number} for ${formatCurrency(bill.total)} is ready. Thank you!`;
+  const msg = `Hi ${bill.customer?.name || 'Patient'}, your pharmacy bill ${bill.number} for ${formatCurrency(bill.total)} is ready. Thank you!`;
 
   function handleWhatsApp() {
     window.open(`https://wa.me/${phone ? `91${phone.slice(-10)}` : ''}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
@@ -86,7 +86,7 @@ function ShareModal({ bill, onClose }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#edf2f7]">
           <div>
             <div className="font-semibold text-[#111827] text-[15px]">Share Bill</div>
-            <div className="text-xs text-[#536173] mt-0.5">{bill.number} · {bill.customer?.name || 'Customer'}</div>
+            <div className="text-xs text-[#536173] mt-0.5">{bill.number} · {bill.customer?.name || 'Patient'}</div>
           </div>
           <button type="button" className="text-[#94a3b8] hover:text-[#374151] p-1" onClick={onClose}><X size={18} /></button>
         </div>
@@ -107,7 +107,7 @@ function ShareModal({ bill, onClose }) {
             <div className="text-xs font-semibold text-[#536173] uppercase tracking-wide">Email</div>
             <input type="email"
               className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] w-full"
-              placeholder="Customer email address" value={emailTo}
+              placeholder="Patient email address" value={emailTo}
               onChange={(e) => { setEmailTo(e.target.value); setResult(null); }} />
             <button type="button" disabled={sending || !emailTo.trim()} onClick={handleEmail}
               className="flex items-center justify-center gap-2 px-4 py-2 rounded-md text-[13px] font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer border-0 disabled:opacity-50">
@@ -154,8 +154,8 @@ function ActionMenu({ bill, openMenu, setOpenMenu, onShare, onPayment, onDownloa
 
   function handleAction(id) {
     setOpenMenu(null);
-    if (id === 'view')    window.location.assign(`/billing/bill-of-supply/${billId}/view`);
-    else if (id === 'edit')    window.location.assign(`/billing/bill-of-supply/${billId}/edit`);
+    if (id === 'view')    window.location.assign(`/billing/pharmacy-bill/${billId}/view`);
+    else if (id === 'edit')    window.location.assign(`/billing/pharmacy-bill/${billId}/edit`);
     else if (id === 'payment') onPayment(bill);
     else if (id === 'pdf')     onDownload(bill);
     else if (id === 'share')   onShare(bill);
@@ -238,7 +238,7 @@ function applyPaymentData(bills, paidMap) {
   });
 }
 
-export function BillOfSupplyPage() {
+export function PharmacyBillListPage() {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -258,8 +258,8 @@ export function BillOfSupplyPage() {
     setError('');
     try {
       const [res, paymentRes] = await Promise.all([
-        api.listInvoices({ documentType: 'bill-of-supply', limit: 100 }),
-        api.listOutstanding({ documentType: 'bill-of-supply' }).catch(() => ({ rows: [] })),
+        api.listInvoices({ documentType: 'pharmacy-bill', limit: 100 }),
+        api.listOutstanding({ documentType: 'pharmacy-bill' }).catch(() => ({ rows: [] })),
       ]);
       const raw = Array.isArray(res.data) ? res.data.map(normalizeBill) : [];
       const paidMap = {};
@@ -313,7 +313,7 @@ export function BillOfSupplyPage() {
 
   const exportColumns = [
     { label: 'Bill No.',      value: (r) => r.number },
-    { label: 'Customer',      value: (r) => r.customer?.name || '' },
+    { label: 'Patient',       value: (r) => r.customer?.name || '' },
     { label: 'Phone',         value: (r) => r.customer?.phone || '' },
     { label: 'Bill Date',     value: (r) => fmtDate(r.date) },
     { label: 'Due Date',      value: (r) => fmtDate(r.dueDate) },
@@ -324,12 +324,12 @@ export function BillOfSupplyPage() {
   ];
 
   async function handleDelete(bill) {
-    if (!window.confirm(`Delete bill of supply ${bill.number}? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete pharmacy bill ${bill.number}? This cannot be undone.`)) return;
     try {
       await api.deleteInvoice(bill.id);
       setBills((prev) => prev.filter((item) => item.id !== bill.id));
     } catch (err) {
-      setError(err.message || 'Unable to delete bill of supply');
+      setError(err.message || 'Unable to delete pharmacy bill');
     }
   }
 
@@ -341,18 +341,18 @@ export function BillOfSupplyPage() {
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
             <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
-            <span>›</span><span>Sales</span><span>›</span>
-            <span className="text-[#111827]">Bills of Supply</span>
+            <span>›</span><span>Pharmacy</span><span>›</span>
+            <span className="text-[#111827]">Pharmacy Bills</span>
           </nav>
-          <h1 className="m-0 text-[22px] font-bold text-[#111827]">Bills of Supply</h1>
-          <p className="m-0 text-[13px] text-[#536173] mt-1">Non-GST bills for exempt goods / unregistered customers</p>
+          <h1 className="m-0 text-[22px] font-bold text-[#111827]">Pharmacy Bills</h1>
+          <p className="m-0 text-[13px] text-[#536173] mt-1">Bills for medicines dispensed to patients</p>
         </div>
         <a
-          href="/billing/bill-of-supply/new"
+          href="/billing/pharmacy-bill/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
         >
           <Plus size={15} />
-          Create Bill of Supply
+          Create Pharmacy Bill
         </a>
       </div>
 
@@ -381,12 +381,12 @@ export function BillOfSupplyPage() {
           >
             {PAYMENT_FILTERS.map((s) => <option key={s} value={s}>{s === 'All' ? 'All Payments' : s}</option>)}
           </select>
-          <ExportButtons title="Bills of Supply" filename="bills-of-supply" rows={filtered} columns={exportColumns} />
+          <ExportButtons title="Pharmacy Bills" filename="pharmacy-bills" rows={filtered} columns={exportColumns} />
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
             <input
               className="pl-8 pr-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] outline-none focus:border-blue-500 w-56 font-[inherit]"
-              placeholder="Search bill or customer…"
+              placeholder="Search bill or patient…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -400,7 +400,7 @@ export function BillOfSupplyPage() {
               <tr className="bg-[#f8fafc]">
                 {[
                   { label: 'Bill No.',       align: 'left'  },
-                  { label: 'Customer',        align: 'left'  },
+                  { label: 'Patient',         align: 'left'  },
                   { label: 'Phone',           align: 'left'  },
                   { label: 'Bill Date',       align: 'left'  },
                   { label: 'Due Date',        align: 'left'  },
@@ -424,19 +424,19 @@ export function BillOfSupplyPage() {
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="text-center py-16 text-[#536173] text-[13px]">
-                    {bills.length === 0 ? 'No bills yet. Create your first Bill of Supply.' : 'No bills match your search.'}
+                    {bills.length === 0 ? 'No bills yet. Create your first Pharmacy Bill.' : 'No bills match your search.'}
                   </td>
                 </tr>
               ) : (
                 paginated.map((bill) => (
                   <tr key={bill.id} className="border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors">
                     <td className="px-4 py-3.5">
-                      <a href={`/billing/bill-of-supply/${bill.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">
+                      <a href={`/billing/pharmacy-bill/${bill.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">
                         {bill.number}
                       </a>
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="text-[13px] font-medium text-[#111827]">{bill.customer?.name || 'Walk-in customer'}</div>
+                      <div className="text-[13px] font-medium text-[#111827]">{bill.customer?.name || 'Walk-in patient'}</div>
                       <div className="text-xs text-[#94a3b8] mt-0.5">{bill.customer?.city}</div>
                     </td>
                     <td className="px-4 py-3.5 text-[13px] text-[#374151] whitespace-nowrap">
@@ -513,4 +513,3 @@ export function BillOfSupplyPage() {
     </div>
   );
 }
-

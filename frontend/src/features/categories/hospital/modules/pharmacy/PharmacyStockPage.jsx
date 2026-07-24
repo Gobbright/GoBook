@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { api } from '../../../../../services/api.js';
 import { useModuleRecords, useLookupRecords, names } from '../../../shared/recordUi/useModuleRecords.js';
 import { FormModal } from '../../../shared/recordUi/FormModal.jsx';
 import { PageHeader } from '../../../shared/recordUi/PageHeader.jsx';
@@ -11,7 +12,7 @@ const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#53617
 const TD = 'px-4 py-3 border-b border-[#f3f4f6] text-[13px]';
 
 const FIELDS = [
-  { key: 'medicineName', label: 'Medicine', required: true, type: 'lookup', lookupModule: 'hospital/medicines' },
+  { key: 'medicineName', label: 'Medicine', required: true, type: 'lookup', lookupModule: 'products' },
   { key: 'supplierName', label: 'Supplier', type: 'lookup', lookupModule: 'hospital/suppliers' },
   { key: 'batchNumber', label: 'Batch Number' },
   { key: 'quantity', label: 'Quantity', type: 'number' },
@@ -22,12 +23,21 @@ const FIELDS = [
 
 export function PharmacyStockPage() {
   const { records, loading, create, update, remove } = useModuleRecords('hospital/pharmacy-stock');
-  const medicines = useLookupRecords('hospital/medicines');
   const suppliers = useLookupRecords('hospital/suppliers');
+  const [medicineNames, setMedicineNames] = useState([]);
   const [modal, setModal] = useState(null);
 
+  useEffect(() => {
+    api.invListProducts({ limit: 500 })
+      .then((res) => {
+        const active = (res.data ?? []).filter((p) => p.status === 'Active');
+        setMedicineNames([...new Set(active.map((p) => p.description).filter(Boolean))].sort());
+      })
+      .catch(() => setMedicineNames([]));
+  }, []);
+
   const lookupOptions = {
-    'hospital/medicines': names(medicines.records),
+    products: medicineNames,
     'hospital/suppliers': names(suppliers.records),
   };
 

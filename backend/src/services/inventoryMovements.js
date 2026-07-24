@@ -27,6 +27,47 @@ async function nextStockNo(Model, userId, field, prefix) {
   return `${prefix}-${new Date().getFullYear()}-${String(seq).padStart(3, '0')}`;
 }
 
+async function generateNextProductCode(userId) {
+  const products = await Product.find({ userId }, { code: 1 }).lean();
+  const existingCodes = new Set(products.map((p) => String(p.code ?? '').trim().toUpperCase()));
+  let max = 1000;
+  products.forEach(({ code }) => {
+    const n = parseInt(code, 10);
+    if (!isNaN(n) && n > max) max = n;
+  });
+  let candidate = max + 1;
+  while (existingCodes.has(String(candidate))) {
+    candidate++;
+  }
+  return String(candidate);
+}
+
+// A direct Purchase Entry is often how a brand-new product first enters the
+// catalog (no matching Purchase Order to have introduced it already), so
+// unlike other inbound/outbound documents it creates the Product on the fly
+// instead of silently skipping the line.
+async function createProductFromItem(userId, item) {
+  const description = clean(item.description);
+  if (!description) return null;
+  const code = await generateNextProductCode(userId);
+  try {
+    return await Product.create({
+      userId,
+      code,
+      description,
+      hsn: clean(item.hsn),
+      unit: clean(item.unit) || 'Nos',
+      rate: Number(item.rate) || 0,
+      gstRate: [0, 5, 12, 18, 28].includes(Number(item.gstRate)) ? Number(item.gstRate) : 18,
+      stock: 0,
+      status: 'Active',
+    });
+  } catch (err) {
+    if (err.code === 11000) return Product.findOne({ userId, description: new RegExp(`^${escapeRegex(description)}$`, 'i') });
+    throw err;
+  }
+}
+
 async function findProduct(userId, item) {
   const productId = item.productId && Types.ObjectId.isValid(String(item.productId))
     ? item.productId
@@ -58,7 +99,10 @@ async function collectMovableItems(invoice, userId) {
   for (const item of invoice.items ?? []) {
     const qty = Number(item.qty) || 0;
     if (qty <= 0) continue;
-    const product = await findProduct(userId, item);
+    let product = await findProduct(userId, item);
+    if (!product && invoice.documentType === 'purchase-entry') {
+      product = await createProductFromItem(userId, item);
+    }
     if (!product) continue;
     rows.push({
       product,
@@ -97,7 +141,7 @@ async function collectRowsFromMovements(movements, userId) {
 }
 
 function inventoryMode(documentType) {
-  if (['invoice', 'bill-of-supply', 'supplier-return'].includes(documentType)) return 'out';
+  if (['invoice', 'bill-of-supply', 'supplier-return', 'pharmacy-bill'].includes(documentType)) return 'out';
   if (['purchase-entry', 'sales-return'].includes(documentType)) return 'in';
   return '';
 }

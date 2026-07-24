@@ -68,16 +68,19 @@ const SECTIONS = {
       { label: 'Brands', href: '/brands', icon: 'Award' },
       { label: 'Warehouse', href: '/warehouse', icon: 'Warehouse' },
       { label: 'Barcode', href: '/barcode', icon: 'QrCode' },
+      { label: 'Stock Summary', href: '/stock-summary', icon: 'BarChart3' },
+      { label: 'Stock Ledger', href: '/stock-ledger', icon: 'BookOpen' },
       { label: 'Stock In', href: '/stock-in', icon: 'PackagePlus' },
       { label: 'Stock Out', href: '/stock-out', icon: 'PackageMinus' },
       { label: 'Stock Alerts', href: '/stock-alerts', icon: 'AlertTriangle' },
+      { label: 'Inventory Reports', href: '/inventory-reports', icon: 'BarChart3' },
     ],
   },  hrPayroll: {
     title: 'HR & Payroll',
     items: [
       { label: 'Employees', href: '/employees', icon: 'Users' },
       { label: 'Attendance', href: '/attendance', icon: 'CalendarCheck' },
-      { label: 'Payroll', href: '/payroll', icon: 'DollarSign' },
+      { label: 'Payroll', href: '/payroll', icon: 'IndianRupee' },
       { label: 'Leave Management', href: '/leave-management', icon: 'CalendarOff' },
       { label: 'Documents', href: '/documents', icon: 'FolderOpen' },
       { label: 'HR Reports', href: '/hr-reports', icon: 'BarChart3' },
@@ -148,6 +151,7 @@ const SECTIONS = {
   pharmacy: {
     title: 'Pharmacy',
     items: [
+      { label: 'Pharmacy Bills', href: '/billing/pharmacy-bill/new', icon: 'ReceiptText' },
       { label: 'Medicines', href: '/hospital/medicines', icon: 'Pill' },
       { label: 'Stock', href: '/hospital/pharmacy-stock', icon: 'Warehouse' },
       { label: 'Expiry Alerts', href: '/hospital/expiry-alerts', icon: 'AlertTriangle' },
@@ -160,7 +164,7 @@ const SECTIONS = {
       { label: 'Medical Bills', href: '/hospital/medical-bills', icon: 'Receipt' },
       { label: 'Insurance Claims', href: '/hospital/insurance-claims', icon: 'FileCheck' },
       { label: 'Payments', href: '/hospital/payments', icon: 'Wallet' },
-      { label: 'Receivables', href: '/hospital/receivables', icon: 'DollarSign' },
+      { label: 'Receivables', href: '/hospital/receivables', icon: 'IndianRupee' },
       { label: 'Revenue Reports', href: '/hospital/revenue-reports', icon: 'BarChart3' },
     ],
   },
@@ -424,7 +428,7 @@ const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayro
 
 const CATEGORY_LAYOUTS = {
   retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports', 'settings'],
-  hospital: ['main', 'patientManagement', 'clinical', 'laboratory', 'pharmacy', 'medicalBilling', ...COMMON_LAYOUT.slice(1)],
+  hospital: ['main', 'pharmacy', 'patientManagement', 'clinical', 'laboratory', 'medicalBilling', ...COMMON_LAYOUT.slice(1)],
   school: [
     'main', 'schoolStudentManagement', 'schoolAcademic', 'schoolFeeManagement',
     'schoolLibrary', 'schoolTransport', 'schoolHostel', ...COMMON_LAYOUT.slice(1),

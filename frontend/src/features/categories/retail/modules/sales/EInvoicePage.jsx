@@ -314,7 +314,7 @@ export function EInvoicePage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ minWidth: 1060 }}>
+          <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
                 {[
@@ -390,3 +390,4 @@ export function EInvoicePage() {
     </div>
   );
 }
+

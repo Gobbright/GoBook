@@ -8,7 +8,7 @@ import { DataTable } from './components/DataTable.jsx';
 import { AdminLayout } from './AdminLayout.jsx';
 
 function money(value) {
-  return `Rs. ${Number(value || 0).toLocaleString('en-IN')}`;
+  return `₹ ${Number(value || 0).toLocaleString('en-IN')}`;
 }
 
 function DashboardMetric({ label, value, icon: Icon, tone = 'blue' }) {

@@ -3,9 +3,9 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
   Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, ChevronDown, Contact,
-  ClipboardList, CreditCard, DollarSign, FileCheck, FileMinus, FilePlus,
+  ClipboardList, CreditCard, FileCheck, FileMinus, FilePlus,
   FileSpreadsheet, FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3,
-  HeartPulse, History, Home, LayoutDashboard,
+  HeartPulse, History, Home, IndianRupee, LayoutDashboard,
   LayoutGrid, LogIn, LogOut, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus,
   PenLine, Pill, PieChart, QrCode, Receipt, ReceiptText, RefreshCw, Route, Scale, Settings,
   Shield, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound,
@@ -20,11 +20,11 @@ import { normalizeAppPath } from '../../routes/navigation.js';
 const ICON_MAP = {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
   Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, Contact, ClipboardList, CreditCard,
-  DollarSign, FileCheck, FileMinus, FilePlus, FileSpreadsheet,
+  FileCheck, FileMinus, FilePlus, FileSpreadsheet,
   FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3, HeartPulse, History, Home, LayoutDashboard, LayoutGrid,
   LogIn, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus, PenLine,
   Pill, PieChart, QrCode, Receipt, ReceiptText, RefreshCw, Route, Scale, Settings, Shield,
-  ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound, Users,
+  IndianRupee, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound, Users,
   UtensilsCrossed, Wallet, Warehouse, Wrench, Zap,
 };
 

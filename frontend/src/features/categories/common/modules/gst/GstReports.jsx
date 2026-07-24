@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { IndianRupee } from 'lucide-react';
 
 import { api } from '../../../../../services/api.js';
 import { gstService } from '../../../../../services/gstService.js';
@@ -8,9 +9,7 @@ const REPORT_TYPES = [
   { id: 'hsn-summary', label: 'HSN / SAC Summary', icon: (
     <svg fill="none" height="16" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="16"><rect height="18" rx="2" ry="2" width="18" x="3" y="3" /><line x1="3" x2="21" y1="9" y2="9" /><line x1="9" x2="9" y1="21" y2="9" /></svg>
   ) },
-  { id: 'tax-rate', label: 'Tax Rate-wise Summary', icon: (
-    <svg fill="none" height="16" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="16"><line x1="12" x2="12" y1="1" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>
-  ) },
+  { id: 'tax-rate', label: 'Tax Rate-wise Summary', icon: <IndianRupee size={16} /> },
   { id: 'state-wise', label: 'State-wise Supplies', icon: (
     <svg fill="none" height="16" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="16"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
   ) },

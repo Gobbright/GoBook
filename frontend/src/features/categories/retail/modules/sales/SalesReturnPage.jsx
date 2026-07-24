@@ -377,7 +377,7 @@ export function SalesReturnPage() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ minWidth: 1020 }}>
+          <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
                 {[
@@ -507,3 +507,4 @@ export function SalesReturnPage() {
     </div>
   );
 }
+

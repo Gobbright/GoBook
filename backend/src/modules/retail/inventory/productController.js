@@ -21,12 +21,16 @@ const FIELD_ALIASES = {
   name: 'description',
   'item name': 'description',
   item: 'description',
+  'medicine name': 'description',
+  medicine: 'description',
   sku: 'code',
   code: 'code',
   'product code': 'code',
   'product id': 'code',
   'item code': 'code',
   category: 'category',
+  brand: 'brand',
+  manufacturer: 'brand',
   unit: 'unit',
   uom: 'unit',
   rate: 'rate',
@@ -387,6 +391,7 @@ export async function importProducts(req, res, next) {
 
       const data = { userId, code, description, rate };
       if (record.category) data.category = String(record.category).trim();
+      if (record.brand) data.brand = String(record.brand).trim();
       if (record.unit) data.unit = String(record.unit).trim();
       if (hsn) data.hsn = hsn;
       if (barcode) data.barcode = barcode;
@@ -440,6 +445,10 @@ export async function importProducts(req, res, next) {
         skipped++;
         errors.push(`Row ${rowNumber}: ${err.message}`);
       }
+    }
+
+    if (imported === 0 && updated === 0 && skipped === 0 && sheet.rowCount > 1) {
+      errors.push(`No usable rows found. Recognized columns: ${Object.values(headers).join(', ') || 'none'}. Make sure the sheet has a "Medicine Name" (or "Product Name") column with a "Price" column, and that data starts on row 2.`);
     }
 
     res.json({ imported, updated, skipped, errors });

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { IndianRupee } from 'lucide-react';
 
 import {
   createCustomer,
@@ -188,7 +189,7 @@ export function CustomersPage() {
           { label: 'Total Customers',    value: totalCustomers.toLocaleString(),    color: '#2563eb', bg: '#eff6ff',  icon: <svg fill="none" height="20" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> },
           { label: 'Active Customers',   value: activeCustomers.toLocaleString(),   color: '#16a34a', bg: '#f0fdf4',  icon: <svg fill="none" height="20" stroke="#16a34a" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> },
           { label: 'Inactive Customers', value: inactiveCustomers.toLocaleString(), color: '#f97316', bg: '#fff7ed',  icon: <svg fill="none" height="20" stroke="#f97316" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="11" y2="16"/><line x1="22" x2="17" y1="11" y2="16"/></svg> },
-          { label: 'Total Revenue',      value: formatCurrency(totalRevenue),       color: '#7c3aed', bg: '#f5f3ff',  icon: <svg fill="none" height="20" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24" width="20"><line x1="12" x2="12" y1="1" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> },
+          { label: 'Total Revenue',      value: formatCurrency(totalRevenue),       color: '#7c3aed', bg: '#f5f3ff',  icon: <IndianRupee size={20} color="#7c3aed" /> },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-[#dfe7f1] rounded-xl p-4 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-none" style={{ background: s.bg }}>
@@ -283,3 +284,4 @@ export function CustomersPage() {
     </div>
   );
 }
+

@@ -85,6 +85,7 @@ function partyKindFromLabel(label = '') {
   if (/vendor|supplier/i.test(label)) return 'Vendor';
   if (/consignee/i.test(label)) return 'Consignee';
   if (/quote/i.test(label)) return 'Party';
+  if (/patient/i.test(label)) return 'Patient';
   return 'Customer';
 }
 
@@ -209,10 +210,18 @@ function normalizeProduct(product = {}) {
   };
 }
 
+function normalizeScanText(value = '') {
+  let text = String(value || '').trim();
+  if (text.length > 2 && text.startsWith('*') && text.endsWith('*')) {
+    text = text.slice(1, -1);
+  }
+  return text.trim().toLowerCase();
+}
+
 function findProductByScan(products = [], query = '') {
-  const needle = String(query || '').trim().toLowerCase();
+  const needle = normalizeScanText(query);
   if (!needle) return null;
-  const text = (value) => String(value || '').trim().toLowerCase();
+  const text = (value) => normalizeScanText(value);
   return products.find((p) => text(p.barcode) === needle)
     || products.find((p) => text(p.code) === needle)
     || products.find((p) => text(p.hsn) === needle)
@@ -221,6 +230,15 @@ function findProductByScan(products = [], query = '') {
     || products.find((p) => text(p.code).includes(needle))
     || products.find((p) => text(p.hsn).includes(needle))
     || products.find((p) => text(p.description).includes(needle));
+}
+
+function findProductByExactEntry(products = [], query = '') {
+  const needle = normalizeScanText(query);
+  if (!needle) return null;
+  const text = (value) => normalizeScanText(value);
+  return products.find((p) => text(p.description) === needle)
+    || products.find((p) => text(p.code) === needle)
+    || products.find((p) => text(p.barcode) === needle);
 }
 
 function isLikelyBarcodeScan(value = '') {
@@ -475,12 +493,24 @@ const [customFields, setCustomFields]         = useState([]);
       errs.invoiceNumber = `${config.title} number cannot be empty`;
     if (!docMeta.date)
       errs.invoiceDate = `${config.dateLabel} is required`;
-    const hasValidItem = items.some((it) => it.description && Number(it.qty) > 0);
-    if (!hasValidItem)
-      errs.items = 'Add at least one item with a description and qty > 0';
+    const hasValidItem = documentType === 'purchase-entry'
+      ? items.some((it) => it.description && Number(it.qty) > 0 && Number(it.rate) > 0)
+      : items.some((it) => it.description && Number(it.qty) > 0);
+    if (!hasValidItem) {
+      errs.items = documentType === 'purchase-entry'
+        ? 'Add at least one item with a name, qty > 0, and rate > 0'
+        : 'Add at least one item with a description and qty > 0';
+    }
     items.forEach((it, idx) => {
       if (it.description && !(Number(it.qty) > 0)) errs[`item_qty_${idx}`] = 'Required';
-      if (it.description && Number(it.rate) < 0)   errs[`item_rate_${idx}`] = 'Invalid';
+      if (documentType === 'purchase-entry') {
+        // A direct Purchase Entry may create the Product on the fly (see
+        // inventoryMovements.js), so a missing rate would silently stock a
+        // ₹0 item — require it explicitly here instead.
+        if (it.description && !(Number(it.rate) > 0)) errs[`item_rate_${idx}`] = 'Required';
+      } else if (it.description && Number(it.rate) < 0) {
+        errs[`item_rate_${idx}`] = 'Invalid';
+      }
     });
 
     if (documentType === 'purchase-entry' && !docExtra.vendorInvoiceNo.trim())
@@ -919,15 +949,76 @@ const [customFields, setCustomFields]         = useState([]);
     window.setTimeout(() => selectProduct(id, normalized), 0);
   }
 
-  function addProductFromSearch() {
-    const query = productSearch.trim();
+  function mergeScannedProduct(product) {
+    const normalized = normalizeProduct(product);
+    setProducts((prev) => {
+      const id = normalized._id || normalized.id;
+      const exists = prev.some((p) => (
+        (id && String(p._id || p.id) === String(id))
+        || (normalized.code && p.code === normalized.code)
+        || (normalized.barcode && p.barcode === normalized.barcode)
+      ));
+      return exists ? prev : [normalized, ...prev];
+    });
+    return normalized;
+  }
+
+  async function resolveProductByScan(query) {
+    const local = findProductByScan(products, query);
+    if (local) return local;
+
+    try {
+      const [salesData, invData] = await Promise.allSettled([
+        api.listProducts(query),
+        api.invListProducts({ search: query, page: 1, limit: 20 }),
+      ]);
+      const salesRows = salesData.status === 'fulfilled'
+        ? (Array.isArray(salesData.value) ? salesData.value : salesData.value?.data)
+        : [];
+      const invRows = invData.status === 'fulfilled'
+        ? (Array.isArray(invData.value) ? invData.value : invData.value?.data)
+        : [];
+      const rows = [
+        ...(Array.isArray(salesRows) ? salesRows : []),
+        ...(Array.isArray(invRows) ? invRows : []),
+      ].map(normalizeProduct);
+      const match = findProductByScan(rows, query);
+      return match ? mergeScannedProduct(match) : null;
+    } catch (err) {
+      console.warn('Unable to resolve scanned product', err);
+      return null;
+    }
+  }
+
+  async function handleRowProductEntry(itemId, value) {
+    const chosen = findProductByExactEntry(products, value);
+    if (chosen) {
+      selectProduct(itemId, chosen);
+      return true;
+    }
+
+    const scanned = await resolveProductByScan(value);
+    if (scanned) {
+      selectProduct(itemId, scanned);
+      return true;
+    }
+
+    return false;
+  }
+
+  async function addProductFromSearch(rawQuery = productSearch) {
+    const query = String(rawQuery || '').trim();
     if (!query) return;
-    const chosen = findProductByScan(products, query);
+    const chosen = await resolveProductByScan(query);
     const target = items.find((item) => !item.description);
 
     if (chosen) {
       addProductToBill(chosen);
-    } else if (isLikelyBarcodeScan(query) && !allowManualItemDescription) {
+    } else if (isLikelyBarcodeScan(query)) {
+      // Matches the hardware-scanner listener below: an unmatched barcode-like
+      // scan should prompt to save it as a real product, not get dropped in
+      // as a free-text line item — otherwise it never becomes recognizable
+      // on a later scan.
       setQuickProductBarcode(query);
     } else if (target) {
       updateItem(target.id, 'description', query);
@@ -1011,6 +1102,7 @@ const [customFields, setCustomFields]         = useState([]);
     'delivery-challan': '/billing/delivery-challan',
     'e-invoice':        '/billing/e-invoice',
     'e-way-bill':       '/billing/e-way-bill',
+    'pharmacy-bill':    '/billing/pharmacy-bill',
   };
 
   async function saveDocumentPayload(payload, id = invoiceId) {
@@ -1053,7 +1145,7 @@ const [customFields, setCustomFields]         = useState([]);
       if (savedDoc?._id) setSavedInvoiceId(savedDoc._id);
 
       // Create a Payment record if a method other than Credit is selected
-      if (['invoice', 'bill-of-supply'].includes(effectiveDocumentType) && selectedPayment && selectedPayment !== 'credit' && savedDoc?._id) {
+      if (['invoice', 'bill-of-supply', 'pharmacy-bill'].includes(effectiveDocumentType) && selectedPayment && selectedPayment !== 'credit' && savedDoc?._id) {
         const rawPayAmt = Number(paymentData.amount) || totals.finalTotal;
         const payAmt = Math.min(rawPayAmt, totals.finalTotal);
         if (payAmt > 0) {
@@ -1386,12 +1478,77 @@ const [customFields, setCustomFields]         = useState([]);
   // Stash the latest values in a ref so the listener (registered once) always
   // sees fresh state/handlers without needing to re-bind on every keystroke.
   const shortcutState = useRef(null);
+  const scannerState = useRef({ value: '', startedAt: 0, lastAt: 0 });
   useEffect(() => {
-    shortcutState.current = { showPreview, previewRedirectOnClose, saveLoading, handleSave, handlePrintBill, addItem };
+    shortcutState.current = {
+      showPreview,
+      previewRedirectOnClose,
+      saveLoading,
+      handleSave,
+      handlePrintBill,
+      addItem,
+      addProductToBill,
+      resolveProductByScan,
+      setQuickProductBarcode,
+    };
   });
 
   useEffect(() => {
+    function resetScanner() {
+      scannerState.current = { value: '', startedAt: 0, lastAt: 0 };
+    }
+
+    function captureScannerInput(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return false;
+
+      const now = Date.now();
+      const scanner = scannerState.current;
+      const key = e.key;
+      const isSubmitKey = key === 'Enter' || key === 'Tab';
+
+      if (isSubmitKey) {
+        const value = scanner.value.trim();
+        const duration = scanner.lastAt && scanner.startedAt ? scanner.lastAt - scanner.startedAt : 0;
+        const averageInterval = value.length > 1 ? duration / (value.length - 1) : duration;
+        const looksLikeScannerInput = value.length >= 4 && (averageInterval <= 60 || (value.length >= 8 && duration <= 900));
+        resetScanner();
+        if (!looksLikeScannerInput) return false;
+
+        e.preventDefault();
+        e.stopPropagation();
+        const { addProductToBill, resolveProductByScan, setQuickProductBarcode } = shortcutState.current;
+        resolveProductByScan(value).then((product) => {
+          if (product) {
+            addProductToBill(product);
+          } else if (isLikelyBarcodeScan(value)) {
+            setQuickProductBarcode(value);
+          }
+        });
+        return true;
+      }
+
+      if (key.length !== 1) {
+        if (now - scanner.lastAt > 120) resetScanner();
+        return false;
+      }
+
+      if (now - scanner.lastAt > 120) {
+        scanner.value = '';
+        scanner.startedAt = now;
+      } else if (!scanner.startedAt) {
+        scanner.startedAt = now;
+      }
+
+      scanner.value += key;
+      scanner.lastAt = now;
+
+      if (scanner.value.length > 64) resetScanner();
+      return false;
+    }
+
     function handleKeyDown(e) {
+      if (captureScannerInput(e)) return;
+
       const { showPreview, previewRedirectOnClose, saveLoading, handleSave, handlePrintBill, addItem } = shortcutState.current;
       const mod = e.ctrlKey || e.metaKey;
 
@@ -1431,7 +1588,7 @@ const [customFields, setCustomFields]         = useState([]);
 
       // Function-key shortcuts (no modifier) — actions vary by documentType
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        const NEW_ROUTES = { invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'sales-return': '/billing/sales-return/new', 'supplier-return': '/billing/supplier-return/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new' };
+        const NEW_ROUTES = { invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new', 'purchase-order': '/billing/purchase-order/new', 'purchase-entry': '/billing/purchase-entry/new', 'credit-note': '/billing/credit-note/new', 'debit-note': '/billing/debit-note/new', 'sales-return': '/billing/sales-return/new', 'supplier-return': '/billing/supplier-return/new', 'delivery-challan': '/billing/delivery-challan/new', 'e-invoice': '/billing/e-invoice/new', 'e-way-bill': '/billing/e-way-bill/new', 'pharmacy-bill': '/billing/pharmacy-bill/new' };
         const F7_FKEY = { invoice: null, 'bill-of-supply': null, quotation: 'valid-till', 'purchase-order': 'expected-delivery', 'purchase-entry': null, 'credit-note': 'ref-invoice', 'debit-note': 'ref-invoice', 'sales-return': 'ref-invoice', 'supplier-return': 'ref-invoice', 'delivery-challan': 'vehicle', 'e-invoice': 'irn', 'e-way-bill': 'vehicle' };
         if (e.key === 'F1')  { e.preventDefault(); window.location.assign(NEW_ROUTES[documentType] ?? '/billing/invoice/new'); return; }
         if (e.key === 'F2')  { e.preventDefault(); if (!saveLoading) handleSave(); return; }
@@ -2269,7 +2426,8 @@ const [customFields, setCustomFields]         = useState([]);
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    addProductFromSearch();
+                    e.stopPropagation();
+                    addProductFromSearch(e.currentTarget.value);
                   }
                 }}
               />
@@ -2282,14 +2440,13 @@ const [customFields, setCustomFields]         = useState([]);
                 +
               </button>
               <datalist id="billing-product-search-options">
-                {products.flatMap((p) => {
-                  const key = p._id ?? p.id ?? p.description;
-                  return [
-                    <option key={`${key}-name`} value={p.description} />,
-                    p.barcode ? <option key={`${key}-barcode`} value={p.barcode}>{p.description}</option> : null,
-                    p.code ? <option key={`${key}-code`} value={p.code}>{p.description}</option> : null,
-                  ];
-                })}
+                {products.map((p) => (
+                  <option
+                    key={p._id ?? p.id ?? p.description}
+                    value={p.description}
+                    label={[p.code, p.barcode].filter(Boolean).join(' - ')}
+                  />
+                ))}
               </datalist>
             </div>
             {config.showGst && (
@@ -2304,11 +2461,20 @@ const [customFields, setCustomFields]         = useState([]);
                 Apply 18% GST
               </button>
             )}
-            <button type="button" className="billing-add-new-item-btn" onClick={addItem}>
-              <Plus size={14} /> Add New Item (F5)
-            </button>
             <div className="billing-search-hint">Type to search product. Press Enter to add item. Scan barcode to add faster.</div>
           </div>
+
+          {products.length > 0 && (
+            <datalist id="billing-product-options">
+              {products.map((p) => (
+                <option
+                  key={p._id ?? p.id ?? p.description}
+                  value={p.description}
+                  label={[p.code, p.barcode].filter(Boolean).join(' - ')}
+                />
+              ))}
+            </datalist>
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
@@ -2358,7 +2524,7 @@ const [customFields, setCustomFields]         = useState([]);
                     <tr key={item.id}>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-center text-[#536173] text-xs pt-3">{idx + 1}</td>
 
-                      {/* Add saved products from the top search; row item name stays simple for manual entry. */}
+                      {/* Existing product suggestions live in the item-name input while preserving manual entry. */}
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         {allowManualItemDescription ? (
                           <>
@@ -2366,30 +2532,33 @@ const [customFields, setCustomFields]         = useState([]);
                               data-row={idx}
                               data-col="description"
                               className={`w-full border ${!item.description && errors.items ? 'border-red-400 bg-red-50' : 'border-[#dbe4ef]'} rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none bg-white focus:border-blue-500`}
+                              list="billing-product-options"
                               placeholder="Type item name..."
                               value={item.description}
                               onChange={(e) => {
-                                updateItem(item.id, 'description', e.target.value);
+                                const value = e.target.value;
+                                const chosen = findProductByExactEntry(products, value);
+                                if (chosen) {
+                                  selectProduct(item.id, chosen);
+                                } else {
+                                  updateItem(item.id, 'description', value);
+                                }
+                                clearError('items');
+                              }}
+                              onKeyDown={async (e) => {
+                                if (e.key !== 'Enter') return;
+                                const value = e.currentTarget.value.trim();
+                                if (!value) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const found = await handleRowProductEntry(item.id, value);
+                                if (!found) {
+                                  const next = document.querySelector(`[data-row="${idx}"][data-col="itemDescription"]`);
+                                  next?.focus();
+                                }
                                 clearError('items');
                               }}
                             />
-                            {products.length > 0 && (
-                              <select
-                                className="mt-1 w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[12px] text-[#536173] font-[inherit] outline-none bg-white focus:border-blue-500"
-                                value=""
-                                onChange={(e) => {
-                                  const chosen = products.find((p) => String(p._id ?? p.id ?? p.description) === e.target.value);
-                                  if (chosen) selectProduct(item.id, chosen);
-                                }}
-                              >
-                                <option value="">Select existing product...</option>
-                                {products.map((p) => (
-                                  <option key={p._id ?? p.id ?? p.description} value={p._id ?? p.id ?? p.description}>
-                                    {p.description}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
                           </>
                         ) : (
                           <select

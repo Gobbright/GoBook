@@ -163,4 +163,16 @@ export const documentConfigs = {
     showTransport: true,
     title: 'E-Way Bill',
   },
+  'pharmacy-bill': {
+    buttonText: 'Save Pharmacy Bill',
+    dateLabel: 'Bill Date',
+    documentType: 'pharmacy-bill',
+    partyNameLabel: 'Patient Name *',
+    partyToLabel: 'Patient',
+    prefix: 'PHB',
+    showDueDate: false,
+    showGst: true,
+    showPayment: true,
+    title: 'Pharmacy Bill',
+  },
 };

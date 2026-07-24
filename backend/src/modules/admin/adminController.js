@@ -392,7 +392,7 @@ export async function getAdminNotifications(_req, res, next) {
           `payment-${payment._id}`,
           'payment',
           'Payment Received',
-          `${displayName} paid Rs. ${Number(payment.amount || 0).toLocaleString('en-IN')}`,
+          `${displayName} paid ₹ ${Number(payment.amount || 0).toLocaleString('en-IN')}`,
           displayName,
           payment.createdAt,
           { paymentId: payment._id }

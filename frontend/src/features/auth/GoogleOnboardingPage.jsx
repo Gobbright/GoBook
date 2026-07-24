@@ -8,9 +8,9 @@ import { AuthLayout } from './AuthLayout.jsx';
 import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
 
 const PLANS = [
-  { value: 'starter', label: 'Starter', amount: 499, price: 'Rs. 499', note: 'Basic billing and records' },
-  { value: 'professional', label: 'Professional', amount: 999, price: 'Rs. 999', note: 'Full business modules' },
-  { value: 'enterprise', label: 'Enterprise', amount: 1999, price: 'Rs. 1,999', note: 'Advanced controls' },
+  { value: 'starter', label: 'Starter', amount: 499, price: '₹ 499', note: 'Basic billing and records' },
+  { value: 'professional', label: 'Professional', amount: 999, price: '₹ 999', note: 'Full business modules' },
+  { value: 'enterprise', label: 'Enterprise', amount: 1999, price: '₹ 1,999', note: 'Advanced controls' },
 ];
 
 const CATEGORY_MEDIA = {

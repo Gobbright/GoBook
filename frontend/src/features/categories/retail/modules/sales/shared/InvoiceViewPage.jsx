@@ -85,6 +85,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
     'delivery-challan': '/billing/delivery-challan',
     'e-invoice': '/billing/e-invoice',
     'e-way-bill': '/billing/e-way-bill',
+    'pharmacy-bill': '/billing/pharmacy-bill',
   })[documentType] ?? '/billing/invoice';
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
   }, [invoiceId, documentType]);
 
   async function loadPayments() {
-    if (documentType !== 'invoice' && documentType !== 'bill-of-supply') return;
+    if (!['invoice', 'bill-of-supply', 'pharmacy-bill'].includes(documentType)) return;
     try {
       const res = await api.listPayments(invoiceId);
       setPayments(res.payments ?? []);
@@ -260,7 +261,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
       />
 
       {/* ── Payment History (invoice + bill-of-supply) ── */}
-      {(documentType === 'invoice' || documentType === 'bill-of-supply') && (
+      {['invoice', 'bill-of-supply', 'pharmacy-bill'].includes(documentType) && (
         <div className="mt-6 bg-white border border-[#dfe7f1] rounded-xl overflow-hidden print:hidden">
 
           {/* Header */}

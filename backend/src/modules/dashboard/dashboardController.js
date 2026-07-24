@@ -4,7 +4,7 @@ import { Product } from '../../models/Product.js';
 import { Payment } from '../../models/Payment.js';
 
 function fmtCurrency(n) {
-  return `INR ${Number(n || 0).toLocaleString('en-IN')}`;
+  return `₹ ${Number(n || 0).toLocaleString('en-IN')}`;
 }
 
 function todayRange() {
