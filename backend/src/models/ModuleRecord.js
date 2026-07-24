@@ -7,5 +7,6 @@ const moduleRecordSchema = new Schema({
 }, { timestamps: true });
 
 moduleRecordSchema.index({ userId: 1, moduleKey: 1, createdAt: -1 });
+moduleRecordSchema.index({ moduleKey: 1, 'data.date': 1 });
 
 export const ModuleRecord = model('ModuleRecord', moduleRecordSchema);

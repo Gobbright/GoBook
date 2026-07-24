@@ -10,6 +10,7 @@ import { todayISO, fmtDate } from '../../../shared/recordUi/dateUtils.js';
 
 const FIELDS = [
   { key: 'patientName', label: 'Patient', required: true, type: 'lookup', lookupModule: 'hospital/patients' },
+  { key: 'patientEmail', label: 'Patient Email', type: 'email', required: true },
   { key: 'doctorName', label: 'Doctor', type: 'lookup', lookupModule: 'hospital/doctors' },
   { key: 'departmentName', label: 'Department', type: 'lookup', lookupModule: 'hospital/departments' },
   { key: 'date', label: 'Date', type: 'date', required: true },

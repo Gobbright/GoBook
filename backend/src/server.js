@@ -9,6 +9,7 @@ import { connectDatabase, getDatabaseStatus } from './services/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { apiRouter } from './routes/index.js';
+import { startScheduledJobs } from './jobs/scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -74,6 +75,7 @@ async function connectDatabaseWithRetry() {
   try {
     await connectDatabase();
     console.log('Database connected - ready to serve requests');
+    startScheduledJobs();
   } catch (error) {
     console.error('Failed to connect to database:', error.message);
     console.error('Keeping HTTP server alive and retrying MongoDB in 15 seconds.');
