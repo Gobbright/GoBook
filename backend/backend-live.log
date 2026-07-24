@@ -1,0 +1,14 @@
+GoBook API running on port 5000 [development]
+MongoDB connected - db: gobook
+Database connected - ready to serve requests
+[0mGET /api/admin/employee-dashboard [32m200[0m 25.809 ms - 69[0m
+[0mGET /api/admin/employees [32m200[0m 12.753 ms - 4607[0m
+[0mGET /api/admin/attendance/today [32m200[0m 9.512 ms - 3129[0m
+[0mGET /api/admin/attendance/monthly?month=2026-07 [32m200[0m 20.148 ms - 31164[0m
+[0mGET /api/admin/attendance/corrections [32m200[0m 7.851 ms - 11[0m
+[0mGET /api/admin/leaves [32m200[0m 8.861 ms - 11[0m
+[0mGET /api/admin/payroll [32m200[0m 5.923 ms - 11[0m
+[0mGET /api/admin/notices [32m200[0m 6.607 ms - 11[0m
+[0mGET /api/admin/holidays [32m200[0m 49.631 ms - 11[0m
+[0mGET /health [32m200[0m 0.738 ms - 137[0m
+[0mGET /api/admin/employee-dashboard [32m200[0m 15.035 ms - 69[0m

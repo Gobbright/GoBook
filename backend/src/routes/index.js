@@ -7,6 +7,7 @@ import { adminRouter } from '../modules/admin/routes.js';
 import { aiRouter } from '../modules/ai/routes.js';
 import { authRouter } from '../modules/auth/routes.js';
 import { dashboardRouter } from '../modules/dashboard/routes.js';
+import { employeePortalRouter } from '../modules/employee-portal/routes.js';
 import { hospitalRouter } from '../modules/hospital/routes.js';
 import { moduleRecordsRouter } from '../modules/module-records/routes.js';
 import { platformAdminRouter } from '../modules/platform-admin/routes.js';
@@ -23,6 +24,7 @@ import { settingsRouter } from '../modules/settings/routes.js';
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/employee', employeePortalRouter);
 apiRouter.use('/admin', adminRouter);
 
 apiRouter.use(requireAuth);

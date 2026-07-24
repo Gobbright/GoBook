@@ -11,6 +11,9 @@ const READY_STATES = {
 
 let listenersRegistered = false;
 let lastConnectionError = '';
+let connectionPromise = null;
+let reconnectTimer = null;
+let maintenanceComplete = false;
 
 async function dropLegacyIndexes() {
   const db = mongoose.connection.db;
@@ -35,6 +38,21 @@ async function dropLegacyIndexes() {
   }
 }
 
+function scheduleReconnect() {
+  if (reconnectTimer || mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) return;
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    try {
+      await connectDatabase();
+      console.log('MongoDB reconnected');
+    } catch (error) {
+      lastConnectionError = error.message;
+      console.error('MongoDB reconnect failed:', error.message);
+      scheduleReconnect();
+    }
+  }, 3000);
+}
+
 function registerConnectionListeners() {
   if (listenersRegistered) return;
   listenersRegistered = true;
@@ -51,6 +69,7 @@ function registerConnectionListeners() {
 
   mongoose.connection.on('disconnected', () => {
     console.warn('MongoDB disconnected');
+    scheduleReconnect();
   });
 }
 
@@ -65,19 +84,38 @@ export function getDatabaseStatus() {
 
 export async function connectDatabase() {
   registerConnectionListeners();
+  if (mongoose.connection.readyState === 1) return mongoose.connection;
+  if (connectionPromise) return connectionPromise;
 
-  await mongoose.connect(env.mongodbUri, {
-    dbName: env.mongodbDbName,
-    serverSelectionTimeoutMS: 30000,
-    socketTimeoutMS: 60000,
-    connectTimeoutMS: 30000,
-    retryWrites: true,
-    w: 'majority',
-  });
+  connectionPromise = (async () => {
+    await mongoose.connect(env.mongodbUri, {
+      dbName: env.mongodbDbName,
+      serverSelectionTimeoutMS: 8000,
+      socketTimeoutMS: 20000,
+      connectTimeoutMS: 10000,
+      heartbeatFrequencyMS: 5000,
+      maxPoolSize: 20,
+      minPoolSize: 2,
+      retryWrites: true,
+      w: 'majority',
+    });
 
-  await dropLegacyIndexes();
+    if (!maintenanceComplete) {
+      await dropLegacyIndexes();
+      maintenanceComplete = true;
+    }
+    return mongoose.connection;
+  })();
+
+  try {
+    return await connectionPromise;
+  } finally {
+    connectionPromise = null;
+  }
 }
 
 export async function disconnectDatabase() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
   await mongoose.disconnect();
 }

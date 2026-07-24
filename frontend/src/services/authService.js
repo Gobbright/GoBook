@@ -1,8 +1,16 @@
 import { redirectTo } from '../routes/navigation.js';
 import { apiClient } from './apiClient.js';
-import { clearSession, getStoredUser, isAuthenticated, setSession } from './authToken.js';
+import { clearSession, getStoredUser, getToken, isAuthenticated, setSession } from './authToken.js';
 
 export { getStoredUser as getCurrentUser, isAuthenticated };
+
+export async function refreshCurrentUser() {
+  const token = getToken();
+  if (!token) return null;
+  const user = await apiClient('/auth/me');
+  setSession(token, user);
+  return user;
+}
 
 export async function login(email, password) {
   const data = await apiClient('/auth/login', { method: 'POST', body: JSON.stringify({ email: email.trim(), password }) });

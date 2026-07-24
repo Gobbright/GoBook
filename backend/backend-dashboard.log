@@ -1,0 +1,8 @@
+GoBook API running on port 5000 [development]
+MongoDB connected - db: gobook
+Database connected - ready to serve requests
+[0mGET /health [32m200[0m 11.718 ms - 137[0m
+[0mGET /api/admin/employee-dashboard [32m200[0m 86.989 ms - 1165[0m
+[0mPOST /api/auth/login [33m401[0m 14.913 ms - 39[0m
+[0mPOST /api/auth/login [33m401[0m 6.767 ms - 39[0m
+[0mPOST /api/auth/login [33m401[0m 5.334 ms - 39[0m

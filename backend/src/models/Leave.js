@@ -5,6 +5,7 @@ const leaveSchema = new Schema({
   leaveId:    { type: String, required: true, trim: true },
   name:       { type: String, required: true, trim: true },
   empId:      { type: String, required: true, trim: true },
+  dept:       { type: String, default: '', trim: true },
   type:       { type: String, enum: ['Casual Leave', 'Sick Leave', 'Annual Leave', 'Unpaid Leave', 'Comp Off', 'Maternity Leave', 'Paternity Leave'], default: 'Casual Leave' },
   from:       { type: String, required: true },
   to:         { type: String, required: true },
@@ -18,5 +19,6 @@ const leaveSchema = new Schema({
 leaveSchema.index({ userId: 1, leaveId: 1 }, { unique: true });
 leaveSchema.index({ userId: 1, status: 1 });
 leaveSchema.index({ userId: 1, empId: 1 });
+leaveSchema.index({ userId: 1, createdAt: -1 });
 
 export const Leave = model('Leave', leaveSchema);

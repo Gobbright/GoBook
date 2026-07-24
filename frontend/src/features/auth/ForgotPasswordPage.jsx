@@ -69,7 +69,7 @@ export function ForgotPasswordPage() {
           </p>
         </div>
 
-        <a href="//login"
+        <a href="/login"
            className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3.5 text-white font-bold text-[15px] no-underline transition-all duration-150 active:scale-[0.99]"
            style={BTN_PRIMARY}>
           <ArrowRight size={18} />
@@ -206,7 +206,7 @@ export function ForgotPasswordPage() {
       </form>
 
       <p className="text-center mt-5 mb-0">
-        <a href="//login"
+        <a href="/login"
            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold no-underline hover:underline"
            style={{ color: '#4f90ff' }}>
           <ArrowLeft size={14} />

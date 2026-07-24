@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import '../features/employee-management/employeeManagement.css';
 
 import { AdminLoginPage } from '../features/admin/AdminLoginPage.jsx';
 import { AdminPanelPage } from '../features/admin/AdminPanelPage.jsx';
@@ -20,8 +22,25 @@ import { LoginPage } from '../features/auth/LoginPage.jsx';
 import { RegisterPage } from '../features/auth/RegisterPage.jsx';
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage.jsx';
 import { PlatformAdminPage } from '../features/platform-admin/PlatformAdminPage.jsx';
+import { EmployeeLoginRoute, EmployeePortalRoutes } from '../features/employee-management/EmployeePortalRoutes.jsx';
+import EmployeeAdminDashboard from '../features/employee-management/pages/admin/Dashboard.jsx';
+import EmployeeList from '../features/employee-management/pages/admin/employees/EmployeeList.jsx';
+import AddEmployee from '../features/employee-management/pages/admin/employees/AddEmployee.jsx';
+import TodayAttendance from '../features/employee-management/pages/admin/attendance/TodayAttendance.jsx';
+import LeaveRequests from '../features/employee-management/pages/admin/leave/LeaveRequests.jsx';
+import Salary from '../features/employee-management/pages/admin/payroll/Salary.jsx';
+import AllNotices from '../features/employee-management/pages/admin/notices/AllNotices.jsx';
+import AdminMonthlyAttendance from '../features/employee-management/pages/admin/attendance/MonthlyAttendance.jsx';
+import CorrectionRequests from '../features/employee-management/pages/admin/attendance/CorrectionRequests.jsx';
+import LeaveBalance from '../features/employee-management/pages/admin/leave/LeaveBalance.jsx';
+import LeaveTypes from '../features/employee-management/pages/admin/leave/LeaveTypes.jsx';
+import AdminPayslips from '../features/employee-management/pages/admin/payroll/Payslips.jsx';
+import AddNotice from '../features/employee-management/pages/admin/notices/AddNotice.jsx';
+import HolidayList from '../features/employee-management/pages/admin/holidays/HolidayList.jsx';
+import AddHoliday from '../features/employee-management/pages/admin/holidays/AddHoliday.jsx';
 import { DashboardPage } from '../pages/DashboardPage.jsx';
-import { getCurrentUser } from '../services/authService.js';
+import { isAuthenticated, refreshCurrentUser } from '../services/authService.js';
+import { useCurrentUser } from '../hooks/useCurrentUser.js';
 import {
   billingRoutes,
   eWayBillRoutes,
@@ -45,14 +64,23 @@ import { getLastRoute } from './routeStorage.js';
 // keeping category-specific route branches fresh without needing a full page reload.
 function AppRoutes() {
   useLocation();
-  const category = getCurrentUser()?.category || 'retail';
+  const currentUser = useCurrentUser();
+
+  useEffect(() => {
+    if (isAuthenticated()) refreshCurrentUser().catch(() => {});
+  }, []);
+
+  const category = currentUser?.category || 'other';
   const adminRoute = (element) => <AdminProtectedRoute>{element}</AdminProtectedRoute>;
   const adminRedirect = (to) => adminRoute(<Navigate to={to} replace />);
+  const employeeManagementPage = (element) => <div className="employee-management">{element}</div>;
 
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+      <Route path="/employee-login" element={<EmployeeLoginRoute />} />
+      <Route path="/employee/*" element={<EmployeePortalRoutes />} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       <Route path="/admin-login" element={<AdminPublicRoute><AdminLoginPage /></AdminPublicRoute>} />
       <Route path="/admin" element={adminRoute(<AdminPanelPage />)} />
@@ -115,6 +143,24 @@ function AppRoutes() {
       <Route element={<ProtectedShell />}>
         <Route index element={<Navigate to={getLastRoute()} replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+
+        <Route path="/employee-management/dashboard" element={employeeManagementPage(<EmployeeAdminDashboard />)} />
+        <Route path="/employee-management/employees" element={employeeManagementPage(<EmployeeList />)} />
+        <Route path="/employee-management/employees/add" element={employeeManagementPage(<AddEmployee />)} />
+        <Route path="/employee-management/attendance" element={employeeManagementPage(<TodayAttendance />)} />
+        <Route path="/employee-management/leave" element={employeeManagementPage(<LeaveRequests />)} />
+        <Route path="/employee-management/payroll" element={employeeManagementPage(<Salary />)} />
+        <Route path="/employee-management/notices" element={employeeManagementPage(<AllNotices />)} />
+        <Route path="/employee-management/reports" element={<Navigate to="/employee-management/dashboard" replace />} />
+        <Route path="/employee-management/settings" element={<Navigate to="/employee-management/dashboard" replace />} />
+        <Route path="/employee-management/attendance/monthly" element={employeeManagementPage(<AdminMonthlyAttendance />)} />
+        <Route path="/employee-management/attendance/corrections" element={employeeManagementPage(<CorrectionRequests />)} />
+        <Route path="/employee-management/leave/balance" element={employeeManagementPage(<LeaveBalance />)} />
+        <Route path="/employee-management/leave/types" element={employeeManagementPage(<LeaveTypes />)} />
+        <Route path="/employee-management/payroll/payslips" element={employeeManagementPage(<AdminPayslips />)} />
+        <Route path="/employee-management/notices/add" element={employeeManagementPage(<AddNotice />)} />
+        <Route path="/employee-management/holidays" element={employeeManagementPage(<HolidayList />)} />
+        <Route path="/employee-management/holidays/add" element={employeeManagementPage(<AddHoliday />)} />
 
         {category === 'retail' && billingRoutes.map(({ slug, documentType, list, form }) => (
           <Route key={slug} path={`/billing/${slug}`}>
@@ -192,14 +238,6 @@ export function AppRouter() {
     </BrowserRouter>
   );
 }
-
-
-
-
-
-
-
-
 
 
 

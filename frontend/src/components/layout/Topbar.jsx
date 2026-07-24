@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Menu, Moon, Settings, Sun } from 'lucide-react';
 
 import { useTheme } from '../../app/ThemeContext.jsx';
-import { getCurrentUser } from '../../services/authService.js';
+import { CATEGORY_LABELS } from '../../constants/categories.js';
+import { useCurrentUser } from '../../hooks/useCurrentUser.js';
 import { api } from '../../services/api.js';
 
 function todayLabel() {
@@ -10,7 +11,7 @@ function todayLabel() {
 }
 
 export function Topbar({ onMenuClick }) {
-  const user = getCurrentUser();
+  const user = useCurrentUser();
   const { theme, toggleTheme } = useTheme();
   const [business, setBusiness] = useState({});
 
@@ -35,7 +36,8 @@ export function Topbar({ onMenuClick }) {
     business.gstin ? `GSTIN: ${business.gstin}` : '',
     business.phone || '',
     business.city || business.state || '',
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(' - ');
+  const categoryLabel = CATEGORY_LABELS[user?.category] || user?.category || 'Category';
 
   return (
     <header className="app-topbar bg-white dark:bg-slate-900 border-b border-[#dde6f2] dark:border-slate-800 flex items-center gap-4 h-18 px-7">
@@ -67,7 +69,12 @@ export function Topbar({ onMenuClick }) {
           Customize
         </a>
         <span className="w-px h-5 bg-[#dde6f2] dark:bg-slate-700" aria-hidden="true" />
-        {user?.name && <span className="text-[13px] text-[#536173] dark:text-slate-400">{user.name}</span>}
+        {user?.name && (
+          <div className="flex flex-col items-end leading-tight max-w-40">
+            <span className="text-[13px] font-semibold text-[#111827] dark:text-slate-100 truncate max-w-full">{user.name}</span>
+            <span className="text-[11px] text-[#64748b] dark:text-slate-400 truncate max-w-full">{categoryLabel}</span>
+          </div>
+        )}
         <span className="w-px h-5 bg-[#dde6f2] dark:bg-slate-700" aria-hidden="true" />
         <button
           type="button"

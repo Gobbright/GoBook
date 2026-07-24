@@ -1,0 +1,2 @@
+import { PageHeader } from '../../../components/common/PageHeader.jsx';
+export default function LeaveBalance() { return <><PageHeader title="Leave Balance" subtitle="Leave balances by employee" /><div className="card empty">Leave balance rules can be configured in Settings.</div></>; }

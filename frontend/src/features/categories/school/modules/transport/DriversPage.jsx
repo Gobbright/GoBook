@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Search, IdCard } from 'lucide-react';
 
-import { useModuleRecords, useLookupRecords, names } from '../../../shared/recordUi/useModuleRecords.js';
+import { useModuleRecords, useLookupRecords } from '../../../shared/recordUi/useModuleRecords.js';
 import { FormModal } from '../../../shared/recordUi/FormModal.jsx';
 import { PageHeader } from '../../../shared/recordUi/PageHeader.jsx';
 import { RowActions } from '../../../shared/recordUi/RowActions.jsx';

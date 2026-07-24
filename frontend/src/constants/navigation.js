@@ -1,3 +1,6 @@
+function isAdminUser(user = {}) {
+  return user.isPlatformOwner || ['Super Admin', 'Admin', 'Owner'].includes(user.role);
+}
 const SECTIONS = {
   main: {
     title: 'Dashboard',
@@ -76,17 +79,17 @@ const SECTIONS = {
       { label: 'Inventory Reports', href: '/inventory-reports', icon: 'BarChart3' },
     ],
   },  hrPayroll: {
-    title: 'HR & Payroll',
+    title: 'Employee Management',
+    forceGroup: true,
     items: [
-      { label: 'Employees', href: '/employees', icon: 'Users' },
-      { label: 'Attendance', href: '/attendance', icon: 'CalendarCheck' },
-      { label: 'Payroll', href: '/payroll', icon: 'IndianRupee' },
-      { label: 'Leave Management', href: '/leave-management', icon: 'CalendarOff' },
-      { label: 'Documents', href: '/documents', icon: 'FolderOpen' },
-      { label: 'HR Reports', href: '/hr-reports', icon: 'BarChart3' },
+      { label: 'Dashboard', href: '/employee-management/dashboard', icon: 'LayoutDashboard' },
+      { label: 'Employees', href: '/employee-management/employees', icon: 'Users' },
+      { label: 'Attendance', href: '/employee-management/attendance', icon: 'CalendarCheck' },
+      { label: 'Leave', href: '/employee-management/leave', icon: 'CalendarOff' },
+      { label: 'Payroll', href: '/employee-management/payroll', icon: 'IndianRupee' },
+      { label: 'Notices', href: '/employee-management/notices', icon: 'Bell' },
     ],
-  },
-  moreModules: {
+  },  moreModules: {
     title: 'Marketing',
     items: [
       { label: 'WhatsApp Business', href: '/whatsapp-business', icon: 'MessageCircle' },
@@ -423,7 +426,7 @@ const SECTIONS = {
   },
 };
 
-// Shared by every category: GST, Accounting, CRM, Inventory, HR & Payroll, More Modules, Settings.
+// Shared by every category: GST, Accounting, CRM, Inventory, Employee Management, More Modules, Settings.
 const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayroll', 'moreModules', 'settings'];
 
 const CATEGORY_LAYOUTS = {
@@ -455,7 +458,7 @@ const CATEGORY_LAYOUTS = {
   other: COMMON_LAYOUT,
 };
 
-export function getSidebarSections(category) {
-  const layout = CATEGORY_LAYOUTS[category] || CATEGORY_LAYOUTS.retail;
-  return layout.map((key) => SECTIONS[key]);
+export function getSidebarSections(category, user = {}) {
+  const layout = CATEGORY_LAYOUTS[category] || CATEGORY_LAYOUTS.other;
+  return layout.map((key) => SECTIONS[key]).filter((section) => section && (!section.adminOnly || isAdminUser(user)));
 }
