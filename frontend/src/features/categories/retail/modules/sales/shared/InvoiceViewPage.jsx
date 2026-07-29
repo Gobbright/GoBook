@@ -5,6 +5,7 @@ import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
 import { RecordPaymentModal } from './RecordPaymentModal.jsx';
 import { ShareModal } from './ShareModal.jsx';
+import { getInvoicePrintTemplate, setInvoicePrintTemplate } from './invoiceTemplatePreference.js';
 
 function fmt(n) {
   return `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -59,6 +60,58 @@ function calcTotals(items = [], charges = [], additionalDiscount, tds, tcs, adva
   return { ...acc, chargesSubtotal, chargesGst, preDisc, addDiscAmt, invoiceTotal, tdsAmt, tcsAmt, netPayable, roundOff, finalTotal, balanceDue };
 }
 
+function applySavedTotalOverride(calculatedTotals, savedTotals) {
+  if (!savedTotals?.manualTotalOverride) return calculatedTotals;
+  const finalTotal = Number(savedTotals.finalTotal ?? savedTotals.manualTotal);
+  if (!Number.isFinite(finalTotal) || finalTotal < 0) return calculatedTotals;
+  return {
+    ...calculatedTotals,
+    calculatedFinalTotal: savedTotals.calculatedFinalTotal ?? calculatedTotals.finalTotal,
+    finalTotal,
+    manualTotal: finalTotal,
+    manualTotalOverride: true,
+    roundOff: finalTotal - calculatedTotals.netPayable,
+    balanceDue: calculatedTotals.balanceDue + (finalTotal - calculatedTotals.finalTotal),
+  };
+}
+
+function normalizeProduct(product = {}) {
+  const description = product.description || product.name || product.productName || '';
+  return {
+    ...product,
+    _id: product._id ?? product.id ?? description,
+    id: product.id ?? product._id ?? description,
+    description,
+    code: product.code || product.sku || '',
+    productDescription: product.productDescription
+      || product.itemDescription
+      || product.lineDescription
+      || product.details
+      || product.note
+      || product.remark
+      || '',
+  };
+}
+
+function findCatalogProductForItem(products = [], item = {}) {
+  const text = (value) => String(value || '').trim().toLowerCase();
+  const productId = item.productId ? String(item.productId) : '';
+  const code = text(item.productCode || item.code);
+  const description = text(item.description);
+  return products.find((product) => productId && String(product._id || product.id) === productId)
+    || products.find((product) => code && text(product.code) === code)
+    || products.find((product) => description && text(product.description) === description)
+    || null;
+}
+
+function enrichItemsWithProductDescriptions(items = [], products = []) {
+  return items.map((item) => {
+    if (String(item.itemDescription || '').trim()) return item;
+    const product = findCatalogProductForItem(products, item);
+    return product?.productDescription ? { ...item, itemDescription: product.productDescription } : item;
+  });
+}
+
 export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -70,6 +123,8 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [downloadPdfMode, setDownloadPdfMode] = useState(false);
+  const [printTemplate, setPrintTemplate] = useState(() => getInvoicePrintTemplate());
+  const [products, setProducts] = useState([]);
 
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
   const listRoute = ({
@@ -90,6 +145,19 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
 
   useEffect(() => {
     api.getSettings().then(setBizSettings).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    api.invListProducts()
+      .then((res) => {
+        const rows = Array.isArray(res) ? res : res?.data;
+        if (active) setProducts(Array.isArray(rows) ? rows.map(normalizeProduct) : []);
+      })
+      .catch(() => {
+        if (active) setProducts([]);
+      });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -125,6 +193,10 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
 
   useEffect(() => { loadPayments(); }, [invoiceId, documentType]);
 
+  useEffect(() => {
+    setInvoicePrintTemplate(printTemplate);
+  }, [printTemplate]);
+
   async function handleDeletePayment(paymentId) {
     if (!window.confirm('Delete this payment record?')) return;
     setDeletingId(paymentId);
@@ -140,7 +212,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
 
   const totals = useMemo(() => {
     if (!invoice) return null;
-    return calcTotals(
+    const calculated = calcTotals(
       invoice.items || [],
       invoice.charges || [],
       invoice.additionalDiscount,
@@ -149,7 +221,13 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
       invoice.advanceReceived,
       config.showGst,
     );
+    return applySavedTotalOverride(calculated, invoice.totals);
   }, [invoice, config.showGst]);
+
+  const displayItems = useMemo(
+    () => enrichItemsWithProductDescriptions(invoice?.items || [], products),
+    [invoice?.items, products],
+  );
 
   if (loading) {
     return (
@@ -191,6 +269,17 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <label className="inline-flex items-center gap-2 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white">
+            <span className="text-[#536173] font-medium">Template</span>
+            <select
+              value={printTemplate}
+              onChange={(event) => setPrintTemplate(event.target.value)}
+              className="border-0 bg-transparent text-[13px] font-semibold text-[#111827] outline-none font-[inherit]"
+            >
+              <option value="modern">Modern</option>
+              <option value="classic">Classic</option>
+            </select>
+          </label>
           <button type="button" onClick={() => setShowShareModal(true)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white hover:bg-gray-50 transition-colors">
             <Send size={13} className="text-[#94a3b8]" />
             Send
@@ -240,7 +329,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
         customer={invoice.customer || {}}
         docMeta={docMeta}
         docExtra={invoice.extra || {}}
-        items={invoice.items || []}
+        items={displayItems}
         charges={invoice.charges || []}
         totals={totals}
         notes={invoice.notes || ''}
@@ -257,6 +346,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
         downloadAsPdf={downloadPdfMode}
         pdfMode={downloadPdfMode}
         invoiceNumber={docMeta.number}
+        printTemplate={printTemplate}
         onPdfDownloaded={() => setDownloadPdfMode(false)}
       />
 

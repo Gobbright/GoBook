@@ -289,7 +289,13 @@ export function BillOfSupplyPage() {
   }, [bills]);
 
   const ordered = useMemo(
-    () => [...bills].sort((a, b) => BILL_NUMBER_COLLATOR.compare(a.number, b.number)),
+    () => [...bills].sort((a, b) => {
+      const byCreated = new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0);
+      if (byCreated !== 0) return byCreated;
+      const byNumber = BILL_NUMBER_COLLATOR.compare(b.number || '', a.number || '');
+      if (byNumber !== 0) return byNumber;
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    }),
     [bills],
   );
 

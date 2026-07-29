@@ -139,11 +139,11 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                   <button
                     type="button"
                     onClick={() => toggleSection(section.title)}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-[11px] font-semibold uppercase tracking-widest cursor-pointer font-[inherit] bg-transparent border-0 transition-colors
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-md text-[11px] font-semibold uppercase tracking-wide cursor-pointer font-[inherit] bg-transparent border-0 transition-colors
                       ${openSection === section.title ? 'text-[#90caf9]' : 'text-[#7ab4d8] hover:text-[#b0d8f0]'}`}
                     aria-expanded={openSection === section.title}
                   >
-                    <span>{section.title}</span>
+                    <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{section.title}</span>
                     <ChevronDown
                       size={13}
                       strokeWidth={2.5}

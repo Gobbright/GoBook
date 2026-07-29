@@ -11,6 +11,7 @@ import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 import { RecordPaymentModal } from './shared/RecordPaymentModal.jsx';
 import { DocumentPreviewModal } from './shared/DocumentPreviewModal.jsx';
 import { documentConfigs } from './documentConfigs.js';
+import { getInvoicePrintTemplate } from './shared/invoiceTemplatePreference.js';
 import { useFocusTrap } from '../../../../../hooks/useFocusTrap.js';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
 
@@ -19,6 +20,38 @@ import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
 const PAGE_SIZE = 5;
 const INVOICE_NUMBER_COLLATOR = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 const PAYMENT_FILTERS = ['All', 'Unpaid', 'Partial', 'Paid', 'Overdue'];
+
+function normalizeProductForDescription(product = {}) {
+  const description = product.description || product.name || product.productName || '';
+  return {
+    ...product,
+    _id: product._id ?? product.id ?? description,
+    id: product.id ?? product._id ?? description,
+    description,
+    code: product.code || product.sku || '',
+    productDescription: product.productDescription
+      || product.itemDescription
+      || product.lineDescription
+      || product.details
+      || product.note
+      || product.remark
+      || '',
+  };
+}
+
+function enrichItemsWithProductDescriptions(items = [], products = []) {
+  const text = (value) => String(value || '').trim().toLowerCase();
+  return items.map((item) => {
+    if (String(item.itemDescription || '').trim()) return item;
+    const productId = item.productId ? String(item.productId) : '';
+    const code = text(item.productCode || item.code);
+    const description = text(item.description);
+    const product = products.find((entry) => productId && String(entry._id || entry.id) === productId)
+      || products.find((entry) => code && text(entry.code) === code)
+      || products.find((entry) => description && text(entry.description) === description);
+    return product?.productDescription ? { ...item, itemDescription: product.productDescription } : item;
+  });
+}
 
 // ── Sub-components ─────────────────────────────────────────────
 
@@ -248,6 +281,8 @@ function ActionMenu({ invoice, openMenu, setOpenMenu, onShare, onPayment, onDown
 function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
   const documentType = invoice.documentType || 'invoice';
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
+  const printTemplate = getInvoicePrintTemplate();
+  const [products, setProducts] = useState([]);
   const docMeta = {
     ...invoice.meta,
     number: invoice.number,
@@ -262,6 +297,23 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
     invoice.advanceReceived,
     config.showGst,
   ), [invoice, config.showGst]);
+  const displayItems = useMemo(
+    () => enrichItemsWithProductDescriptions(invoice.items || [], products),
+    [invoice.items, products],
+  );
+
+  useEffect(() => {
+    let active = true;
+    api.invListProducts()
+      .then((res) => {
+        const rows = Array.isArray(res) ? res : res?.data;
+        if (active) setProducts(Array.isArray(rows) ? rows.map(normalizeProductForDescription) : []);
+      })
+      .catch(() => {
+        if (active) setProducts([]);
+      });
+    return () => { active = false; };
+  }, []);
 
   return (
     <div style={{ position: 'fixed', left: 0, top: 0, width: '794px', pointerEvents: 'none', zIndex: 50 }}>
@@ -271,7 +323,7 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
         customer={invoice.customer || {}}
         docMeta={docMeta}
         docExtra={invoice.extra || {}}
-        items={invoice.items || []}
+        items={displayItems}
         charges={invoice.charges || []}
         totals={totals}
         notes={invoice.notes || ''}
@@ -288,6 +340,7 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
         downloadAsPdf
         pdfMode
         invoiceNumber={docMeta.number}
+        printTemplate={printTemplate}
         onPdfDownloaded={onDone}
       />
     </div>
@@ -414,9 +467,11 @@ function applyPaymentData(invoices, paidMap) {
 }
 
 function compareInvoicesByNumber(a, b) {
-  const byNumber = INVOICE_NUMBER_COLLATOR.compare(a.number || '', b.number || '');
+  const byCreated = new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0);
+  if (byCreated !== 0) return byCreated;
+  const byNumber = INVOICE_NUMBER_COLLATOR.compare(b.number || '', a.number || '');
   if (byNumber !== 0) return byNumber;
-  return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+  return String(b.id || '').localeCompare(String(a.id || ''));
 }
 
 // ── Main page ──────────────────────────────────────────────────

@@ -27,6 +27,11 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use((_req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'index, follow');
+  res.setHeader('Publisher', 'GoBright-Anbu');
+  next();
+});
 
 const productionOrigins = new Set([env.clientUrl, ...env.allowedOrigins]);
 const corsOrigin = env.nodeEnv === 'production'

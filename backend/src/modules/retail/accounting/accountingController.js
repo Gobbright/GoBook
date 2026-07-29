@@ -1,8 +1,12 @@
 import { BankBookEntry } from '../../../models/BankBookEntry.js';
 import { CashBookEntry } from '../../../models/CashBookEntry.js';
+import { AccountingPosting } from '../../../models/AccountingPosting.js';
 import { AccountingVoucher } from '../../../models/AccountingVoucher.js';
+import { Invoice } from '../../../models/Invoice.js';
 import { JournalEntry } from '../../../models/JournalEntry.js';
 import { LedgerAccount } from '../../../models/LedgerAccount.js';
+import { Payment } from '../../../models/Payment.js';
+import { postInvoiceAccounting, postPaymentAccounting } from '../../../services/accountingPostings.js';
 import { httpError } from '../../../utils/httpError.js';
 import { asNumber, asText, enumValue, importSummary, parseExcelRows } from '../../../utils/excelImport.js';
 
@@ -102,6 +106,8 @@ function voucherReportFilter(req) {
 function rounded(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
+
+const CURRENT_BILL_DOCUMENT_TYPES = ['invoice', 'bill-of-supply'];
 
 export async function listLedgerAccounts(req, res, next) {
   try {
@@ -774,6 +780,89 @@ export async function deleteBankBookEntry(req, res, next) {
     const entry = await BankBookEntry.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
     if (!entry) return next(httpError(404, 'Bank book entry not found'));
     res.json({ message: 'Bank book entry deleted' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetAccountingFromInvoices(req, res, next) {
+  try {
+    const userId = req.user.id;
+
+    const [
+      postingResult,
+      voucherResult,
+      journalResult,
+      cashBookResult,
+      bankBookResult,
+      ledgerResult,
+    ] = await Promise.all([
+      AccountingPosting.deleteMany({ userId }),
+      AccountingVoucher.deleteMany({ userId }),
+      JournalEntry.deleteMany({ userId }),
+      CashBookEntry.deleteMany({ userId }),
+      BankBookEntry.deleteMany({ userId }),
+      LedgerAccount.deleteMany({ userId }),
+    ]);
+
+    const invoices = await Invoice.find({
+      userId,
+      documentType: { $in: CURRENT_BILL_DOCUMENT_TYPES },
+    }).sort({ createdAt: 1, _id: 1 });
+
+    const invoiceMap = new Map(invoices.map((invoice) => [String(invoice._id), invoice]));
+    const invoiceIds = invoices.map((invoice) => invoice._id);
+    const rebuildErrors = [];
+    let invoicesPosted = 0;
+    let paymentsPosted = 0;
+
+    for (const invoice of invoices) {
+      try {
+        const posting = await postInvoiceAccounting(invoice, req.user);
+        if (posting) invoicesPosted += 1;
+      } catch (err) {
+        rebuildErrors.push({
+          source: 'invoice',
+          number: invoice.number,
+          message: err.message || 'Unable to post invoice',
+        });
+      }
+    }
+
+    if (invoiceIds.length) {
+      const payments = await Payment.find({ userId, invoiceId: { $in: invoiceIds } }).sort({ createdAt: 1, _id: 1 });
+      for (const payment of payments) {
+        try {
+          const posting = await postPaymentAccounting(payment, invoiceMap.get(String(payment.invoiceId)), req.user);
+          if (posting) paymentsPosted += 1;
+        } catch (err) {
+          rebuildErrors.push({
+            source: 'payment',
+            number: payment.invoiceNumber || String(payment._id),
+            message: err.message || 'Unable to post payment',
+          });
+        }
+      }
+    }
+
+    res.json({
+      message: rebuildErrors.length
+        ? 'Accounting reset completed with some skipped records'
+        : 'Accounting reset and rebuilt from current invoices',
+      deleted: {
+        postings: postingResult.deletedCount || 0,
+        vouchers: voucherResult.deletedCount || 0,
+        journalEntries: journalResult.deletedCount || 0,
+        cashBookEntries: cashBookResult.deletedCount || 0,
+        bankBookEntries: bankBookResult.deletedCount || 0,
+        ledgers: ledgerResult.deletedCount || 0,
+      },
+      rebuilt: {
+        invoices: invoicesPosted,
+        payments: paymentsPosted,
+      },
+      errors: rebuildErrors,
+    });
   } catch (err) {
     next(err);
   }

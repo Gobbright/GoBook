@@ -10,6 +10,7 @@ import { numberToWords } from '../../../../../../utils/numberToWords.js';
 import { api, SERVER_ORIGIN } from '../../../../../../services/api.js';
 import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
+import { getInvoicePrintTemplate, setInvoicePrintTemplate } from './invoiceTemplatePreference.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -196,6 +197,13 @@ function addDaysInput(dateInput, days) {
 
 function normalizeProduct(product = {}) {
   const description = product.description || product.name || product.productName || '';
+  const productDescription = product.productDescription
+    || product.itemDescription
+    || product.lineDescription
+    || product.details
+    || product.note
+    || product.remark
+    || '';
   return {
     ...product,
     _id: product._id ?? product.id ?? description,
@@ -204,10 +212,31 @@ function normalizeProduct(product = {}) {
     barcode: product.barcode || '',
     code: product.code || product.sku || '',
     hsn: product.hsn ?? '',
+    itemType: product.itemType === 'Service' ? 'Service' : 'Product',
     unit: product.unit || 'Nos',
     rate: Number(product.rate ?? product.sellingPrice ?? product.price ?? 0),
     gstRate: Number(product.gstRate ?? product.taxRate ?? product.gstPercentage ?? product.gst ?? product.taxPercent ?? 18),
+    productDescription,
   };
+}
+
+function findCatalogProductForItem(products = [], item = {}) {
+  const text = (value) => String(value || '').trim().toLowerCase();
+  const productId = item.productId ? String(item.productId) : '';
+  const code = text(item.productCode || item.code);
+  const description = text(item.description);
+  return products.find((product) => productId && String(product._id || product.id) === productId)
+    || products.find((product) => code && text(product.code) === code)
+    || products.find((product) => description && text(product.description) === description)
+    || null;
+}
+
+function enrichItemsWithProductDescriptions(items = [], products = []) {
+  return items.map((item) => {
+    if (String(item.itemDescription || '').trim()) return item;
+    const product = findCatalogProductForItem(products, item);
+    return product?.productDescription ? { ...item, itemDescription: product.productDescription } : item;
+  });
 }
 
 function normalizeScanText(value = '') {
@@ -222,23 +251,37 @@ function findProductByScan(products = [], query = '') {
   const needle = normalizeScanText(query);
   if (!needle) return null;
   const text = (value) => normalizeScanText(value);
-  return products.find((p) => text(p.barcode) === needle)
-    || products.find((p) => text(p.code) === needle)
-    || products.find((p) => text(p.hsn) === needle)
-    || products.find((p) => text(p.description) === needle)
-    || products.find((p) => text(p.barcode).includes(needle))
-    || products.find((p) => text(p.code).includes(needle))
-    || products.find((p) => text(p.hsn).includes(needle))
-    || products.find((p) => text(p.description).includes(needle));
+  const best = (matches) => matches.find((p) => String(p.productDescription || '').trim()) || matches[0];
+  const matchers = [
+    (p) => text(p.barcode) === needle,
+    (p) => text(p.code) === needle,
+    (p) => text(p.hsn) === needle,
+    (p) => text(p.description) === needle,
+    (p) => text(p.barcode).includes(needle),
+    (p) => text(p.code).includes(needle),
+    (p) => text(p.hsn).includes(needle),
+    (p) => text(p.description).includes(needle),
+  ];
+  for (const matches of matchers.map((matcher) => products.filter(matcher))) {
+    if (matches.length) return best(matches);
+  }
+  return null;
 }
 
 function findProductByExactEntry(products = [], query = '') {
   const needle = normalizeScanText(query);
   if (!needle) return null;
   const text = (value) => normalizeScanText(value);
-  return products.find((p) => text(p.description) === needle)
-    || products.find((p) => text(p.code) === needle)
-    || products.find((p) => text(p.barcode) === needle);
+  const best = (matches) => matches.find((p) => String(p.productDescription || '').trim()) || matches[0];
+  const matchers = [
+    (p) => text(p.description) === needle,
+    (p) => text(p.code) === needle,
+    (p) => text(p.barcode) === needle,
+  ];
+  for (const matches of matchers.map((matcher) => products.filter(matcher))) {
+    if (matches.length) return best(matches);
+  }
+  return null;
 }
 
 function isLikelyBarcodeScan(value = '') {
@@ -250,6 +293,7 @@ function QuickProductModal({ barcode, onSave, onClose }) {
   const [form, setForm] = useState({
     barcode: barcode || '',
     description: '',
+    productDescription: '',
     hsn: '',
     unit: 'Nos',
     rate: '',
@@ -313,6 +357,15 @@ function QuickProductModal({ barcode, onSave, onClose }) {
               <label className={cx.label}>Product Name *</label>
               <input className={cx.input} value={form.description} onChange={(e) => set('description', e.target.value)} autoFocus />
             </div>
+            <div className={`${cx.field} sm:col-span-2`}>
+              <label className={cx.label}>Description</label>
+              <textarea
+                className={`${cx.input} min-h-20 resize-y`}
+                value={form.productDescription}
+                onChange={(e) => set('productDescription', e.target.value)}
+                placeholder="Line by line description for invoice"
+              />
+            </div>
             <div className={cx.field}>
               <label className={cx.label}>HSN / SAC</label>
               <input className={cx.input} value={form.hsn} onChange={(e) => set('hsn', e.target.value)} />
@@ -365,7 +418,7 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   const partyDetailsText = `${partyKind} details will be used automatically in this bill.`;
   const documentNumberLabel = `${config.title} No.`;
 
-  const [items, setItems]               = useState([{ id: 1000, productId: null, productCode: '', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
+  const [items, setItems]               = useState([{ id: 1000, productId: null, productCode: '', itemType: 'Product', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
   const [supplyType, setSupplyType]     = useState('intrastate');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [paymentData, setPaymentData]   = useState({ chequeNo: '',
@@ -433,11 +486,13 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   const [tds, setTds]                 = useState({ enabled: false, section: '194C', rate: 2 });
   const [tcs, setTcs]                 = useState({ enabled: false, rate: 1 });
   const [advanceAmt, setAdvanceAmt]   = useState('');
+  const [manualQuotationTotal, setManualQuotationTotal] = useState('');
 
   // ── UI state ──
   const [showPreview, setShowPreview]           = useState(false);
   const [autoPrintPreview, setAutoPrintPreview] = useState(false);
   const [downloadPdfMode, setDownloadPdfMode]   = useState(false);
+  const [printTemplate, setPrintTemplate] = useState(() => getInvoicePrintTemplate());
   const [showPrintConfirm, setShowPrintConfirm] = useState(false);
   const [previewRedirectOnClose, setPreviewRedirectOnClose] = useState(false);
   const [showEmailModal, setShowEmailModal]     = useState(false);
@@ -457,6 +512,10 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   });
   const [customerSaving, setCustomerSaving]       = useState(false);
   const [customerSaveError, setCustomerSaveError] = useState('');
+
+  useEffect(() => {
+    setInvoicePrintTemplate(printTemplate);
+  }, [printTemplate]);
 const [customFields, setCustomFields]         = useState([]);
   const [recurring, setRecurring]               = useState({ enabled: false, frequency: 'monthly', endAfter: '', endDate: '' });
   const [showAddDiscount, setShowAddDiscount]   = useState(false);
@@ -586,12 +645,34 @@ const [customFields, setCustomFields]         = useState([]);
     const tdsAmt       = tds.enabled ? acc.taxable * (tds.rate / 100) : 0;
     const tcsAmt       = tcs.enabled ? invoiceTotal * (tcs.rate / 100) : 0;
     const netPayable   = invoiceTotal - tdsAmt + tcsAmt;
-    const roundOff     = Math.round(netPayable) - netPayable;
-    const finalTotal   = Math.round(netPayable);
+    const calculatedFinalTotal = Math.round(netPayable);
+    const manualTotalValue = Number(manualQuotationTotal);
+    const manualTotalOverride = documentType === 'quotation'
+      && manualQuotationTotal !== ''
+      && Number.isFinite(manualTotalValue)
+      && manualTotalValue >= 0;
+    const finalTotal   = manualTotalOverride ? manualTotalValue : calculatedFinalTotal;
+    const roundOff     = finalTotal - netPayable;
     const balanceDue   = finalTotal - (Number(advanceAmt) || 0);
 
-    return { ...acc, chargesSubtotal, chargesGst, preDisc, addDiscAmt, invoiceTotal, tdsAmt, tcsAmt, netPayable, roundOff, finalTotal, balanceDue };
-  }, [items, charges, addDiscount, tds, tcs, advanceAmt, config.showGst]);
+    return {
+      ...acc,
+      chargesSubtotal,
+      chargesGst,
+      preDisc,
+      addDiscAmt,
+      invoiceTotal,
+      tdsAmt,
+      tcsAmt,
+      netPayable,
+      roundOff,
+      calculatedFinalTotal,
+      finalTotal,
+      manualTotalOverride,
+      manualTotal: manualTotalOverride ? manualTotalValue : null,
+      balanceDue,
+    };
+  }, [items, charges, addDiscount, tds, tcs, advanceAmt, config.showGst, documentType, manualQuotationTotal]);
 
   const purchaseEntryMatch = useMemo(() => {
     if (documentType !== 'purchase-entry') return null;
@@ -827,6 +908,7 @@ const [customFields, setCustomFields]         = useState([]);
         : null;
       return {
         id: index + 1,
+        itemType: item.itemType === 'Service' || matchedProduct?.itemType === 'Service' ? 'Service' : 'Product',
         productId,
         productCode: item.productCode || item.code || matchedProduct?.code || '',
         description: lineItemDescription(item) || matchedProduct?.description || '',
@@ -857,7 +939,7 @@ const [customFields, setCustomFields]         = useState([]);
 
   function addItem() {
     const id = nextItemId.current++;
-    setItems((prev) => [...prev, { id, productId: null, productCode: '', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
+    setItems((prev) => [...prev, { id, productId: null, productCode: '', itemType: 'Product', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
   }
 
   function removeItem(id) { setItems((prev) => prev.filter((item) => item.id !== id)); }
@@ -873,12 +955,14 @@ const [customFields, setCustomFields]         = useState([]);
 
     const columns = ['description', 'itemDescription', 'hsn', 'qty', 'unit', 'rate', 'discount', ...(config.showGst ? ['gstRate'] : [])];
     const colIndex = columns.indexOf(col);
+    const isDescriptionTextarea = cell.tagName === 'TEXTAREA' && col === 'itemDescription';
 
     function focusCell(targetRow, targetCol) {
       document.querySelector(`[data-row="${targetRow}"][data-col="${targetCol}"]`)?.focus();
     }
 
     if (e.key === 'Enter') {
+      if (isDescriptionTextarea) return;
       e.preventDefault();
       const nextCol = columns[colIndex + 1];
       if (nextCol) {
@@ -908,7 +992,9 @@ const [customFields, setCustomFields]         = useState([]);
               productId: normalized.id,
               productCode: normalized.code || '',
               barcode: normalized.barcode || '',
+              itemType: normalized.itemType || 'Product',
               description: normalized.description,
+              itemDescription: normalized.productDescription || item.itemDescription || '',
               hsn: normalized.hsn,
               unit: normalized.unit,
               rate: normalized.rate,
@@ -934,7 +1020,15 @@ const [customFields, setCustomFields]         = useState([]);
     ));
 
     if (existing) {
-      updateItem(existing.id, 'qty', Number(existing.qty || 0) + 1);
+      setItems((prev) => prev.map((item) => (
+        item.id === existing.id
+          ? {
+              ...item,
+              qty: Number(item.qty || 0) + 1,
+              itemDescription: item.itemDescription || normalized.productDescription || '',
+            }
+          : item
+      )));
       return;
     }
 
@@ -945,7 +1039,7 @@ const [customFields, setCustomFields]         = useState([]);
     }
 
     const id = nextItemId.current++;
-    setItems((prev) => [...prev, { id, productId: null, productCode: '', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
+    setItems((prev) => [...prev, { id, productId: null, productCode: '', itemType: 'Product', description: '', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
     window.setTimeout(() => selectProduct(id, normalized), 0);
   }
 
@@ -958,14 +1052,22 @@ const [customFields, setCustomFields]         = useState([]);
         || (normalized.code && p.code === normalized.code)
         || (normalized.barcode && p.barcode === normalized.barcode)
       ));
-      return exists ? prev : [normalized, ...prev];
+      if (!exists) return [normalized, ...prev];
+      return prev.map((p) => {
+        const same = (id && String(p._id || p.id) === String(id))
+          || (normalized.code && p.code === normalized.code)
+          || (normalized.barcode && p.barcode === normalized.barcode);
+        return same
+          ? { ...p, ...normalized, productDescription: normalized.productDescription || p.productDescription || '' }
+          : p;
+      });
     });
     return normalized;
   }
 
   async function resolveProductByScan(query) {
     const local = findProductByScan(products, query);
-    if (local) return local;
+    if (local && String(local.productDescription || '').trim()) return local;
 
     try {
       const [salesData, invData] = await Promise.allSettled([
@@ -979,11 +1081,12 @@ const [customFields, setCustomFields]         = useState([]);
         ? (Array.isArray(invData.value) ? invData.value : invData.value?.data)
         : [];
       const rows = [
-        ...(Array.isArray(salesRows) ? salesRows : []),
         ...(Array.isArray(invRows) ? invRows : []),
+        ...(Array.isArray(salesRows) ? salesRows : []),
+        ...(local ? [local] : []),
       ].map(normalizeProduct);
       const match = findProductByScan(rows, query);
-      return match ? mergeScannedProduct(match) : null;
+      return match ? mergeScannedProduct(match) : local;
     } catch (err) {
       console.warn('Unable to resolve scanned product', err);
       return null;
@@ -992,7 +1095,7 @@ const [customFields, setCustomFields]         = useState([]);
 
   async function handleRowProductEntry(itemId, value) {
     const chosen = findProductByExactEntry(products, value);
-    if (chosen) {
+    if (chosen && String(chosen.productDescription || '').trim()) {
       selectProduct(itemId, chosen);
       return true;
     }
@@ -1000,6 +1103,11 @@ const [customFields, setCustomFields]         = useState([]);
     const scanned = await resolveProductByScan(value);
     if (scanned) {
       selectProduct(itemId, scanned);
+      return true;
+    }
+
+    if (chosen) {
+      selectProduct(itemId, chosen);
       return true;
     }
 
@@ -1023,7 +1131,7 @@ const [customFields, setCustomFields]         = useState([]);
     } else if (target) {
       updateItem(target.id, 'description', query);
     } else {
-      setItems((prev) => [...prev, { id: nextItemId.current++, productId: null, productCode: '', description: query, itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
+      setItems((prev) => [...prev, { id: nextItemId.current++, productId: null, productCode: '', itemType: 'Product', description: query, itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, gstRate: 18 }]);
     }
 
     setProductSearch('');
@@ -1070,7 +1178,7 @@ const [customFields, setCustomFields]         = useState([]);
       supplyType: config.showGst && effectiveCustomer.state
         ? (effectiveCustomer.state === bizState ? 'intrastate' : 'interstate')
         : supplyType,
-      items,
+      items: enrichItemsWithProductDescriptions(items, products),
       shipping: { sameAsBilling: sameShipping, ...shipping },
       charges,
       additionalDiscount: addDiscount,
@@ -1343,10 +1451,24 @@ const [customFields, setCustomFields]         = useState([]);
           : [];
         const sales = Array.isArray(salesRows) ? salesRows.map(normalizeProduct).filter((p) => p.description) : [];
         const inv   = Array.isArray(invRows)   ? invRows.map(normalizeProduct).filter((p) => p.description)   : [];
-        const normalizedInv = inv
-          .filter((p) => !sales.some((s) => (s.code && p.code && s.code === p.code) || s.description === p.description))
-          .map((p) => ({ ...p, hsn: p.hsn ?? '' }));
-        if (active) setProducts([...sales, ...normalizedInv]);
+        const merged = [...sales];
+        inv.forEach((product) => {
+          const index = merged.findIndex((salesProduct) => (
+            (salesProduct.code && product.code && salesProduct.code === product.code)
+            || salesProduct.description === product.description
+          ));
+          if (index >= 0) {
+            merged[index] = {
+              ...merged[index],
+              ...product,
+              productDescription: product.productDescription || merged[index].productDescription || '',
+              hsn: product.hsn ?? merged[index].hsn ?? '',
+            };
+          } else {
+            merged.push({ ...product, hsn: product.hsn ?? '' });
+          }
+        });
+        if (active) setProducts(merged);
       } catch (err) {
         console.warn('Unable to load products', err);
         if (active) setProducts([]);
@@ -1412,12 +1534,13 @@ const [customFields, setCustomFields]         = useState([]);
         paymentTerms: invoice.meta?.paymentTerms || defaultPaymentTerms,
       });
       setSupplyType(invoice.supplyType || 'intrastate');
-      setItems((Array.isArray(invoice.items) ? invoice.items : []).map((item, index) => ({ id: item.id ?? index + 1, ...item })));
+      setItems((Array.isArray(invoice.items) ? invoice.items : []).map((item, index) => ({ id: item.id ?? index + 1, itemType: item.itemType === 'Service' ? 'Service' : 'Product', ...item })));
       setCharges(Array.isArray(invoice.charges) ? invoice.charges : []);
       setAddDiscount(invoice.additionalDiscount ?? { type: 'percent', value: '' });
       setTds(invoice.tds ?? { enabled: false, section: '194C', rate: 2 });
       setTcs(invoice.tcs ?? { enabled: false, rate: 1 });
       setAdvanceAmt(invoice.advanceReceived != null ? String(invoice.advanceReceived) : '');
+      setManualQuotationTotal(invoice.totals?.manualTotalOverride ? String(invoice.totals.finalTotal ?? invoice.totals.manualTotal ?? '') : '');
       setNotes(invoice.notes || '');
       setInternalNotes(invoice.internalNotes || '');
       setTerms(invoice.terms || '');
@@ -1609,6 +1732,11 @@ const [customFields, setCustomFields]         = useState([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const displayItems = useMemo(
+    () => enrichItemsWithProductDescriptions(items, products),
+    [items, products],
+  );
+
   if (invoiceLoading) {
     return (
       <div className="p-4 md:p-7">
@@ -1655,6 +1783,17 @@ const [customFields, setCustomFields]         = useState([]);
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <label className="inline-flex items-center gap-2 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white">
+            <span className="text-[#536173] font-medium">Template</span>
+            <select
+              value={printTemplate}
+              onChange={(event) => setPrintTemplate(event.target.value)}
+              className="border-0 bg-transparent text-[13px] font-semibold text-[#111827] outline-none font-[inherit]"
+            >
+              <option value="modern">Modern</option>
+              <option value="classic">Classic</option>
+            </select>
+          </label>
           <button className={cx.btnOutline} type="button" onClick={() => window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice')} title="Open list page">
             <svg fill="none" height="15" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="15"><line x1="8" x2="21" y1="6" y2="6" /><line x1="8" x2="21" y1="12" y2="12" /><line x1="8" x2="21" y1="18" y2="18" /><line x1="3" x2="3.01" y1="6" y2="6" /><line x1="3" x2="3.01" y1="12" y2="12" /><line x1="3" x2="3.01" y1="18" y2="18" /></svg>
             View List
@@ -2444,7 +2583,7 @@ const [customFields, setCustomFields]         = useState([]);
                   <option
                     key={p._id ?? p.id ?? p.description}
                     value={p.description}
-                    label={[p.code, p.barcode].filter(Boolean).join(' - ')}
+                    label={[p.itemType || 'Product', p.code, p.barcode].filter(Boolean).join(' - ')}
                   />
                 ))}
               </datalist>
@@ -2467,10 +2606,10 @@ const [customFields, setCustomFields]         = useState([]);
           {products.length > 0 && (
             <datalist id="billing-product-options">
               {products.map((p) => (
-                <option
+                  <option
                   key={p._id ?? p.id ?? p.description}
                   value={p.description}
-                  label={[p.code, p.barcode].filter(Boolean).join(' - ')}
+                  label={[p.itemType || 'Product', p.code, p.barcode].filter(Boolean).join(' - ')}
                 />
               ))}
             </datalist>
@@ -2559,6 +2698,18 @@ const [customFields, setCustomFields]         = useState([]);
                                 clearError('items');
                               }}
                             />
+                            <div className="mt-1.5 flex items-center gap-1">
+                              {['Product', 'Service'].map((type) => (
+                                <button
+                                  key={type}
+                                  type="button"
+                                  className={`px-2 py-0.5 rounded-full text-[10px] border cursor-pointer font-[inherit] ${item.itemType === type ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-[#dbe4ef] text-[#536173]'}`}
+                                  onClick={() => updateItem(item.id, 'itemType', type)}
+                                >
+                                  {type}
+                                </button>
+                              ))}
+                            </div>
                           </>
                         ) : (
                           <select
@@ -2585,18 +2736,19 @@ const [customFields, setCustomFields]         = useState([]);
                       </td>
 
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
-                        <input
+                        <textarea
                           data-row={idx}
                           data-col="itemDescription"
-                          className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none focus:border-blue-500 min-w-0"
-                          placeholder="Type text or number..."
+                          className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none focus:border-blue-500 min-w-0 resize-y"
+                          placeholder="One point per line..."
+                          rows={2}
                           value={item.itemDescription ?? ''}
                           onChange={(e) => updateItem(item.id, 'itemDescription', e.target.value)}
                         />
                       </td>
 
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
-                        <input data-row={idx} data-col="hsn" className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none focus:border-blue-500 min-w-0" placeholder="HSN" value={item.hsn} onChange={(e) => updateItem(item.id, 'hsn', e.target.value)} />
+                        <input data-row={idx} data-col="hsn" className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none focus:border-blue-500 min-w-0" placeholder={item.itemType === 'Service' ? 'SAC' : 'HSN'} value={item.hsn} onChange={(e) => updateItem(item.id, 'hsn', e.target.value)} />
                       </td>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         <input data-row={idx} data-col="qty" className={`w-full border ${errors[`item_qty_${idx}`] ? 'border-red-400 bg-red-50' : 'border-[#dbe4ef]'} rounded px-2 py-1.5 text-[13px] text-right font-[inherit] outline-none focus:border-blue-500 min-w-0`} min="0" type="number" value={item.qty} onChange={(e) => { updateItem(item.id, 'qty', e.target.value); setErrors((p) => { const n = { ...p }; delete n[`item_qty_${idx}`]; return n; }); }} />
@@ -3039,6 +3191,31 @@ const [customFields, setCustomFields]         = useState([]);
               )}
 
               {/* Grand Total */}
+              {documentType === 'quotation' && (
+                <div className="py-2 border-b border-[#f3f4f6]">
+                  <label className="mb-1 flex items-center justify-between text-[12px] font-medium text-[#536173]">
+                    <span>Manual Total Value</span>
+                    {manualQuotationTotal !== '' && (
+                      <button
+                        type="button"
+                        className="border-0 bg-transparent p-0 text-[12px] font-[inherit] text-blue-600 hover:underline cursor-pointer"
+                        onClick={() => setManualQuotationTotal('')}
+                      >
+                        Use calculated
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    className={cx.input}
+                    min="0"
+                    placeholder={String(totals.calculatedFinalTotal)}
+                    step="0.01"
+                    type="number"
+                    value={manualQuotationTotal}
+                    onChange={(e) => setManualQuotationTotal(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="flex justify-between items-center text-base font-bold pt-2 mt-1 border-t-2 border-[#111827]">
                 <span>Total Amount</span><span>{formatCurrency(totals.finalTotal)}</span>
               </div>
@@ -3212,8 +3389,34 @@ const [customFields, setCustomFields]         = useState([]);
           ))}
           {totals.chargesSubtotal > 0 && <div><span>Additional Charges</span><strong>{formatCurrency(totals.chargesSubtotal)}</strong></div>}
           {totals.addDiscAmt > 0 && <div className="text-green-700"><span>Additional Discount</span><strong>- {formatCurrency(totals.addDiscAmt)}</strong></div>}
-          {Math.abs(totals.roundOff) >= 0.01 && <div><span>Round Off</span><strong>{totals.roundOff > 0 ? '+' : ''}{formatCurrency(totals.roundOff)}</strong></div>}
+          {Math.abs(totals.roundOff) >= 0.01 && <div><span>{totals.manualTotalOverride ? 'Manual Total Adjustment' : 'Round Off'}</span><strong>{totals.roundOff > 0 ? '+' : ''}{formatCurrency(totals.roundOff)}</strong></div>}
         </div>
+
+        {documentType === 'quotation' && (
+          <div className="mt-3 border-t border-[#edf2f7] pt-3">
+            <label className="mb-1 flex items-center justify-between text-[12px] font-semibold text-[#536173]">
+              <span>Manual Total Value</span>
+              {manualQuotationTotal !== '' && (
+                <button
+                  type="button"
+                  className="border-0 bg-transparent p-0 text-[12px] font-[inherit] text-blue-600 hover:underline cursor-pointer"
+                  onClick={() => setManualQuotationTotal('')}
+                >
+                  Use calculated
+                </button>
+              )}
+            </label>
+            <input
+              className={cx.input}
+              min="0"
+              placeholder={String(totals.calculatedFinalTotal)}
+              step="0.01"
+              type="number"
+              value={manualQuotationTotal}
+              onChange={(e) => setManualQuotationTotal(e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="billing-total-box">
           <div className="text-[12px] font-bold uppercase tracking-wide text-blue-700">Total Amount</div>
@@ -3406,7 +3609,7 @@ const [customFields, setCustomFields]         = useState([]);
           customer={getEffectiveCustomer()}
           docMeta={docMeta}
           docExtra={docExtra}
-          items={items}
+          items={displayItems}
           charges={charges}
           totals={totals}
           notes={notes}
@@ -3424,6 +3627,7 @@ const [customFields, setCustomFields]         = useState([]);
           downloadAsPdf={downloadPdfMode}
           pdfMode={downloadPdfMode}
           invoiceNumber={docMeta.number}
+          printTemplate={printTemplate}
           onClose={() => {
             setShowPreview(false);
             setAutoPrintPreview(false);
@@ -3444,7 +3648,7 @@ const [customFields, setCustomFields]         = useState([]);
             customer={getEffectiveCustomer()}
             docMeta={docMeta}
             docExtra={docExtra}
-            items={items}
+            items={displayItems}
             charges={charges}
             totals={totals}
             notes={notes}
@@ -3460,6 +3664,7 @@ const [customFields, setCustomFields]         = useState([]);
             addDiscount={addDiscount}
             invoiceNumber={docMeta.number}
             pdfMode
+            printTemplate={printTemplate}
             onPdfReady={(base64) => {
               setEmailPdfMode(false);
               if (emailPdfResolve.current) {

@@ -126,6 +126,7 @@ function ActionMenu({ quotation, openMenu, setOpenMenu, onShare, onDownload, onD
 // ── Normalize API data ─────────────────────────────────────────
 
 function normalizeQuotation(inv) {
+  const savedTotal = Number(inv.totals?.finalTotal ?? inv.totals?.grandTotal);
   let taxable = 0;
   let gst = 0;
   if (Array.isArray(inv.items)) {
@@ -150,7 +151,7 @@ function normalizeQuotation(inv) {
     validTill: inv.extra?.validTill || '',
     taxable: Math.round(taxable * 100) / 100,
     gst: Math.round(gst * 100) / 100,
-    total: Math.round((taxable + gst) * 100) / 100,
+    total: Number.isFinite(savedTotal) ? savedTotal : Math.round((taxable + gst) * 100) / 100,
   };
 }
 

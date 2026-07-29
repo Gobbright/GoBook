@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
+import { getInvoicePrintTemplate } from './invoiceTemplatePreference.js';
 
 export function calcDocumentTotals(items = [], charges = [], additionalDiscount, tds, tcs, advanceReceived, showGst = true) {
   const acc = { subtotal: 0, discount: 0, taxable: 0, totalGst: 0, grandTotal: 0, gstByRate: {} };
@@ -46,23 +47,42 @@ export function calcDocumentTotals(items = [], charges = [], additionalDiscount,
   return { ...acc, chargesSubtotal, chargesGst, preDisc, addDiscAmt, invoiceTotal, tdsAmt, tcsAmt, netPayable, roundOff, finalTotal, balanceDue };
 }
 
+function applySavedTotalOverride(calculatedTotals, savedTotals) {
+  if (!savedTotals?.manualTotalOverride) return calculatedTotals;
+  const finalTotal = Number(savedTotals.finalTotal ?? savedTotals.manualTotal);
+  if (!Number.isFinite(finalTotal) || finalTotal < 0) return calculatedTotals;
+  return {
+    ...calculatedTotals,
+    calculatedFinalTotal: savedTotals.calculatedFinalTotal ?? calculatedTotals.finalTotal,
+    finalTotal,
+    manualTotal: finalTotal,
+    manualTotalOverride: true,
+    roundOff: finalTotal - calculatedTotals.netPayable,
+    balanceDue: calculatedTotals.balanceDue + (finalTotal - calculatedTotals.finalTotal),
+  };
+}
+
 export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
   const documentType = doc.documentType || 'invoice';
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
+  const printTemplate = getInvoicePrintTemplate();
   const docMeta = {
     ...doc.meta,
     number: doc.number,
     date: doc.meta?.date || doc.date || doc.createdAt,
   };
-  const totals = useMemo(() => calcDocumentTotals(
-    doc.items || [],
-    doc.charges || [],
-    doc.additionalDiscount,
-    doc.tds,
-    doc.tcs,
-    doc.advanceReceived,
-    config.showGst,
-  ), [doc, config.showGst]);
+  const totals = useMemo(() => {
+    const calculated = calcDocumentTotals(
+      doc.items || [],
+      doc.charges || [],
+      doc.additionalDiscount,
+      doc.tds,
+      doc.tcs,
+      doc.advanceReceived,
+      config.showGst,
+    );
+    return applySavedTotalOverride(calculated, doc.totals);
+  }, [doc, config.showGst]);
 
   return (
     <div style={{ position: 'fixed', left: 0, top: 0, width: '794px', pointerEvents: 'none', zIndex: 50 }}>
@@ -89,6 +109,7 @@ export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
         downloadAsPdf
         pdfMode
         invoiceNumber={docMeta.number}
+        printTemplate={printTemplate}
         onPdfDownloaded={onDone}
       />
     </div>

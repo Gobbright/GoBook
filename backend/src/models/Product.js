@@ -4,6 +4,8 @@ const productSchema = new Schema({
   userId:        { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   code:          { type: String, required: true, trim: true, uppercase: true },
   description:   { type: String, required: true, trim: true },
+  productDescription: { type: String, default: '' },
+  itemType:      { type: String, enum: ['Product', 'Service'], default: 'Product', index: true },
   hsn:           { type: String, trim: true, default: '' },
   unit:          { type: String, trim: true, default: 'Nos' },
   rate:          { type: Number, required: true, min: 0 },

@@ -49,6 +49,7 @@ async function generateNextProductCode(userId) {
 async function createProductFromItem(userId, item) {
   const description = clean(item.description);
   if (!description) return null;
+  if (item.itemType === 'Service') return null;
   const code = await generateNextProductCode(userId);
   try {
     return await Product.create({
@@ -99,11 +100,13 @@ async function collectMovableItems(invoice, userId) {
   for (const item of invoice.items ?? []) {
     const qty = Number(item.qty) || 0;
     if (qty <= 0) continue;
+    if (item.itemType === 'Service') continue;
     let product = await findProduct(userId, item);
     if (!product && invoice.documentType === 'purchase-entry') {
       product = await createProductFromItem(userId, item);
     }
     if (!product) continue;
+    if (product.itemType === 'Service') continue;
     rows.push({
       product,
       qty,
