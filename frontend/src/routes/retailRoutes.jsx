@@ -9,6 +9,7 @@ import { LedgerPage } from '../features/categories/common/modules/accounting/Led
 import { PnlPage } from '../features/categories/common/modules/accounting/PnlPage.jsx';
 import { TrialBalancePage } from '../features/categories/common/modules/accounting/TrialBalancePage.jsx';
 import { CustomerLifecyclePage } from '../features/categories/common/modules/crm/CustomerLifecyclePage.jsx';
+import { DeletePeriodPage, ExportDataPage, ImportDataPage } from '../features/categories/common/modules/data-management/DataManagementPage.jsx';
 import { CustomersPage } from '../features/categories/common/modules/crm/CustomersPage.jsx';
 import { FollowUpsPage } from '../features/categories/common/modules/crm/FollowUpsPage.jsx';
 import { LeadsPage } from '../features/categories/common/modules/crm/LeadsPage.jsx';
@@ -97,9 +98,13 @@ export const commonRoutes = [
   { path: '/multi-branch', element: <MultiBranchPage /> },
   { path: '/users-roles', element: <UsersRolesPage /> },
   { path: '/business-settings', element: <BusinessSettingsPage /> },
+  { path: '/data-management', element: <ExportDataPage /> },
+  { path: '/data-management/export', element: <ExportDataPage /> },
+  { path: '/data-management/import', element: <ImportDataPage /> },
+  { path: '/data-management/delete-period', element: <DeletePeriodPage /> },
 ];
 
-// Retail-only (Sales / Billing reports — tied to the Sales nav section, which stays Retail-exclusive).
+// Retail-only (Sales / Billing reports Ã¢â‚¬â€ tied to the Sales nav section, which stays Retail-exclusive).
 export const retailRoutes = [
   { path: '/sales-reports', element: <ModuleReportsPage type="sales" /> },
   { path: '/purchase-reports', element: <ModuleReportsPage type="purchase" /> },

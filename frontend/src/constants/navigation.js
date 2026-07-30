@@ -98,6 +98,14 @@ const SECTIONS = {
       { label: 'Vendor Management', href: '/vendor-management', icon: 'UserCheck' },
     ],
   },
+  dataManagement: {
+    title: 'Data Management',
+    items: [
+      { label: 'Export Data', href: '/data-management/export' },
+      { label: 'Import Data', href: '/data-management/import' },
+      { label: 'Delete Period', href: '/data-management/delete-period' },
+    ],
+  },
   reports: {
     title: 'Reports',
     items: [
@@ -502,10 +510,10 @@ const SECTIONS = {
 };
 
 // Shared by every category: GST, Accounting, CRM, Inventory, Employee Management, More Modules, Settings.
-const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayroll', 'moreModules', 'settings'];
+const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayroll', 'moreModules', 'dataManagement', 'settings'];
 
 const CATEGORY_LAYOUTS = {
-  retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports', 'settings'],
+  retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports', 'dataManagement', 'settings'],
   hospital: [
     'main', 'patientManagement', 'appointmentManagement', 'opd', 'ipd', 'emergency',
     'doctors', 'nursing', 'wardBedManagement', 'laboratory', 'radiology', 'pharmacy',

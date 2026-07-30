@@ -77,6 +77,21 @@ function normalizeEmail(email = '') {
   return email.trim().toLowerCase();
 }
 
+function validatePassword(password) {
+  if (!password) throw httpError(400, 'Password is required');
+  if (password.length < 8) throw httpError(400, 'Password must be at least 8 characters');
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    throw httpError(400, 'Password must include at least one letter and one number');
+  }
+}
+
+async function ensureEmailAvailable(email, excludeUserId = null) {
+  const query = { email };
+  if (excludeUserId) query._id = { $ne: excludeUserId };
+  const existing = await AppUser.exists(query);
+  if (existing) throw httpError(409, 'Email already registered. Use another email address.');
+}
+
 function buildGoogleProfile(payload, email) {
   return {
     subject: payload.sub || '',
@@ -207,14 +222,13 @@ function getSignupPayload(req) {
 
 async function validateSignupPayload(payload) {
   if (!payload.name || !payload.email || !payload.password) throw httpError(400, 'Name, email and password are required');
-  if (payload.password.length < 8) throw httpError(400, 'Password must be at least 8 characters');
+  validatePassword(payload.password);
   if (!payload.businessName || payload.businessName.length < 2) throw httpError(400, 'Business name is required');
   if (!payload.phone) throw httpError(400, 'Phone number is required');
   if (!CATEGORIES.includes(payload.category)) throw httpError(400, 'Select a valid business category');
   if (!SUBSCRIPTION_PLANS.includes(payload.subscriptionPlan)) throw httpError(400, 'Select a valid plan');
 
-  const existing = await AppUser.findOne({ email: payload.email }).select('_id');
-  if (existing) throw httpError(409, 'Email already registered');
+  await ensureEmailAvailable(payload.email);
 }
 
 // POST /api/auth/register
@@ -250,7 +264,7 @@ export async function startRegistration(req, res, next) {
       expiresInMinutes: SIGNUP_OTP_EXPIRES_MINUTES,
     });
   } catch (err) {
-    if (err.code === 11000) return next(httpError(409, 'Email already registered'));
+    if (err.code === 11000) return next(httpError(409, 'Email already registered. Use another email address.'));
     next(err);
   }
 }
@@ -267,9 +281,7 @@ export async function verifyRegistrationOtp(req, res, next) {
 
     if (!email) return next(httpError(400, 'Email is required'));
     if (!/^\d{6}$/.test(otp)) return next(httpError(400, 'OTP must be 6 digits'));
-
-    const existing = await AppUser.findOne({ email }).select('_id');
-    if (existing) return next(httpError(409, 'Email already registered'));
+    await ensureEmailAvailable(email);
 
     const pending = await PendingSignup.findOne({ email }).select('+password +otpHash +otpExpiresAt +otpAttempts');
     if (!pending || !pending.otpHash || !pending.otpExpiresAt) return next(httpError(400, 'Invalid or expired OTP'));
@@ -278,7 +290,6 @@ export async function verifyRegistrationOtp(req, res, next) {
       return next(httpError(400, 'Invalid or expired OTP'));
     }
     if (pending.otpAttempts >= SIGNUP_OTP_MAX_ATTEMPTS) return next(httpError(429, 'Too many OTP attempts. Request a new OTP'));
-
     const valid = await bcrypt.compare(otp, pending.otpHash);
     if (!valid) {
       pending.otpAttempts += 1;
@@ -316,7 +327,7 @@ export async function verifyRegistrationOtp(req, res, next) {
     const token = signToken(user);
     res.status(201).json({ token, user: toSafeUser(user) });
   } catch (err) {
-    if (err.code === 11000) return next(httpError(409, 'Email already registered'));
+    if (err.code === 11000) return next(httpError(409, 'Email already registered. Use another email address.'));
     next(err);
   }
 }
@@ -359,10 +370,8 @@ export async function startGoogleOtpLogin(req, res, next) {
   try {
     const email = normalizeEmail(req.body.email);
     if (!email) return next(httpError(400, 'Email is required'));
-
     const existing = await AppUser.findOne({ email }).select('name email status');
     if (existing && existing.status !== 'Active') return next(httpError(403, 'Account is not active'));
-
     const otp = createResetOtp();
     await PendingGoogleLogin.findOneAndUpdate(
       { email },
@@ -397,7 +406,6 @@ export async function verifyGoogleOtpLogin(req, res, next) {
 
     if (!email) return next(httpError(400, 'Email is required'));
     if (!/^\d{6}$/.test(otp)) return next(httpError(400, 'OTP must be 6 digits'));
-
     const pending = await PendingGoogleLogin.findOne({ email }).select('+otpHash +otpExpiresAt +otpAttempts');
     if (!pending || !pending.otpHash || !pending.otpExpiresAt) return next(httpError(400, 'Invalid or expired OTP'));
     if (pending.otpExpiresAt.getTime() < Date.now()) {
@@ -405,7 +413,6 @@ export async function verifyGoogleOtpLogin(req, res, next) {
       return next(httpError(400, 'Invalid or expired OTP'));
     }
     if (pending.otpAttempts >= GOOGLE_OTP_MAX_ATTEMPTS) return next(httpError(429, 'Too many OTP attempts. Request a new OTP'));
-
     const valid = await bcrypt.compare(otp, pending.otpHash);
     if (!valid) {
       pending.otpAttempts += 1;
@@ -415,7 +422,6 @@ export async function verifyGoogleOtpLogin(req, res, next) {
 
     let user = await AppUser.findOne({ email }).select('+password');
     if (user && user.status !== 'Active') return next(httpError(403, 'Account is not active'));
-
     if (!user) {
       const name = email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
       user = await AppUser.create({
@@ -520,7 +526,7 @@ export async function completeGoogleOnboarding(req, res, next) {
     if (!CATEGORIES.includes(category)) return next(httpError(400, 'Select a valid business category'));
     if (!phone) return next(httpError(400, 'Phone number is required'));
     if (!SUBSCRIPTION_PLANS.includes(subscriptionPlan)) return next(httpError(400, 'Select a valid plan'));
-    if (!password || password.length < 8) return next(httpError(400, 'Password must be at least 8 characters'));
+    validatePassword(password);
 
     let business;
     if (user.businessId) {
@@ -569,7 +575,6 @@ export async function verifyEmailOtp(req, res, next) {
   try {
     const otp = String(req.body.otp || '').trim();
     if (!/^\d{6}$/.test(otp)) return next(httpError(400, 'OTP must be 6 digits'));
-
     const user = await AppUser.findById(req.user.id).select('+emailVerificationOtpHash +emailVerificationOtpExpiresAt +emailVerificationOtpAttempts');
     if (!user) return next(httpError(404, 'User not found'));
     if (user.googleId || user.emailVerified) return res.json({ token: signToken(user), user: toSafeUser(user) });
@@ -654,9 +659,7 @@ export async function resetPassword(req, res, next) {
     if (!/^\d{6}$/.test(otp)) {
       return next(httpError(400, 'OTP must be 6 digits'));
     }
-    if (password.length < 8) {
-      return next(httpError(400, 'Password must be at least 8 characters'));
-    }
+    validatePassword(password);
 
     const user = await AppUser.findOne({ email }).select('+password +resetOtpHash +resetOtpExpiresAt +resetOtpAttempts');
     if (!user || !user.resetOtpHash || !user.resetOtpExpiresAt) {
@@ -702,5 +705,3 @@ export async function getMe(req, res, next) {
     next(err);
   }
 }
-
-

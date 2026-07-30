@@ -37,6 +37,7 @@ const hsnSchema = new Schema({
 }, { _id: true });
 
 const gstr1Schema = new Schema({
+  userId:      { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   gstin:       { type: String, default: '27ZZZZZ9999A1Z5' },
   period:      { type: String, required: true },
   filingType:  { type: String, enum: ['monthly', 'quarterly'], default: 'monthly' },
@@ -48,6 +49,6 @@ const gstr1Schema = new Schema({
   filedAt:     { type: Date },
 }, { timestamps: true });
 
-gstr1Schema.index({ gstin: 1, period: 1, filingType: 1 }, { unique: true });
+gstr1Schema.index({ userId: 1, gstin: 1, period: 1, filingType: 1 }, { unique: true });
 
 export const Gstr1 = model('Gstr1', gstr1Schema);

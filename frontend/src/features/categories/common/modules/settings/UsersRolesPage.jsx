@@ -73,6 +73,7 @@ export function UsersRolesPage() {
   const [showForm, setShowForm]     = useState(false);
   const [editingId, setEditingId]   = useState(null);
   const [form, setForm]             = useState(EMPTY);
+  const [formError, setFormError]   = useState('');
 
   function load() {
     return apiClient('/settings/users')
@@ -100,11 +101,30 @@ export function UsersRolesPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visible    = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  function updateForm(k, v) { setForm((f) => ({ ...f, [k]: v })); }
-  function resetForm() { setForm(EMPTY); setEditingId(null); setShowForm(false); }
+  function updateForm(k, v) {
+    setForm((f) => ({ ...f, [k]: k === 'email' ? v.trim().toLowerCase() : v }));
+    setFormError('');
+  }
+  function resetForm() { setForm(EMPTY); setEditingId(null); setShowForm(false); setFormError(''); }
+
+  function validateForm() {
+    if (!form.name.trim() || !form.email.trim()) return 'Name and email are required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return 'Enter a valid email address';
+    if (!editingId && !form.password) return 'Password is required';
+    if (form.password) {
+      if (form.password.length < 8) return 'Password must be at least 8 characters';
+      if (!/[A-Za-z]/.test(form.password) || !/[0-9]/.test(form.password)) return 'Password must include at least one letter and one number';
+    }
+    return '';
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
     const payload = {
       name: form.name,
       email: form.email,
@@ -146,7 +166,7 @@ export function UsersRolesPage() {
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
             <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
-            <span>›</span><span>Settings</span><span>›</span><span>Users &amp; Roles</span>
+            <span>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº</span><span>Settings</span><span>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº</span><span>Users &amp; Roles</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold">Users &amp; Roles</h1>
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">Manage system users and their roles &amp; permissions</p>
@@ -161,13 +181,14 @@ export function UsersRolesPage() {
         <form className="app-form-modal bg-white border border-[#dfe7f1] rounded-xl p-5 mt-5" onSubmit={handleSubmit}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit User' : 'New User'}</h3>
-            <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>×</button>
+            <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>ÃƒÆ’Ã¢â‚¬â€</button>
           </div>
+          {formError && <div className="mb-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">{formError}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Full name *" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email *" required type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Phone" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder={editingId ? 'New password (optional)' : 'Password *'} required={!editingId} minLength={8} type="password" value={form.password} onChange={(e) => updateForm('password', e.target.value)} />
+            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder={editingId ? 'New password (optional)' : 'Password *'} required={!editingId} minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" title="Password must be at least 8 characters and include one letter and one number" type="password" value={form.password} onChange={(e) => updateForm('password', e.target.value)} />
             <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.role} onChange={(e) => updateForm('role', e.target.value)}>
               {ROLES.map((r) => <option key={r}>{r}</option>)}
             </select>
@@ -239,12 +260,12 @@ export function UsersRolesPage() {
                       <td className={TD}>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: rs.bg, color: rs.text }}>{row.role}</span>
                       </td>
-                      <td className={`${TD} text-[#536173]`}>{row.branch || '—'}</td>
-                      <td className={`${TD} text-[#536173]`}>{row.phone || '—'}</td>
+                      <td className={`${TD} text-[#536173]`}>{row.branch || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                      <td className={`${TD} text-[#536173]`}>{row.phone || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
                       <td className={TD}>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${row.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{row.status}</span>
                       </td>
-                      <td className={`${TD} text-[#536173] text-[12px]`}>{row.lastLogin || '—'}</td>
+                      <td className={`${TD} text-[#536173] text-[12px]`}>{row.lastLogin || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
                       <td className={TD}>
                         <div className="flex items-center gap-1">
                           <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-yellow-50 text-yellow-500 bg-transparent border-0 cursor-pointer" type="button" title="Edit" onClick={() => handleEdit(row)}>
@@ -267,11 +288,11 @@ export function UsersRolesPage() {
           <div className="px-5 py-3 border-t border-[#edf2f7] flex flex-wrap gap-2 justify-between items-center text-[13px] text-[#536173]">
             <span>Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} users</span>
             <div className="flex items-center gap-1 flex-wrap">
-              <button className="px-2.5 py-1 rounded border border-[#dbe4ef] hover:bg-gray-50 text-[12px] bg-white font-[inherit] cursor-pointer disabled:opacity-40" type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>←</button>
+              <button className="px-2.5 py-1 rounded border border-[#dbe4ef] hover:bg-gray-50 text-[12px] bg-white font-[inherit] cursor-pointer disabled:opacity-40" type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Prev</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                 <button key={p} className={`px-2.5 py-1 rounded text-[12px] font-[inherit] cursor-pointer border ${p === page ? 'bg-blue-600 text-white border-blue-600' : 'border-[#dbe4ef] hover:bg-gray-50 bg-white'}`} type="button" onClick={() => setPage(p)}>{p}</button>
               ))}
-              <button className="px-2.5 py-1 rounded border border-[#dbe4ef] hover:bg-gray-50 text-[12px] bg-white font-[inherit] cursor-pointer disabled:opacity-40" type="button" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>→</button>
+              <button className="px-2.5 py-1 rounded border border-[#dbe4ef] hover:bg-gray-50 text-[12px] bg-white font-[inherit] cursor-pointer disabled:opacity-40" type="button" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
             </div>
           </div>
         </div>

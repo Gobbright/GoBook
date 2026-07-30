@@ -15,6 +15,40 @@ let connectionPromise = null;
 let reconnectTimer = null;
 let maintenanceComplete = false;
 
+async function backfillLegacyGstOwners() {
+  const db = mongoose.connection.db;
+  const settings = await db.collection('businesssettings').find(
+    { gstin: { $type: 'string', $ne: '' }, userId: { $exists: true } },
+    { projection: { gstin: 1, userId: 1 } },
+  ).toArray();
+
+  const usersByGstin = new Map();
+  for (const setting of settings) {
+    const gstin = String(setting.gstin || '').trim().toUpperCase();
+    if (!gstin) continue;
+    const owners = usersByGstin.get(gstin) || new Set();
+    owners.add(String(setting.userId));
+    usersByGstin.set(gstin, owners);
+  }
+
+  const collections = ['gstr1', 'gstr3b', 'gstreconciliations'];
+  for (const collectionName of collections) {
+    const collection = db.collection(collectionName);
+    const records = await collection.find(
+      { userId: { $exists: false }, gstin: { $type: 'string', $ne: '' } },
+      { projection: { gstin: 1 } },
+    ).toArray().catch(() => []);
+
+    for (const record of records) {
+      const gstin = String(record.gstin || '').trim().toUpperCase();
+      const owners = usersByGstin.get(gstin);
+      if (!owners || owners.size !== 1) continue;
+      const [userId] = owners;
+      await collection.updateOne({ _id: record._id, userId: { $exists: false } }, { $set: { userId: new mongoose.Types.ObjectId(userId) } });
+    }
+  }
+}
+
 async function dropLegacyIndexes() {
   const db = mongoose.connection.db;
   const drops = [
@@ -32,6 +66,9 @@ async function dropLegacyIndexes() {
     { col: 'branches',        index: 'code_1' },
     { col: 'attendances',     index: 'employeeId_1_date_1' },
     { col: 'payrolls',        index: 'employeeId_1_month_1' },
+    { col: 'gstr1',           index: 'gstin_1_period_1_filingType_1' },
+    { col: 'gstr3b',          index: 'gstin_1_period_1' },
+    { col: 'gstreconciliations', index: 'gstin_1_period_1_type_1' },
   ];
   for (const { col, index } of drops) {
     await db.collection(col).dropIndex(index).catch(() => {});
@@ -101,6 +138,7 @@ export async function connectDatabase() {
     });
 
     if (!maintenanceComplete) {
+      await backfillLegacyGstOwners();
       await dropLegacyIndexes();
       maintenanceComplete = true;
     }

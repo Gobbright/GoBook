@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
   Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, ChevronDown, Contact,
-  ClipboardList, CreditCard, FileCheck, FileMinus, FilePlus,
+  ClipboardList, CreditCard, Database, FileCheck, FileMinus, FilePlus,
   FileSpreadsheet, FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3,
   HeartPulse, History, Home, IndianRupee, LayoutDashboard,
   LayoutGrid, LogIn, LogOut, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus,
@@ -21,7 +21,7 @@ import { normalizeAppPath } from '../../routes/navigation.js';
 
 const ICON_MAP = {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
-  Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, Contact, ClipboardList, CreditCard,
+  Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, Contact, ClipboardList, CreditCard, Database,
   FileCheck, FileMinus, FilePlus, FileSpreadsheet,
   FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3, HeartPulse, History, Home, LayoutDashboard, LayoutGrid,
   LogIn, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus, PenLine,
@@ -160,7 +160,7 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                   </Link>
                 )
               ) : (
-                /* Multi-item section ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â collapsible group */
+                /* Multi-item section ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â collapsible group */
                 <div className="mt-1">
                   <button
                     type="button"

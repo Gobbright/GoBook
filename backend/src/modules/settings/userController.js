@@ -18,6 +18,14 @@ function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : value;
 }
 
+function validatePassword(password) {
+  if (!password) throw httpError(400, 'Password is required');
+  if (password.length < 8) throw httpError(400, 'Password must be at least 8 characters');
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    throw httpError(400, 'Password must include at least one letter and one number');
+  }
+}
+
 async function buildUserPayload(body, { requirePassword = false } = {}) {
   const payload = {};
   for (const field of USER_WRITE_FIELDS) {
@@ -89,11 +97,13 @@ export async function createUser(req, res, next) {
     if (!payload.name || !payload.email) {
       return next(httpError(400, 'Name, email and password are required'));
     }
+    const existingEmail = await AppUser.exists({ email: payload.email });
+    if (existingEmail) return next(httpError(409, 'Email already registered. Use another email address.'));
     payload.businessId = req.user.businessId;
     const user = await AppUser.create(payload);
     res.status(201).json(toSafeUser(user));
   } catch (err) {
-    if (err.code === 11000) return next(httpError(409, 'Email already exists'));
+    if (err.code === 11000) return next(httpError(409, 'Email already registered. Use another email address.'));
     next(err);
   }
 }
@@ -104,6 +114,10 @@ export async function updateUser(req, res, next) {
     const payload = await buildUserPayload(req.body);
     if (payload.name === '' || payload.email === '') {
       return next(httpError(400, 'Name and email cannot be empty'));
+    }
+    if (payload.email) {
+      const existingEmail = await AppUser.exists({ email: payload.email, _id: { $ne: req.params.id } });
+      if (existingEmail) return next(httpError(409, 'Email already registered. Use another email address.'));
     }
     const user = await AppUser.findOneAndUpdate(
       { _id: req.params.id, businessId: req.user.businessId },

@@ -7,6 +7,7 @@ import { adminRouter } from '../modules/admin/routes.js';
 import { aiRouter } from '../modules/ai/routes.js';
 import { authRouter } from '../modules/auth/routes.js';
 import { dashboardRouter } from '../modules/dashboard/routes.js';
+import { dataManagementRouter } from '../modules/data-management/routes.js';
 import { employeePortalRouter } from '../modules/employee-portal/routes.js';
 import { hospitalRouter } from '../modules/hospital/routes.js';
 import { moduleRecordsRouter } from '../modules/module-records/routes.js';
@@ -31,6 +32,7 @@ apiRouter.use(requireAuth);
 
 apiRouter.use('/ai', aiRouter);
 apiRouter.use('/dashboard', dashboardRouter);
+apiRouter.use('/data-management', dataManagementRouter);
 apiRouter.use('/sales', requireCategoryModule('sales'), salesRouter);
 apiRouter.use('/gst', gstRouter);
 apiRouter.use('/accounting', accountingRouter);

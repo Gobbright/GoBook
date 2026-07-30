@@ -78,15 +78,13 @@ export function AdminUserListPage({ type = 'all' }) {
     return separated;
   }, [query, section]);
 
-  const mainData = separated[type === 'all' ? 'active' : type] || [];
-  const visibleUserCount = type === 'all'
-    ? separated.all.length
-    : mainData.length;
+  const mainData = separated[type] || [];
+  const visibleUserCount = mainData.length;
 
   const mainSection = {
     key: `users-main-${type}`,
     sourceKey: 'users',
-    label: type === 'all' ? 'Active Users (Main View)' : view.title,
+    label: view.title,
     count: mainData.length,
     fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'status', 'createdAt', 'lastLogin'],
     rows: mainData,
@@ -155,7 +153,7 @@ export function AdminUserListPage({ type = 'all' }) {
                   <div className="w-4 h-4 bg-blue-600 rounded-full"></div>
                   <h2 className="m-0 text-lg md:text-xl font-extrabold text-blue-900 dark:text-blue-100">Main Content</h2>
                 </div>
-                <DataTable section={mainSection} />
+                <DataTable section={mainSection} onChanged={loadData} />
               </div>
 
               {/* Other Sections */}
