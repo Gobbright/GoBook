@@ -11,8 +11,9 @@ const LABEL = 'block text-[12px] font-medium text-[#374151] mb-1';
 
 const GST_RATES = [0, 5, 12, 18, 28];
 const UNITS = ['Nos', 'Pcs', 'Kg', 'Box', 'Ltr', 'Mtr', 'Set'];
+const ITEM_TYPES = ['Product', 'Service'];
 
-const EMPTY_FORM = { description: '', code: '', hsn: '', category: '', brand: '', unit: 'Nos', rate: '', gstRate: 18, stock: 0, minStockLevel: 0, barcode: '', status: 'Active' };
+const EMPTY_FORM = { description: '', productDescription: '', itemType: 'Product', code: '', hsn: '', category: '', brand: '', unit: 'Nos', rate: '', gstRate: 18, stock: 0, minStockLevel: 0, barcode: '', status: 'Active' };
 
 function genBarcode() {
   return Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
@@ -49,6 +50,7 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const isService = form.itemType === 'Service';
 
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -74,17 +76,18 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.description.trim()) return setErr('Product name is required');
+    if (!form.description.trim()) return setErr(`${isService ? 'Service' : 'Product'} name is required`);
     if (!form.rate || Number(form.rate) < 0) return setErr('Valid sale price is required');
     setSaving(true);
     setErr('');
     try {
       const payload = {
         ...form,
+        itemType: isService ? 'Service' : 'Product',
         code: form.code?.trim() || nextCode || '',
         rate: Number(form.rate),
-        stock: Number(form.stock),
-        minStockLevel: Number(form.minStockLevel),
+        stock: isService ? 0 : Number(form.stock),
+        minStockLevel: isService ? 0 : Number(form.minStockLevel),
         gstRate: Number(form.gstRate),
       };
       const result = mode === 'add' ? await api.invCreateProduct(payload) : await api.invUpdateProduct(initial._id, payload);
@@ -100,19 +103,48 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-130 mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#edf2f7]">
-          <h2 className="text-[16px] font-bold text-[#111827]">{mode === 'add' ? 'Add Product' : 'Edit Product'}</h2>
+          <h2 className="text-[16px] font-bold text-[#111827]">{mode === 'add' ? 'Add Item' : 'Edit Item'}</h2>
           <button onClick={onClose} className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-lg leading-none">✕</button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-4">
           {err && <div className="mb-3 px-3 py-2 bg-red-50 text-red-600 text-[12px] rounded-md">{err}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <label className={LABEL}>Product Name *</label>
-              <input className={INPUT} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="e.g. Wireless Mouse" />
+              <label className={LABEL}>Item Type *</label>
+              <div className="grid grid-cols-2 border border-[#dbe4ef] rounded-md overflow-hidden">
+                {ITEM_TYPES.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`py-2 text-[13px] border-0 cursor-pointer font-[inherit] ${form.itemType === type ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-[#374151] hover:bg-gray-50'}`}
+                    onClick={() => setForm((prev) => ({
+                      ...prev,
+                      itemType: type,
+                      stock: type === 'Service' ? 0 : prev.stock,
+                      minStockLevel: type === 'Service' ? 0 : prev.minStockLevel,
+                    }))}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={LABEL}>{isService ? 'Service Name *' : 'Product Name *'}</label>
+              <input className={INPUT} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder={isService ? 'e.g. Installation Charge' : 'e.g. Wireless Mouse'} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={LABEL}>Description</label>
+              <textarea
+                className={`${INPUT} min-h-20 resize-y`}
+                value={form.productDescription || ''}
+                onChange={(e) => set('productDescription', e.target.value)}
+                placeholder={isService ? 'Add service scope, deliverables, or notes' : 'Add product details, specifications, or notes'}
+              />
             </div>
             <div>
-              <label className={LABEL}>HSN / SAC</label>
-              <input className={INPUT} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} placeholder="e.g. 8471" />
+              <label className={LABEL}>{isService ? 'SAC Code' : 'HSN Code'}</label>
+              <input className={INPUT} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} placeholder={isService ? 'e.g. 998739' : 'e.g. 8471'} />
             </div>
             <div>
               <label className={LABEL}>Category</label>
@@ -140,14 +172,18 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
                 {GST_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
               </select>
             </div>
-            <div>
-              <label className={LABEL}>Current Stock</label>
-              <input className={INPUT} type="number" min="0" value={form.stock} onChange={(e) => set('stock', e.target.value)} />
-            </div>
-            <div>
-              <label className={LABEL}>Min. Stock Level</label>
-              <input className={INPUT} type="number" min="0" value={form.minStockLevel} onChange={(e) => set('minStockLevel', e.target.value)} />
-            </div>
+            {!isService && (
+              <>
+                <div>
+                  <label className={LABEL}>Current Stock</label>
+                  <input className={INPUT} type="number" min="0" value={form.stock} onChange={(e) => set('stock', e.target.value)} />
+                </div>
+                <div>
+                  <label className={LABEL}>Min. Stock Level</label>
+                  <input className={INPUT} type="number" min="0" value={form.minStockLevel} onChange={(e) => set('minStockLevel', e.target.value)} />
+                </div>
+              </>
+            )}
             <div>
               <label className={LABEL}>Barcode</label>
               <div className="flex gap-1.5">
@@ -168,7 +204,7 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
           <div className="flex gap-3 mt-5 justify-end">
             <button type="button" onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-60">
-              {saving ? 'Saving...' : mode === 'add' ? 'Add Product' : 'Save Changes'}
+              {saving ? 'Saving...' : mode === 'add' ? 'Add Item' : 'Save Changes'}
             </button>
           </div>
         </form>
@@ -180,6 +216,7 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
 export function ProductsPage() {
   const [search, setSearch]         = useState('');
   const [category, setCategory]     = useState('All Categories');
+  const [itemType, setItemType]     = useState('All Items');
   const [categories, setCategories] = useState(['All Categories']);
   const [brands, setBrands]         = useState([]);
   const [products, setProducts]     = useState([]);
@@ -216,6 +253,7 @@ export function ProductsPage() {
     const params = { page, limit: LIMIT };
     if (search) params.search = search;
     if (category !== 'All Categories') params.category = category;
+    if (itemType !== 'All Items') params.itemType = itemType;
     api.invListProducts(params)
       .then((res) => { setProducts(res.data); setTotal(res.total); })
       .catch(() => setError('Failed to load products'))
@@ -223,16 +261,24 @@ export function ProductsPage() {
   }
 
   useEffect(() => { loadStats(); loadCategories(); loadBrands(); }, []);
-  useEffect(() => { loadProducts(); }, [search, category, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadProducts(); }, [search, category, itemType, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleSave(saved) {
+  function handleSave() {
+    const wasEdit = modal?.mode === 'edit';
     setModal(null);
-    setSearch('');
-    setCategory('All Categories');
-    setPage(1);
     loadStats();
     loadCategories();
     loadBrands();
+
+    if (wasEdit) {
+      loadProducts();
+      return;
+    }
+
+    setSearch('');
+    setCategory('All Categories');
+    setItemType('All Items');
+    setPage(1);
     api.invListProducts({ page: 1, limit: LIMIT })
       .then((res) => {
         setProducts(res.data);
@@ -266,14 +312,15 @@ export function ProductsPage() {
       if (match) {
         setSearch(match.barcode || match.code || match.description || code);
         setCategory('All Categories');
+        setItemType('All Items');
         setPage(1);
         setScanMessage(`Found product: ${match.description}`);
       } else {
         setModal({ mode: 'add', nextCode: '', initialBarcode: code });
-        setScanMessage('New barcode scanned. Add product details once to save it.');
+        setScanMessage('New barcode scanned. Add item details once to save it.');
       }
     } catch (err) {
-      setScanMessage(err.message || 'Unable to scan product');
+      setScanMessage(err.message || 'Unable to scan item');
     } finally {
       setScanCode('');
     }
@@ -309,7 +356,7 @@ export function ProductsPage() {
   }
 
   function handleDelete(id) {
-    if (!window.confirm('Delete this product?')) return;
+    if (!window.confirm('Delete this item?')) return;
     api.invDeleteProduct(id)
       .then(() => { setProducts((prev) => prev.filter((p) => p._id !== id)); loadStats(); })
       .catch(() => alert('Failed to delete product'));
@@ -349,8 +396,8 @@ export function ProductsPage() {
 
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 mb-5">
         <div>
-          <h1 className="m-0 text-[22px] font-bold text-[#111827]">Products</h1>
-          <p className="m-0 text-[13px] text-[#536173] mt-0.5">Manage all your products and inventory items</p>
+          <h1 className="m-0 text-[22px] font-bold text-[#111827]">Items</h1>
+          <p className="m-0 text-[13px] text-[#536173] mt-0.5">Manage stock products and non-stock services</p>
         </div>
         <div className="flex gap-2">
           <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImportFile} />
@@ -369,14 +416,14 @@ export function ProductsPage() {
             onClick={openAddModal}
           >
             <svg fill="none" height="14" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" width="14"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
-            Add Product
+            Add Item
           </button>
         </div>
       </div>
 
       <form onSubmit={handleScanSubmit} className="mb-5 bg-white border border-[#dfe7f1] rounded-xl p-4 flex flex-col md:flex-row md:items-end gap-3">
         <div className="flex-1">
-          <label className={LABEL}>Scan Product Barcode</label>
+          <label className={LABEL}>Scan Item Barcode</label>
           <input
             className={INPUT}
             value={scanCode}
@@ -418,9 +465,9 @@ export function ProductsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         {[
-          { label: 'Total Products',     value: stats ? stats.total.toLocaleString('en-IN') : '—',        sub: 'Active',          color: '#2563eb', bg: '#eff6ff', icon: <svg fill="none" height="20" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg> },
+          { label: 'Total Items',        value: stats ? stats.total.toLocaleString('en-IN') : '—',        sub: 'Active',          color: '#2563eb', bg: '#eff6ff', icon: <svg fill="none" height="20" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg> },
+          { label: 'Services',           value: stats ? Number(stats.services || 0).toLocaleString('en-IN') : '—', sub: 'Non-stock', color: '#0891b2', bg: '#ecfeff', icon: <svg fill="none" height="20" stroke="#0891b2" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M4 7h16M4 12h16M4 17h10"/></svg> },
           { label: 'Low Stock Items',     value: stats ? stats.lowStock.toLocaleString('en-IN') : '—',     sub: 'Alert',           color: '#f59e0b', bg: '#fffbeb', icon: <svg fill="none" height="20" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg> },
-          { label: 'Out of Stock Items',  value: stats ? stats.outOfStock.toLocaleString('en-IN') : '—',   sub: 'Out of Stock',    color: '#ef4444', bg: '#fef2f2', icon: <svg fill="none" height="20" stroke="#ef4444" strokeWidth="2" viewBox="0 0 24 24" width="20"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg> },
           { label: 'Total Value',         value: stats ? formatINR(stats.totalValue) : '—',                sub: 'Inventory Value', color: '#7c3aed', bg: '#f5f3ff', icon: <IndianRupee size={20} color="#7c3aed" /> },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-[#dfe7f1] rounded-xl p-4 flex items-center gap-4">
@@ -438,8 +485,13 @@ export function ProductsPage() {
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7] flex-wrap">
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
-            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search products..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search items..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
+          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer" value={itemType} onChange={(e) => { setItemType(e.target.value); setPage(1); }}>
+            <option>All Items</option>
+            <option>Product</option>
+            <option>Service</option>
+          </select>
           <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
             {categories.map((c) => <option key={c}>{c}</option>)}
           </select>
@@ -451,7 +503,8 @@ export function ProductsPage() {
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                <th className={TH}>Product Name</th>
+                <th className={TH}>Item Name</th>
+                <th className={TH}>Type</th>
                 <th className={TH}>HSN / SAC</th>
                 <th className={TH}>Category</th>
                 <th className={TH}>Brand</th>
@@ -464,18 +517,21 @@ export function ProductsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
+                <tr><td colSpan={10} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
               ) : products.length === 0 ? (
-                <tr><td colSpan={9} className="px-5 py-8 text-center text-[13px] text-[#536173]">No products found</td></tr>
+                <tr><td colSpan={10} className="px-5 py-8 text-center text-[13px] text-[#536173]">No items found</td></tr>
               ) : products.map((row) => (
                 <tr key={row._id} className="hover:bg-gray-50">
                   <td className={`${TD} font-medium text-[#111827]`}>{row.description}</td>
+                  <td className={TD}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${row.itemType === 'Service' ? 'bg-cyan-100 text-cyan-700' : 'bg-blue-100 text-blue-700'}`}>{row.itemType || 'Product'}</span>
+                  </td>
                   <td className={`${TD} text-[#536173] font-mono`}>{row.hsn || '-'}</td>
                   <td className={`${TD} text-[#536173]`}>{row.category || '—'}</td>
                   <td className={`${TD} text-[#536173]`}>{row.brand || '—'}</td>
                   <td className={`${TD} font-medium text-[#111827]`}>{formatCurrency(row.rate)}</td>
                   <td className={`${TD} text-[#536173]`}>{Number(row.gstRate ?? 0)}%</td>
-                  <td className={`${TD} text-[#111827]`}>{row.stock}</td>
+                  <td className={`${TD} text-[#111827]`}>{row.itemType === 'Service' ? '—' : row.stock}</td>
                   <td className={TD}>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${row.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{row.status}</span>
                   </td>

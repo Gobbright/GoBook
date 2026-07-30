@@ -10,6 +10,7 @@ import {
   getOutstandingStatement,
   getVoucherRegister,
   getVoucherTypes,
+  resetAccountingFromInvoices,
 } from '../../../../../services/accountingService.js';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
@@ -47,6 +48,8 @@ export function AccountingReportsPage() {
   const [billWise, setBillWise] = useState({ rows: [], totalOutstanding: 0 });
   const [costCenters, setCostCenters] = useState({ rows: [], totals: {} });
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
 
   const selectedRows = useMemo(() => {
     if (activeTab === 'day-book') return dayBook.vouchers;
@@ -95,6 +98,27 @@ export function AccountingReportsPage() {
       }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResetFromInvoices() {
+    const confirmed = window.confirm(
+      'This will remove all current accounting ledgers, vouchers, journal entries, cash book and bank book entries, then rebuild accounting only from current invoices/bills and their payments. Continue?',
+    );
+    if (!confirmed) return;
+
+    setResetting(true);
+    setResetMessage('');
+    try {
+      const result = await resetAccountingFromInvoices();
+      const rebuilt = result.rebuilt || {};
+      const skipped = result.errors?.length ? ` (${result.errors.length} skipped)` : '';
+      setResetMessage(`Accounting rebuilt: ${rebuilt.invoices || 0} invoices and ${rebuilt.payments || 0} payments posted${skipped}.`);
+      await loadReports();
+    } catch (err) {
+      setResetMessage(err.message || 'Unable to reset accounting from invoices.');
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -157,12 +181,21 @@ export function AccountingReportsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportButtons title="Accounting Reports" filename={`accounting-${activeTab}`} rows={selectedRows} columns={exportColumns[activeTab]} />
+          <button type="button" onClick={handleResetFromInvoices} disabled={loading || resetting} className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#1d4ed8] bg-white rounded-md cursor-pointer hover:bg-blue-50 border border-[#bfdbfe] font-[inherit] disabled:opacity-60">
+            <RefreshCw size={14} />
+            {resetting ? 'Resetting...' : 'Reset from Invoices'}
+          </button>
           <button type="button" onClick={() => loadReports()} disabled={loading} className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-60">
             <RefreshCw size={14} />
             {loading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
       </div>
+      {resetMessage && (
+        <div className="mt-3 px-4 py-2.5 rounded-md border border-[#dbe4ef] bg-white text-[13px] text-[#374151]">
+          {resetMessage}
+        </div>
+      )}
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl p-4 my-5">
         <div className="flex flex-wrap gap-2 mb-4">

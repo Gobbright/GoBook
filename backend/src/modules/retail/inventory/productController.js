@@ -23,6 +23,10 @@ const FIELD_ALIASES = {
   item: 'description',
   'medicine name': 'description',
   medicine: 'description',
+  'item type': 'itemType',
+  type: 'itemType',
+  'product type': 'itemType',
+  'service type': 'itemType',
   sku: 'code',
   code: 'code',
   'product code': 'code',
@@ -121,6 +125,11 @@ function normalizeProductPayload(body = {}) {
   const payload = {};
 
   if ('description' in body) payload.description = String(body.description ?? '').trim();
+  if ('productDescription' in body) payload.productDescription = String(body.productDescription ?? '');
+  if ('itemType' in body) {
+    const type = String(body.itemType ?? '').trim().toLowerCase();
+    payload.itemType = type === 'service' ? 'Service' : 'Product';
+  }
   if ('code' in body) payload.code = String(body.code ?? '').trim().toUpperCase();
   if ('hsn' in body) payload.hsn = String(body.hsn ?? '').trim();
   if ('category' in body) payload.category = String(body.category ?? '').trim();
@@ -133,6 +142,11 @@ function normalizeProductPayload(body = {}) {
   if ('stock' in body) payload.stock = Number(body.stock);
   if ('minStockLevel' in body) payload.minStockLevel = Number(body.minStockLevel);
   if ('gstRate' in body) payload.gstRate = Number(body.gstRate);
+
+  if (payload.itemType === 'Service') {
+    payload.stock = 0;
+    payload.minStockLevel = 0;
+  }
 
   return payload;
 }
@@ -160,6 +174,10 @@ function validateProductPayload(payload, { partial = false } = {}) {
 
   if ('gstRate' in payload && ![0, 5, 12, 18, 28].includes(payload.gstRate)) {
     return 'GST rate must be one of 0, 5, 12, 18, 28';
+  }
+
+  if ('itemType' in payload && !['Product', 'Service'].includes(payload.itemType)) {
+    return 'Item type must be Product or Service';
   }
 
   if ('status' in payload && !['Active', 'Inactive'].includes(payload.status)) {
@@ -248,17 +266,21 @@ async function generateNextProductCode(userId) {
 export async function getProductStats(req, res, next) {
   try {
     const userId = req.user.id;
-    const [total, lowStock, outOfStock, valueResult] = await Promise.all([
+    const [total, products, services, lowStock, outOfStock, valueResult] = await Promise.all([
       Product.countDocuments({ userId, status: 'Active' }),
-      Product.countDocuments({ userId, status: 'Active', stock: { $gt: 0 }, $expr: { $lte: ['$stock', '$minStockLevel'] } }),
-      Product.countDocuments({ userId, status: 'Active', stock: 0 }),
+      Product.countDocuments({ userId, status: 'Active', itemType: { $ne: 'Service' } }),
+      Product.countDocuments({ userId, status: 'Active', itemType: 'Service' }),
+      Product.countDocuments({ userId, status: 'Active', itemType: { $ne: 'Service' }, stock: { $gt: 0 }, $expr: { $lte: ['$stock', '$minStockLevel'] } }),
+      Product.countDocuments({ userId, status: 'Active', itemType: { $ne: 'Service' }, stock: 0 }),
       Product.aggregate([
-        { $match: { userId, status: 'Active' } },
+        { $match: { userId, status: 'Active', itemType: { $ne: 'Service' } } },
         { $group: { _id: null, totalValue: { $sum: { $multiply: ['$rate', '$stock'] } } } },
       ]),
     ]);
     res.json({
       total,
+      products,
+      services,
       lowStock,
       outOfStock,
       totalValue: valueResult[0]?.totalValue ?? 0,
@@ -286,7 +308,7 @@ export async function getNextProductCode(req, res, next) {
 // GET /api/inventory/products?search=&category=&page=&limit=
 export async function listProducts(req, res, next) {
   try {
-    const { search, category, page = 1, limit = 50 } = req.query;
+    const { search, category, itemType, page = 1, limit = 50 } = req.query;
     const filter = { userId: req.user.id };
     if (search) {
       filter.$or = [
@@ -297,6 +319,9 @@ export async function listProducts(req, res, next) {
       ];
     }
     if (category && category !== 'All Categories') filter.category = category;
+    if (itemType && itemType !== 'All Items') {
+      filter.itemType = itemType === 'Service' ? 'Service' : { $ne: 'Service' };
+    }
 
     const skip = (Number(page) - 1) * Number(limit);
     const [products, total] = await Promise.all([
@@ -390,6 +415,10 @@ export async function importProducts(req, res, next) {
       if (!code) code = before?.code || await generateNextProductCode(userId);
 
       const data = { userId, code, description, rate };
+      if (record.itemType) {
+        const t = String(record.itemType).trim().toLowerCase();
+        data.itemType = t === 'service' ? 'Service' : 'Product';
+      }
       if (record.category) data.category = String(record.category).trim();
       if (record.brand) data.brand = String(record.brand).trim();
       if (record.unit) data.unit = String(record.unit).trim();
@@ -399,13 +428,17 @@ export async function importProducts(req, res, next) {
         const g = parseSheetNumber(record.gstRate);
         if ([0, 5, 12, 18, 28].includes(g)) data.gstRate = g;
       }
-      if (record.stock !== '') {
+      if (data.itemType !== 'Service' && record.stock !== '') {
         const s = parseSheetNumber(record.stock);
         if (Number.isFinite(s)) data.stock = Math.max(0, s);
       }
-      if (record.minStockLevel !== '') {
+      if (data.itemType !== 'Service' && record.minStockLevel !== '') {
         const m = parseSheetNumber(record.minStockLevel);
         if (Number.isFinite(m)) data.minStockLevel = Math.max(0, m);
+      }
+      if (data.itemType === 'Service') {
+        data.stock = 0;
+        data.minStockLevel = 0;
       }
       if (record.status) {
         const st = String(record.status).trim().toLowerCase();
@@ -434,7 +467,7 @@ export async function importProducts(req, res, next) {
           supplier = 'Stock Adjustment';
         }
 
-        if (stockQty !== 0) {
+        if (savedProduct.itemType !== 'Service' && stockQty !== 0) {
           try {
             await createProductStockMovement(userId, savedProduct, stockQty, supplier);
           } catch {
@@ -484,7 +517,7 @@ export async function createProduct(req, res, next) {
       return next(httpError(409, 'Unable to generate a unique product code. Please try again.'));
     }
 
-    if (product.stock > 0) {
+    if (product.itemType !== 'Service' && product.stock > 0) {
       createProductStockMovement(userId, product, product.stock, 'Initial Stock').catch(() => {});
     }
 
@@ -512,7 +545,7 @@ export async function updateProduct(req, res, next) {
     if (!product) return next(httpError(404, 'Product not found'));
 
     const stockDiff = (product.stock ?? 0) - (old?.stock ?? 0);
-    if (stockDiff !== 0) {
+    if (product.itemType !== 'Service' && stockDiff !== 0) {
       createProductStockMovement(userId, product, stockDiff, 'Stock Adjustment').catch(() => {});
     }
 

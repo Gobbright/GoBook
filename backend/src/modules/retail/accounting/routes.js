@@ -26,6 +26,7 @@ import {
   listCashBookEntries,
   listJournalEntries,
   listLedgerAccounts,
+  resetAccountingFromInvoices,
   updateBankBookEntry,
   updateBankReconciliation,
   updateCashBookEntry,
@@ -46,6 +47,7 @@ import { uploadExcelFile } from '../../../utils/excelImport.js';
 export const accountingRouter = Router();
 
 accountingRouter.get('/', getAccountingSummary);
+accountingRouter.post('/reset-from-invoices', resetAccountingFromInvoices);
 
 accountingRouter.get('/vouchers/types', listVoucherTypes);
 accountingRouter.get('/vouchers/next-number', getNextVoucherNumber);

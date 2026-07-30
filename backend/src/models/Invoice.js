@@ -4,6 +4,7 @@ const lineItemSchema = new Schema({
   productId:    { type: Schema.Types.ObjectId, ref: 'Product' },
   productCode:  { type: String, default: '', trim: true },
   barcode:      { type: String, default: '', trim: true },
+  itemType:     { type: String, enum: ['Product', 'Service'], default: 'Product' },
   description: { type: String, default: '' },
   itemDescription: { type: String, default: '' },
   hsn:         { type: String, default: '' },

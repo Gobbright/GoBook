@@ -123,42 +123,117 @@ const SECTIONS = {
   patientManagement: {
     title: 'Patient Management',
     items: [
-      { label: 'Patients', href: '/hospital/patients', icon: 'UserRound' },
-      { label: 'Appointments', href: '/hospital/appointments', icon: 'CalendarCheck' },
-      { label: 'Admissions', href: '/hospital/admissions', icon: 'ClipboardList' },
-      { label: 'Discharge', href: '/hospital/discharge', icon: 'FileCheck' },
+      { label: 'Patient Registration', href: '/hospital/patient-registration', icon: 'UserPlus' },
+      { label: 'Patient List', href: '/hospital/patients', icon: 'UserRound' },
       { label: 'Medical History', href: '/hospital/medical-history', icon: 'FolderOpen' },
-      { label: 'Follow Up', href: '/hospital/follow-up', icon: 'Bell' },
+      { label: 'Allergies', href: '/hospital/allergies', icon: 'AlertTriangle' },
+      { label: 'Family Details', href: '/hospital/family-details', icon: 'Users' },
+      { label: 'Documents', href: '/hospital/patient-documents', icon: 'FolderOpen' },
+      { label: 'Insurance Details', href: '/hospital/insurance-details', icon: 'FileCheck' },
     ],
   },
-  clinical: {
-    title: 'Clinical',
+  appointmentManagement: {
+    title: 'Appointment Management',
     items: [
-      { label: 'Doctors', href: '/hospital/doctors', icon: 'Stethoscope' },
-      { label: 'Departments', href: '/hospital/departments', icon: 'Building2' },
+      { label: 'Book Appointment', href: '/hospital/book-appointment', icon: 'CalendarCheck' },
+      { label: 'Calendar', href: '/hospital/appointment-calendar', icon: 'CalendarClock' },
+      { label: 'Doctor Schedule', href: '/hospital/doctor-schedule', icon: 'Stethoscope' },
+      { label: 'Queue Management', href: '/hospital/queue-management', icon: 'ClipboardList' },
+      { label: 'Token System', href: '/hospital/token-system', icon: 'ReceiptText' },
+      { label: 'Follow-up Appointments', href: '/hospital/follow-up-appointments', icon: 'Bell' },
+    ],
+  },
+  opd: {
+    title: 'OPD',
+    items: [
+      { label: 'OP Registration', href: '/hospital/op-registration', icon: 'ClipboardList' },
       { label: 'Consultation', href: '/hospital/consultation', icon: 'Activity' },
-      { label: 'Treatment', href: '/hospital/treatment', icon: 'HeartPulse' },
+      { label: 'Diagnosis', href: '/hospital/diagnosis', icon: 'FileText' },
       { label: 'Prescription', href: '/hospital/prescription', icon: 'FileText' },
-      { label: 'Nursing', href: '/hospital/nursing', icon: 'Users' },
+      { label: 'Procedures', href: '/hospital/procedures', icon: 'HeartPulse' },
+      { label: 'Follow-up', href: '/hospital/follow-up', icon: 'Bell' },
+    ],
+  },
+  ipd: {
+    title: 'IPD',
+    items: [
+      { label: 'Admission', href: '/hospital/admission', icon: 'ClipboardList' },
+      { label: 'Bed Allocation', href: '/hospital/bed-allocation', icon: 'BedDouble' },
+      { label: 'Treatment Plan', href: '/hospital/treatment-plan', icon: 'HeartPulse' },
+      { label: 'Daily Progress', href: '/hospital/daily-progress', icon: 'TrendingUp' },
+      { label: 'Nursing Notes', href: '/hospital/nursing-notes', icon: 'PenLine' },
+      { label: 'Discharge Summary', href: '/hospital/discharge-summary', icon: 'FileCheck' },
+    ],
+  },
+  emergency: {
+    title: 'Emergency',
+    items: [
+      { label: 'Emergency Registration', href: '/hospital/emergency-registration', icon: 'AlertTriangle' },
+      { label: 'Triage', href: '/hospital/triage', icon: 'Activity' },
+      { label: 'Casualty', href: '/hospital/casualty', icon: 'HeartPulse' },
+      { label: 'Critical Care', href: '/hospital/critical-care', icon: 'Stethoscope' },
+    ],
+  },
+  doctors: {
+    title: 'Doctors',
+    items: [
+      { label: 'Doctor List', href: '/hospital/doctors', icon: 'Stethoscope' },
+      { label: 'Departments', href: '/hospital/departments', icon: 'Building2' },
+      { label: 'Specializations', href: '/hospital/specializations', icon: 'Award' },
+      { label: 'Availability', href: '/hospital/doctor-availability', icon: 'CalendarCheck' },
+      { label: 'Schedule', href: '/hospital/doctor-schedule-management', icon: 'CalendarClock' },
+      { label: 'Consultation Fees', href: '/hospital/consultation-fees', icon: 'Wallet' },
+    ],
+  },
+  nursing: {
+    title: 'Nursing',
+    items: [
+      { label: 'Nurse List', href: '/hospital/nurse-list', icon: 'Users' },
+      { label: 'Shift Allocation', href: '/hospital/shift-allocation', icon: 'CalendarClock' },
+      { label: 'Patient Assignment', href: '/hospital/patient-assignment', icon: 'UserCheck' },
+      { label: 'Nursing Notes', href: '/hospital/nursing-care-notes', icon: 'PenLine' },
+    ],
+  },
+  wardBedManagement: {
+    title: 'Ward & Bed Management',
+    items: [
+      { label: 'Wards', href: '/hospital/wards', icon: 'Building2' },
+      { label: 'Rooms', href: '/hospital/rooms', icon: 'Home' },
+      { label: 'Beds', href: '/hospital/beds', icon: 'BedDouble' },
+      { label: 'ICU', href: '/hospital/icu', icon: 'HeartPulse' },
+      { label: 'NICU', href: '/hospital/nicu', icon: 'HeartPulse' },
+      { label: 'Occupancy', href: '/hospital/occupancy', icon: 'BarChart3' },
     ],
   },
   laboratory: {
     title: 'Laboratory',
     items: [
-      { label: 'Test Orders', href: '/hospital/test-orders', icon: 'FlaskConical' },
-      { label: 'Reports', href: '/hospital/lab-reports', icon: 'BarChart3' },
+      { label: 'Test Categories', href: '/hospital/test-categories', icon: 'Grid3x3' },
+      { label: 'Test Booking', href: '/hospital/test-booking', icon: 'CalendarCheck' },
       { label: 'Sample Collection', href: '/hospital/sample-collection', icon: 'PackagePlus' },
-      { label: 'Diagnostics', href: '/hospital/diagnostics', icon: 'Microscope' },
+      { label: 'Test Results', href: '/hospital/test-results', icon: 'FlaskConical' },
+      { label: 'Reports', href: '/hospital/lab-reports', icon: 'BarChart3' },
+    ],
+  },
+  radiology: {
+    title: 'Radiology',
+    items: [
+      { label: 'X-Ray', href: '/hospital/x-ray', icon: 'Microscope' },
+      { label: 'CT Scan', href: '/hospital/ct-scan', icon: 'Activity' },
+      { label: 'MRI', href: '/hospital/mri', icon: 'Activity' },
+      { label: 'Ultrasound', href: '/hospital/ultrasound', icon: 'Activity' },
+      { label: 'ECG', href: '/hospital/ecg', icon: 'HeartPulse' },
+      { label: 'Reports', href: '/hospital/radiology-reports', icon: 'BarChart3' },
     ],
   },
   pharmacy: {
     title: 'Pharmacy',
     items: [
-      { label: 'Pharmacy Bills', href: '/billing/pharmacy-bill/new', icon: 'ReceiptText' },
-      { label: 'Medicines', href: '/hospital/medicines', icon: 'Pill' },
-      { label: 'Stock', href: '/hospital/pharmacy-stock', icon: 'Warehouse' },
+      { label: 'Medicine Dispensing', href: '/hospital/medicine-dispensing', icon: 'Pill' },
+      { label: 'Prescription Orders', href: '/hospital/prescription-orders', icon: 'FileText' },
+      { label: 'Medicine Returns', href: '/hospital/medicine-returns', icon: 'ArrowRightLeft' },
+      { label: 'Batch Tracking', href: '/hospital/batch-tracking', icon: 'QrCode' },
       { label: 'Expiry Alerts', href: '/hospital/expiry-alerts', icon: 'AlertTriangle' },
-      { label: 'Suppliers', href: '/hospital/suppliers', icon: 'UserCheck' },
     ],
   },
   medicalBilling: {
@@ -431,7 +506,11 @@ const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayro
 
 const CATEGORY_LAYOUTS = {
   retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports', 'settings'],
-  hospital: ['main', 'pharmacy', 'patientManagement', 'clinical', 'laboratory', 'medicalBilling', ...COMMON_LAYOUT.slice(1)],
+  hospital: [
+    'main', 'patientManagement', 'appointmentManagement', 'opd', 'ipd', 'emergency',
+    'doctors', 'nursing', 'wardBedManagement', 'laboratory', 'radiology', 'pharmacy',
+    ...COMMON_LAYOUT.slice(1),
+  ],
   school: [
     'main', 'schoolStudentManagement', 'schoolAcademic', 'schoolFeeManagement',
     'schoolLibrary', 'schoolTransport', 'schoolHostel', ...COMMON_LAYOUT.slice(1),

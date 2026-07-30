@@ -29,6 +29,7 @@ function normalizeInvoicePayload(body = {}) {
           ?? item.remark
           ?? '',
         ),
+        itemType: String(item.itemType ?? '').trim().toLowerCase() === 'service' ? 'Service' : 'Product',
         hsn: String(item.hsn ?? ''),
         unit: String(item.unit ?? ''),
       }))
@@ -73,7 +74,7 @@ export async function listInvoices(req, res, next) {
 
     const [data, total] = await Promise.all([
       Invoice.find(filter)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip((Number(page) - 1) * Number(limit))
         .limit(Number(limit))
         .lean(),
@@ -203,6 +204,12 @@ export async function sendInvoiceEmail(req, res, next) {
     const biz = await BusinessSettings.findOne({ userId: req.user.id }).lean() || {};
     const fmtCurrency = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
     const fmtDate = (s) => { if (!s) return '-'; const d = new Date(s); return isNaN(d) ? s : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); };
+    const escapeHtml = (value) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
     let calculatedTotal = 0;
     const itemRows = (invoice.items || [])
@@ -214,8 +221,8 @@ export async function sendInvoiceEmail(req, res, next) {
         calculatedTotal += taxable + gst;
         const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
         return `<tr style="background:${bg}">
-          <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111827">${it.description || '-'}</td>
-          <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#374151">${itemDescription || '-'}</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111827">${escapeHtml(it.description || '-')}</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#374151;white-space:pre-wrap">${itemDescription ? escapeHtml(itemDescription) : '-'}</td>
           <td style="padding:11px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px;color:#374151">${it.qty}</td>
           <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;color:#374151">${fmtCurrency(it.rate)}</td>
           <td style="padding:11px 14px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:13px;font-weight:600;color:#1e3a8a">${fmtCurrency(taxable + gst)}</td>
@@ -228,7 +235,7 @@ export async function sendInvoiceEmail(req, res, next) {
       calculatedTotal += amt + amt * ((Number(c.gstRate) || 0) / 100);
     });
 
-    const grandTotal = fmtCurrency(invoice.grandTotal || invoice.totals?.grandTotal || calculatedTotal);
+    const grandTotal = fmtCurrency(invoice.grandTotal || invoice.totals?.finalTotal || invoice.totals?.grandTotal || calculatedTotal);
     const docLabel = { invoice: 'Invoice', quotation: 'Quotation', 'credit-note': 'Credit Note', 'debit-note': 'Debit Note', 'sales-return': 'Sales Return', 'delivery-challan': 'Delivery Challan' }[invoice.documentType] || 'Invoice';
 
     const notesBlock = (invoice.notes || invoice.terms) ? `

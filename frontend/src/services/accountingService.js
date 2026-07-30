@@ -11,6 +11,10 @@ export function getLedgerAccounts() {
   return apiClient('/accounting/ledger');
 }
 
+export function resetAccountingFromInvoices() {
+  return apiClient('/accounting/reset-from-invoices', { method: 'POST' });
+}
+
 export function createLedgerAccount(account) {
   return apiClient('/accounting/ledger', {
     method: 'POST',

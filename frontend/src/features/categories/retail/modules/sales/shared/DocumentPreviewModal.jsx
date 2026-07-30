@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   X,
 } from 'lucide-react';
@@ -14,20 +14,19 @@ const btnOutline = 'inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] fon
 // CSS in index.css. Keep both in sync — this is what lets us pre-compute page
 // breaks instead of measuring the DOM or slicing a rasterized screenshot.
 const LAYOUT_MM = {
-  contentHeight: 273, // 297 page - 12 top margin - 12 bottom margin
-  header: 40,
+  contentHeight: 281, // 297 page - 8 top margin - 8 bottom margin
+  header: 34,
   divider: 2,
-  addresses: 34,
-  extraDetails: 10,
+  addresses: 28,
+  extraDetails: 8,
   tableHeader: 7,
-  row: 8,
-  continuationHeader: 14,
+  continuationHeader: 11,
   // Measured (not estimated) from the actual .invoice-summary + .invoice-bottom-grid
   // markup/CSS for a fully paid invoice (Payment Mode/Amount Received/Balance Due rows
   // showing) with 3 GST-rate rows in the tax table — the tallest realistic combination.
   // The previous value of 80 under-budgeted this by ~19mm, which is what let a fully
   // paid invoice's Bank Details card render past the page bottom and get cropped.
-  footer: 92,
+  footer: 82,
 };
 
 function fmtDate(iso) {
@@ -43,6 +42,22 @@ function fmtDate(iso) {
 const ITEM_NAME_MAX_CHARS = 55;
 const EXTRA_VALUE_MAX_CHARS = 60;
 const NOTES_MAX_CHARS = 220;
+const MODERN_ROW_MIN_HEIGHT_MM = 7;
+const CLASSIC_ROW_MIN_HEIGHT_MM = 6.5;
+const CLASSIC_LAYOUT_MM = {
+  contentHeight: 283,
+  firstHeader: 64,
+  continuationHeader: 12,
+  tableHeader: 7,
+  subtotal: 4.8,
+  taxRow: 8,
+  uqc: 10.5,
+  totalLine: 4.5,
+  summary: 32,
+  words: 0,
+  bottom: 42,
+  footer: 8,
+};
 
 // Truncate in JS rather than clamp with CSS overflow/max-height: html2canvas
 // (used by the Download PDF button) mis-renders overflow:hidden combined
@@ -65,6 +80,24 @@ function lineItemExtraDescription(item = {}) {
     ?? '';
 }
 
+function trimOuterBlankLines(lines) {
+  const next = [...lines];
+  while (next.length > 0 && !next[0].trim()) next.shift();
+  while (next.length > 0 && !next[next.length - 1].trim()) next.pop();
+  return next;
+}
+
+function lineItemDescriptionBullets(item = {}) {
+  return trimOuterBlankLines(String(lineItemExtraDescription(item) || '')
+    .split(/\r?\n/));
+}
+
+function lineItemClassicDescriptionLines(item = {}) {
+  return trimOuterBlankLines(String(lineItemExtraDescription(item) || '')
+    .replace(/([^\r\n])\s+(?=\d+\.\s*\S)/g, '$1\n')
+    .split(/\r?\n/));
+}
+
 function lineCalc(item) {
   const gross = (Number(item.qty) || 0) * (Number(item.rate) || 0);
   const discountAmt = gross * ((Number(item.discount) || 0) / 100);
@@ -80,40 +113,157 @@ function formatInvoiceTableCurrency(value) {
   });
 }
 
-function paginateRows(rowCount, hasExtraDetails) {
-  const extra = hasExtraDetails ? LAYOUT_MM.extraDetails : 0;
-  const firstNoFooter = Math.max(1, Math.floor(
-    (LAYOUT_MM.contentHeight - LAYOUT_MM.header - LAYOUT_MM.divider - LAYOUT_MM.addresses - extra - LAYOUT_MM.tableHeader) / LAYOUT_MM.row,
-  ));
-  const firstWithFooter = Math.max(1, Math.floor(
-    (LAYOUT_MM.contentHeight - LAYOUT_MM.header - LAYOUT_MM.divider - LAYOUT_MM.addresses - extra - LAYOUT_MM.tableHeader - LAYOUT_MM.footer) / LAYOUT_MM.row,
-  ));
-  const contNoFooter = Math.max(1, Math.floor(
-    (LAYOUT_MM.contentHeight - LAYOUT_MM.continuationHeader - LAYOUT_MM.tableHeader) / LAYOUT_MM.row,
-  ));
-  const contWithFooter = Math.max(1, Math.floor(
-    (LAYOUT_MM.contentHeight - LAYOUT_MM.continuationHeader - LAYOUT_MM.tableHeader - LAYOUT_MM.footer) / LAYOUT_MM.row,
-  ));
+function formatClassicAmount(value) {
+  return Number(value || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
+function formatClassicDate(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-GB').replace(/\//g, '-');
+}
+
+function classicPaymentPendingText(docMeta = {}) {
+  const base = docMeta.dueDate || docMeta.date;
+  if (!base) return 'Payment pending.';
+  const target = new Date(base);
+  if (Number.isNaN(target.getTime())) return 'Payment pending.';
+  const today = new Date();
+  const diff = Math.max(0, Math.ceil((target.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / 86400000));
+  return diff > 0 ? `Payment pending by ${diff} Days.` : 'Payment pending.';
+}
+
+function classicTermsLines(terms, notes) {
+  const fallback = 'Goods once sold will not be taken back.\nRate difference payable on overdue bill.';
+  const text = String(terms || notes || fallback);
+  return text
+    .split(/\r?\n|(?=\s*-\s*[A-Za-z0-9])/)
+    .map((line) => line.replace(/^\s*[-*\u2022]\s*/, '').trim())
+    .filter(Boolean)
+    .map((line) => truncateText(line, 135));
+}
+
+function wrappedLineCount(text, charsPerLine) {
+  const value = String(text || '').trim();
+  if (!value) return 0;
+  return value
+    .split(/\r?\n/)
+    .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.trim().length / charsPerLine)), 0);
+}
+
+function estimateModernRowHeight(row) {
+  if (row.kind === 'charge') return MODERN_ROW_MIN_HEIGHT_MM;
+  const item = row.data || {};
+  const titleLines = wrappedLineCount(item.description, 24);
+  const descriptionLines = lineItemDescriptionBullets(item)
+    .reduce((sum, line) => sum + (line ? Math.max(1, Math.ceil(line.length / 20)) : 1), 0);
+  return Math.max(MODERN_ROW_MIN_HEIGHT_MM, 2.5 + Math.max(titleLines, descriptionLines, 1) * 3.4);
+}
+
+function estimateClassicRowHeight(row) {
+  if (row.kind === 'charge') return CLASSIC_ROW_MIN_HEIGHT_MM;
+  const item = row.data || {};
+  const titleLines = wrappedLineCount(item.description, 70);
+  const descriptionLines = lineItemClassicDescriptionLines(item)
+    .reduce((sum, line) => sum + (line ? Math.max(1, Math.ceil(line.length / 70)) : 1), 0);
+  return Math.max(CLASSIC_ROW_MIN_HEIGHT_MM, 2 + (titleLines * 3.2) + (descriptionLines * 3.2));
+}
+
+function paginateByHeight(rows, getCapacity, estimateRowHeight) {
   const pages = [];
   let start = 0;
   let pageIndex = 0;
 
-  while (start < rowCount || pages.length === 0) {
-    const isFirst = pageIndex === 0;
-    const noFooterCap = isFirst ? firstNoFooter : contNoFooter;
-    const withFooterCap = isFirst ? firstWithFooter : contWithFooter;
-    const remaining = rowCount - start;
-    const isLast = remaining <= withFooterCap;
-    const capacity = isLast ? withFooterCap : noFooterCap;
-    const count = isLast ? remaining : Math.min(capacity, remaining);
-    const fillerRows = isLast ? Math.max(0, capacity - count) : 0;
-    pages.push({ isFirst, isLast, start, count, fillerRows, pageNumber: pageIndex + 1 });
+  while (start < rows.length || pages.length === 0) {
+    const remainingRows = rows.length - start;
+    const heights = rows.slice(start).map(estimateRowHeight);
+    const remainingHeight = heights.reduce((sum, height) => sum + height, 0);
+    const isLastCandidate = remainingRows === 0 || remainingHeight <= getCapacity(pageIndex, true);
+    const capacity = getCapacity(pageIndex, isLastCandidate);
+    let used = 0;
+    let count = 0;
+
+    while (count < remainingRows) {
+      const nextHeight = heights[count];
+      if (count > 0 && used + nextHeight > capacity) break;
+      used += nextHeight;
+      count += 1;
+      if (used >= capacity) break;
+    }
+
+    if (remainingRows > 0 && count === 0) count = 1;
+    const isLast = start + count >= rows.length;
+    pages.push({
+      isFirst: pageIndex === 0,
+      isLast,
+      start,
+      count,
+      fillerHeight: Math.max(0, capacity - used),
+      pageNumber: pageIndex + 1,
+    });
     start += count;
     pageIndex += 1;
     if (pageIndex > 200) break;
   }
+
   return pages;
+}
+
+function BlankTableRow({ colSpan, height }) {
+  if (!height || height < 3) return null;
+  return (
+    <tr className="invoice-blank-fill-row" style={{ height: `${height}mm` }}>
+      {Array.from({ length: colSpan }).map((_, index) => (
+        <td key={index}>&nbsp;</td>
+      ))}
+    </tr>
+  );
+}
+
+function tableColumnCount(showGst) {
+  return showGst ? 9 : 6;
+}
+
+function paginateRows(rows, hasExtraDetails) {
+  const extra = hasExtraDetails ? LAYOUT_MM.extraDetails : 0;
+  return paginateByHeight(
+    rows,
+    (pageIndex, withFooter) => {
+      const firstPageBase = LAYOUT_MM.header + LAYOUT_MM.divider + LAYOUT_MM.addresses + extra + LAYOUT_MM.tableHeader;
+      const continuationBase = LAYOUT_MM.continuationHeader + LAYOUT_MM.tableHeader;
+      const base = pageIndex === 0 ? firstPageBase : continuationBase;
+      return Math.max(MODERN_ROW_MIN_HEIGHT_MM, LAYOUT_MM.contentHeight - base - (withFooter ? LAYOUT_MM.footer : 0));
+    },
+    estimateModernRowHeight,
+  );
+}
+
+function classicFooterHeight({ hasRows, taxRateCount, hasRoundOff }) {
+  return (hasRows ? CLASSIC_LAYOUT_MM.subtotal : 0)
+    + (taxRateCount * CLASSIC_LAYOUT_MM.taxRow)
+    + CLASSIC_LAYOUT_MM.uqc
+    + (hasRoundOff ? CLASSIC_LAYOUT_MM.totalLine : 0)
+    + CLASSIC_LAYOUT_MM.totalLine
+    + CLASSIC_LAYOUT_MM.summary
+    + CLASSIC_LAYOUT_MM.words
+    + CLASSIC_LAYOUT_MM.bottom
+    + CLASSIC_LAYOUT_MM.footer;
+}
+
+function paginateClassicRows(rows, { taxRateCount, hasRoundOff }) {
+  const finalHeight = classicFooterHeight({ hasRows: rows.length > 0, taxRateCount, hasRoundOff });
+  return paginateByHeight(
+    rows,
+    (pageIndex, withFooter) => {
+      const base = (pageIndex === 0 ? CLASSIC_LAYOUT_MM.firstHeader : CLASSIC_LAYOUT_MM.continuationHeader) + CLASSIC_LAYOUT_MM.tableHeader;
+      return Math.max(CLASSIC_ROW_MIN_HEIGHT_MM, CLASSIC_LAYOUT_MM.contentHeight - base - (withFooter ? finalHeight : 0));
+    },
+    estimateClassicRowHeight,
+  );
 }
 
 function InfoLine({ label, value }) {
@@ -250,15 +400,24 @@ async function renderPdf(pageEls, filename, outputMode = 'save') {
   const pageHeight = 297;
 
   for (let i = 0; i < pageEls.length; i += 1) {
-    const canvas = await html2canvas(pageEls[i], {
-      scale: 2,
+    const pageEl = pageEls[i];
+    const pageRect = pageEl.getBoundingClientRect();
+    const pageWidthPx = Math.ceil(pageRect.width);
+    const pageHeightPx = Math.ceil(pageRect.height);
+    const canvas = await html2canvas(pageEl, {
+      scale: 3,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: 794,
+      width: pageWidthPx,
+      height: pageHeightPx,
+      windowWidth: pageWidthPx,
+      windowHeight: pageHeightPx,
+      scrollX: 0,
+      scrollY: 0,
     });
     if (i > 0) pdf.addPage('a4', 'portrait');
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', 0, 0, pageWidth, pageHeight);
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, pageHeight);
   }
 
   if (outputMode === 'datauristring') return pdf.output('datauristring');
@@ -269,6 +428,7 @@ async function renderPdf(pageEls, filename, outputMode = 'save') {
 function ItemRow({ item, sno, showGst, isIntrastate }) {
   const line = lineCalc(item);
   const gstRate = Number(item.gstRate) || 0;
+  const descriptionBullets = lineItemDescriptionBullets(item);
   return (
     <tr>
       <td className="invoice-col-sno">{sno}</td>
@@ -276,7 +436,15 @@ function ItemRow({ item, sno, showGst, isIntrastate }) {
         <div className="invoice-item-main">{truncateText(item.description, ITEM_NAME_MAX_CHARS) || '-'}</div>
       </td>
       <td className="invoice-col-description">
-        <div className="invoice-item-main">{truncateText(lineItemExtraDescription(item), ITEM_NAME_MAX_CHARS) || '-'}</div>
+        {descriptionBullets.length > 0 ? (
+          <ul className="invoice-description-list">
+            {descriptionBullets.map((description, index) => (
+              <li className={description ? '' : 'invoice-description-list-blank'} key={`${description}-${index}`}>{description || '\u00a0'}</li>
+            ))}
+          </ul>
+        ) : (
+          <div className="invoice-item-main">-</div>
+        )}
       </td>
       {showGst && <td className="invoice-col-hsn font-mono">{item.hsn || '-'}</td>}
       <td className="invoice-col-qty">{Number(item.qty) || 0}</td>
@@ -317,6 +485,383 @@ function ChargeRow({ charge, showGst, isIntrastate }) {
   );
 }
 
+function ClassicField({ label, value, strong = false }) {
+  return (
+    <div className="invoice-classic-field">
+      <span>{label}</span>
+      <b>:</b>
+      <strong className={strong ? 'invoice-classic-emphasis' : ''}>{value || '-'}</strong>
+    </div>
+  );
+}
+
+function ClassicLineRow({ row, index, showGst }) {
+  const item = row.kind === 'item' ? row.data : null;
+  const charge = row.kind === 'charge' ? row.data : null;
+  const line = item
+    ? lineCalc(item)
+    : {
+      taxable: Number(charge?.amount) || 0,
+      gstAmt: (Number(charge?.amount) || 0) * ((Number(charge?.gstRate) || 0) / 100),
+    };
+  const gstRate = Number(item?.gstRate ?? charge?.gstRate) || 0;
+  const qty = item ? Number(item.qty) || 0 : '';
+  const unit = item?.unit || 'NOS';
+  const priceWithGst = showGst && qty ? (line.taxable + line.gstAmt) / qty : Number(item?.rate || charge?.amount) || 0;
+  const descriptionLines = lineItemClassicDescriptionLines(item || {});
+
+  return (
+    <tr>
+      <td className="classic-col-sno">{index + 1})</td>
+      <td className="classic-col-desc">
+        <div className="invoice-classic-item-title">{truncateText(item?.description || charge?.label || 'Additional Charge', 82)}</div>
+        {descriptionLines.length > 0 && (
+          <div className="invoice-classic-item-sub">
+            {descriptionLines.map((line, lineIndex) => (
+              <div className="invoice-classic-item-sub-line" key={`${line}-${lineIndex}`}>{line || '\u00a0'}</div>
+            ))}
+          </div>
+        )}
+      </td>
+      {showGst && <td className="classic-col-hsn">{item?.hsn || '-'}</td>}
+      {showGst && <td className="classic-col-gst">{gstRate ? `${gstRate}%` : '-'}</td>}
+      <td className="classic-col-qty">{qty}</td>
+      <td className="classic-col-uqc">{qty ? String(unit).toUpperCase() : ''}</td>
+      <td className="classic-col-price">{qty ? formatClassicAmount(Number(item.rate) || 0) : ''}</td>
+      {showGst && <td className="classic-col-price-gst">{qty ? formatClassicAmount(priceWithGst) : ''}</td>}
+      <td className="classic-col-amount">{formatClassicAmount(line.taxable)}</td>
+    </tr>
+  );
+}
+
+function ClassicSummaryBlock({
+  totals, taxRateRows, isIntrastate, showGst, paymentMethod,
+  advanceAmt, addDiscount, tds, tcs,
+}) {
+  const totalTax = (Number(totals.totalGst) || 0) + (Number(totals.chargesGst) || 0);
+  return (
+    <div className="invoice-classic-summary">
+      <div className="invoice-classic-tax-summary">
+        <h3>Tax Summary</h3>
+        {showGst && taxRateRows.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>GST</th>
+                <th>Taxable</th>
+                <th>CGST</th>
+                <th>SGST</th>
+                <th>IGST</th>
+                <th>Total Tax</th>
+              </tr>
+            </thead>
+            <tbody>
+              {taxRateRows.map(([rate, val]) => (
+                <tr key={rate}>
+                  <td>{rate}%</td>
+                  <td>{formatClassicAmount(val.taxable)}</td>
+                  <td>{formatClassicAmount(isIntrastate ? val.gst / 2 : 0)}</td>
+                  <td>{formatClassicAmount(isIntrastate ? val.gst / 2 : 0)}</td>
+                  <td>{formatClassicAmount(isIntrastate ? 0 : val.gst)}</td>
+                  <td>{formatClassicAmount(val.gst)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>No tax applicable</p>
+        )}
+        <div className="invoice-classic-summary-words">
+          <span>Amount Chargeable (In Words)</span>
+          <strong>{numberToWords(totals.finalTotal)}</strong>
+        </div>
+      </div>
+
+      <table className="invoice-classic-payment-summary">
+        <tbody>
+          <tr><td>Subtotal</td><td>{formatClassicAmount(totals.subtotal)}</td></tr>
+          {totals.discount > 0 && <tr><td>Discount</td><td>- {formatClassicAmount(totals.discount)}</td></tr>}
+          {totals.chargesSubtotal > 0 && <tr><td>Other Charges</td><td>{formatClassicAmount(totals.chargesSubtotal)}</td></tr>}
+          {showGst && totalTax > 0 && <tr><td>Tax</td><td>{formatClassicAmount(totalTax)}</td></tr>}
+          {totals.addDiscAmt > 0 && <tr><td>Discount{addDiscount?.type === 'percent' && addDiscount.value ? ` (${addDiscount.value}%)` : ''}</td><td>- {formatClassicAmount(totals.addDiscAmt)}</td></tr>}
+          {tds?.enabled && totals.tdsAmt > 0 && <tr><td>TDS ({tds.rate}%)</td><td>- {formatClassicAmount(totals.tdsAmt)}</td></tr>}
+          {tcs?.enabled && totals.tcsAmt > 0 && <tr><td>TCS ({tcs.rate}%)</td><td>+ {formatClassicAmount(totals.tcsAmt)}</td></tr>}
+          {Math.abs(totals.roundOff) >= 0.01 && <tr><td>{totals.manualTotalOverride ? 'Manual Total Adjustment' : 'Round Off'}</td><td>{totals.roundOff > 0 ? '+' : ''}{formatClassicAmount(totals.roundOff)}</td></tr>}
+          <tr className="invoice-classic-payment-grand"><td>Grand Total</td><td>{formatClassicAmount(totals.finalTotal)}</td></tr>
+          {paymentMethod && <tr><td>Payment Mode</td><td>{paymentMethod}</td></tr>}
+          {Number(advanceAmt) > 0 && (
+            totals.balanceDue <= 0 ? (
+              <tr className="invoice-classic-payment-due"><td>Paid in Full</td><td>{formatClassicAmount(Number(advanceAmt))}</td></tr>
+            ) : (
+              <>
+                <tr><td>Amount Received</td><td>- {formatClassicAmount(Number(advanceAmt))}</td></tr>
+                <tr className="invoice-classic-payment-due"><td>Balance Due</td><td>{formatClassicAmount(totals.balanceDue)}</td></tr>
+              </>
+            )
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DocumentClassicTemplate({
+  config, customer, docMeta, docExtra, items, charges, totals,
+  notes, terms, supplyType, bizSettings, paymentMethod, showGst,
+  advanceAmt, addDiscount, tds, tcs,
+}) {
+  const visibleItems = items.filter((item) => item.description || Number(item.rate) > 0);
+  const combinedRows = [
+    ...visibleItems.map((item) => ({ kind: 'item', data: item })),
+    ...charges.map((charge) => ({ kind: 'charge', data: charge })),
+  ];
+  const isIntrastate = supplyType === 'intrastate';
+  const taxRateRows = Object.entries(totals.gstByRate || {}).filter(([, val]) => val.taxable > 0);
+  const totalQty = visibleItems.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+  const qtyByUnit = visibleItems.reduce((acc, item) => {
+    const unit = String(item.unit || 'NOS').toUpperCase();
+    acc[unit] = (acc[unit] || 0) + (Number(item.qty) || 0);
+    return acc;
+  }, {});
+  const bankRows = [
+    ['BANK NAME', bizSettings.bankName],
+    ['A/C NAME', bizSettings.accountHolderName],
+    ['A/C No.', bizSettings.accountNumber],
+    ['IFSC CODE', bizSettings.ifscCode],
+  ].filter(([, value]) => value);
+  const title = config.printTitle || config.title || 'Tax Invoice';
+  const customerAddress = [
+    customer.address,
+    [customer.city, customer.state].filter(Boolean).join(', '),
+    customer.pincode ? `PIN :${customer.pincode}` : '',
+  ].filter(Boolean);
+  const businessAddress = [
+    bizSettings.address,
+    [bizSettings.city, bizSettings.state].filter(Boolean).join(', '),
+    bizSettings.pincode,
+  ].filter(Boolean).join(', ');
+  const hasRoundOff = Math.abs(totals.roundOff) >= 0.01;
+  const classicPages = paginateClassicRows(combinedRows, { taxRateCount: taxRateRows.length, hasRoundOff });
+  const totalPages = classicPages.length;
+
+  return (
+    <>
+      {classicPages.map((page) => {
+        const pageRows = combinedRows.slice(page.start, page.start + page.count);
+        return (
+      <section key={page.pageNumber} className="invoice-page invoice-classic-page">
+        <div className="invoice-classic-outer">
+          <div className="invoice-classic-title-row">
+            <span />
+            <strong>{title}</strong>
+            <em>Original for Recipient (Page {page.pageNumber}/{totalPages})</em>
+          </div>
+
+          {page.isFirst ? (
+            <>
+              <div className="invoice-classic-top-grid">
+                <div className="invoice-classic-business">
+                  {bizSettings.logoUrl && (
+                    <img src={`${SERVER_ORIGIN}${bizSettings.logoUrl}`} alt="logo" className="invoice-classic-logo" />
+                  )}
+                  <div>
+                    <h2>{bizSettings.businessName || 'Your Business'}</h2>
+                    <p>{businessAddress || '-'}</p>
+                    {bizSettings.phone && <p>{bizSettings.phone}</p>}
+                    {bizSettings.businessEmail && <p>{bizSettings.businessEmail}</p>}
+                    {showGst && bizSettings.gstin && <h3>GSTIN: {bizSettings.gstin}</h3>}
+                  </div>
+                </div>
+
+                <div className="invoice-classic-meta-grid">
+                  <div>
+                    <ClassicField label="Invoice No." value={docMeta.number} strong />
+                    <ClassicField label="P.O. No." value={docMeta.poRef || docExtra.poNo || docExtra.purchaseOrderNo} />
+                    <ClassicField label="Challan No." value={docExtra.challanNo} />
+                    <ClassicField label="Bill Pay Status" value={`Due ${formatClassicAmount(Math.max(0, totals.balanceDue || totals.finalTotal))}`} strong />
+                    <ClassicField label="Bill Credit" value={docMeta.paymentTerms ? `${docMeta.paymentTerms} Days` : '-'} />
+                    <ClassicField label="Operator" value={docExtra.operator || docExtra.salesperson || '-'} />
+                    <ClassicField label="Delivery By" value={docExtra.deliveryBy || docExtra.transporter || 'By Hand'} />
+                  </div>
+                  <div>
+                    <ClassicField label="Invoice Date" value={formatClassicDate(docMeta.date)} strong />
+                    <ClassicField label="P.O. Date" value={formatClassicDate(docExtra.poDate)} />
+                    <ClassicField label="Pay. Mode" value={paymentMethod || '-'} />
+                    <ClassicField label="Salesman" value={docExtra.salesperson || docExtra.salesman || '-'} />
+                    <ClassicField label="Due Date" value={formatClassicDate(docMeta.dueDate)} />
+                    <ClassicField label="LR No." value={docExtra.lrNo} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="invoice-classic-party-grid">
+                <div className="invoice-classic-customer">
+                  <div className="invoice-classic-section-caption">Customer</div>
+                  <h2>{customer.name || '-'}</h2>
+                  {customerAddress.map((line) => <p key={line}>{line}</p>)}
+                  {customer.gstType && <p>GST Type :{customer.gstType}</p>}
+                  {docMeta.placeOfSupply && <p>POS : {docMeta.placeOfSupply}</p>}
+                  {customer.phone && <h3>Mobile : {customer.phone}</h3>}
+                </div>
+                <div className="invoice-classic-ledger">
+                  <div className="invoice-classic-ledger-heading">Last Transaction:</div>
+                  <p>{classicPaymentPendingText(docMeta)}</p>
+                  <div className="invoice-classic-ledger-row"><span>Old Balance</span><b>=</b><strong>{formatClassicAmount(0)}</strong></div>
+                  <div className="invoice-classic-ledger-row"><span>Adding this Invoice Amount</span><b>=</b><strong>+{formatClassicAmount(totals.finalTotal)}</strong></div>
+                  <div className="invoice-classic-ledger-row invoice-classic-ledger-total"><span>New Balance after this Invoice</span><b>=</b><strong>{formatClassicAmount(totals.finalTotal)}</strong></div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="invoice-classic-continuation-row">
+              <strong>{bizSettings.businessName || 'Your Business'}</strong>
+              <span>{title} #{docMeta.number}</span>
+              <b>Page {page.pageNumber} of {totalPages}</b>
+            </div>
+          )}
+
+          <table className={`invoice-classic-table${showGst ? '' : ' invoice-classic-table-no-gst'}`}>
+            <thead>
+              <tr>
+                <th className="classic-col-sno">S/N</th>
+                <th className="classic-col-desc">Description Of Goods / Service</th>
+                {showGst && <th className="classic-col-hsn">HSN/SAC</th>}
+                {showGst && <th className="classic-col-gst">GST</th>}
+                <th className="classic-col-qty">Billed<br />Quantity</th>
+                <th className="classic-col-uqc">UQC</th>
+                <th className="classic-col-price">Price</th>
+                {showGst && <th className="classic-col-price-gst">Price With<br />GST</th>}
+                <th className="classic-col-amount">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map((row, index) => <ClassicLineRow key={`${row.kind}-${page.start + index}`} row={row} index={page.start + index} showGst={showGst} />)}
+              {page.isLast && combinedRows.length > 0 && (
+                <tr className="invoice-classic-subtotal-row">
+                  <td className="classic-col-sno" />
+                  <td className="classic-col-desc" />
+                  {showGst && <td className="classic-col-hsn" />}
+                  {showGst && <td className="classic-col-gst" />}
+                  <td className="classic-col-qty">{totalQty || ''}</td>
+                  <td className="classic-col-uqc" />
+                  <td className="classic-col-price" />
+                  {showGst && <td className="classic-col-price-gst" />}
+                  <td className="classic-col-amount">{formatClassicAmount(totals.taxable || totals.invoiceTotal)}</td>
+                </tr>
+              )}
+              {page.isLast && showGst && taxRateRows.map(([rate, val]) => (
+                <tr key={`tax-${rate}`} className="invoice-classic-tax-inline">
+                  <td className="classic-col-sno" />
+                  <td className="classic-col-desc"><div>CGST @ {Number(rate) / 2}%</div><div>SGST @ {Number(rate) / 2}%</div></td>
+                  {showGst && <td className="classic-col-hsn" />}
+                  {showGst && <td className="classic-col-gst" />}
+                  <td className="classic-col-qty" />
+                  <td className="classic-col-uqc" />
+                  <td className="classic-col-price" />
+                  {showGst && <td className="classic-col-price-gst" />}
+                  <td className="classic-col-amount">{formatClassicAmount(isIntrastate ? val.gst / 2 : 0)}<br />{formatClassicAmount(isIntrastate ? val.gst / 2 : 0)}</td>
+                </tr>
+              ))}
+              {page.isLast && (
+                <tr className="invoice-classic-uqc-row">
+                  <td />
+                  <td>
+                    <div className="invoice-classic-qty-summary">
+                      <b>UQC</b><b>Quantity</b>
+                      {Object.entries(qtyByUnit).map(([unit, qty]) => (
+                        <Fragment key={unit}>
+                          <span>{unit} :</span>
+                          <span>{qty}</span>
+                        </Fragment>
+                      ))}
+                    </div>
+                  </td>
+                  {showGst && <td />}
+                  {showGst && <td />}
+                  <td />
+                  <td />
+                  <td />
+                  {showGst && <td />}
+                  <td />
+                </tr>
+              )}
+              <BlankTableRow colSpan={tableColumnCount(showGst)} height={page.fillerHeight} />
+              {page.isLast && hasRoundOff && (
+                <tr className="invoice-classic-total-line">
+                  <td colSpan={showGst ? 8 : 5}>Roundup</td>
+                  <td>{formatClassicAmount(totals.roundOff)}</td>
+                </tr>
+              )}
+              {page.isLast && (
+                <tr className="invoice-classic-grand-total">
+                  <td colSpan={showGst ? 8 : 5}>Grand Total</td>
+                  <td>{formatClassicAmount(totals.finalTotal)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {page.isLast && (
+            <>
+              <ClassicSummaryBlock
+                totals={totals}
+                taxRateRows={taxRateRows}
+                isIntrastate={isIntrastate}
+                showGst={showGst}
+                paymentMethod={paymentMethod}
+                advanceAmt={advanceAmt}
+                addDiscount={addDiscount}
+                tds={tds}
+                tcs={tcs}
+              />
+
+              <div className="invoice-classic-bottom">
+                <div className="invoice-classic-bank">
+                  <h3>Bank Details:</h3>
+                  {bankRows.length > 0 ? bankRows.map(([label, value]) => (
+                    <p key={label}><b>{label}</b><span>:</span>{value}</p>
+                  )) : <p>Add bank details in Business Settings</p>}
+                </div>
+                <div className="invoice-classic-qr">
+                  <h3>UPI Payment QR Code</h3>
+                  <img src="/upi-payment-qr.jpg" alt="UPI Payment QR Code" />
+                </div>
+                <div className="invoice-classic-terms">
+                  <h3>Terms & Condition:</h3>
+                  <ul>
+                    {classicTermsLines(terms, notes).map((line, index) => (
+                      <li key={`${line}-${index}`}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="invoice-classic-declaration">
+                  <h3>Declaration:</h3>
+                  <p>Subject to local jurisdiction.</p>
+                  <p>Goods sold as bill.</p>
+                  <p>Prices are approved from customer side.</p>
+                  <p>Material has been delivered with this invoice copy.</p>
+                </div>
+                <div className="invoice-classic-sign">
+                  <strong>For {bizSettings.businessName || 'Your Business'}</strong>
+                  <b>Authorized Signatory</b>
+                </div>
+              </div>
+
+              <div className="invoice-classic-footer">
+                <strong>Buyer Seal And Signature</strong>
+                <span>This is a Computer Generated TAX INVOICE</span>
+                <strong />
+              </div>
+            </>
+          )}
+            </div>
+      </section>
+        );
+      })}
+    </>
+  );
+}
+
 function TableHead({ showGst }) {
   return (
     <thead>
@@ -347,6 +892,7 @@ export function DocumentPreviewModal({
   notes, terms, supplyType, bizSettings, shipping, sameShipping,
   tds, tcs, advanceAmt, paymentMethod = '', addDiscount, autoPrint = false, embedded = false, onClose,
   downloadAsPdf = false, pdfMode = false, invoiceNumber = '', onPdfReady = null, onPdfDownloaded = null,
+  printTemplate = 'modern',
 }) {
   const didAutoPrint = useRef(false);
   const didDownload = useRef(false);
@@ -383,7 +929,6 @@ export function DocumentPreviewModal({
     { show: config.showIRN && docExtra.ackNumber, label: 'Ack No', value: docExtra.ackNumber },
   ].filter((d) => d.show);
 
-  const itemColSpan = showGst ? 11 : 6;
   const pdfFilename = invoiceNumber
     ? `Invoice-${String(invoiceNumber).replace(/[\\/:*?"<>|]+/g, '-')}.pdf`
     : 'Invoice.pdf';
@@ -392,8 +937,9 @@ export function DocumentPreviewModal({
     ...visibleItems.map((item, i) => ({ kind: 'item', data: item, sno: i + 1 })),
     ...charges.map((charge) => ({ kind: 'charge', data: charge })),
   ];
-  const pages = paginateRows(combinedRows.length, extraDetails.length > 0);
+  const pages = paginateRows(combinedRows, extraDetails.length > 0);
   const totalPages = pages.length;
+  const isClassicTemplate = printTemplate === 'classic';
 
   useEffect(() => {
     if (!autoPrint) {
@@ -451,7 +997,7 @@ export function DocumentPreviewModal({
       ref={embedded ? undefined : modalRef}
       role={embedded ? undefined : 'dialog'}
       aria-modal={embedded ? undefined : true}
-      className={`${pdfMode ? 'pdf-render ' : ''}${embedded ? '' : 'fixed inset-0 z-50 bg-black/50 overflow-y-auto py-8 px-4 print:bg-white print:py-0 print:px-0 print:overflow-visible print:h-auto print:bottom-auto'}`}
+      className={`${(pdfMode || downloading || downloadAsPdf) ? 'pdf-render ' : ''}${embedded ? '' : 'fixed inset-0 z-50 bg-black/50 overflow-y-auto py-8 px-4 print:bg-white print:py-0 print:px-0 print:overflow-visible print:h-auto print:bottom-auto'}`}
     >
       {downloading && (
         <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center print:hidden">
@@ -469,8 +1015,28 @@ export function DocumentPreviewModal({
         </div>
       )}
 
-      <div ref={previewRef} id="document-preview-print" className="invoice-pages-stack">
-        {pages.map((page) => {
+      <div ref={previewRef} id="document-preview-print" className={`invoice-pages-stack${isClassicTemplate ? ' invoice-classic-stack' : ''}`}>
+        {isClassicTemplate ? (
+          <DocumentClassicTemplate
+            config={config}
+            customer={customer}
+            docMeta={docMeta}
+            docExtra={docExtra}
+            items={items}
+            charges={charges}
+            totals={totals}
+            notes={notes}
+            terms={terms}
+            supplyType={supplyType}
+            bizSettings={bizSettings}
+            paymentMethod={paymentMethod}
+            showGst={showGst}
+            advanceAmt={advanceAmt}
+            addDiscount={addDiscount}
+            tds={tds}
+            tcs={tcs}
+          />
+        ) : pages.map((page) => {
           const pageRows = combinedRows.slice(page.start, page.start + page.count);
           return (
             <section key={page.pageNumber} className="invoice-page">
@@ -554,13 +1120,7 @@ export function DocumentPreviewModal({
                     {pageRows.map((row, i) => (row.kind === 'item'
                       ? <ItemRow key={`item-${page.start + i}`} item={row.data} sno={row.sno} showGst={showGst} isIntrastate={isIntrastate} />
                       : <ChargeRow key={`charge-${page.start + i}`} charge={row.data} showGst={showGst} isIntrastate={isIntrastate} />))}
-                    {Array.from({ length: page.fillerRows }).map((_, rowIndex) => (
-                      <tr key={`filler-${rowIndex}`} className="invoice-filler-row">
-                        {Array.from({ length: itemColSpan }).map((__, colIndex) => (
-                          <td key={colIndex}>&nbsp;</td>
-                        ))}
-                      </tr>
-                    ))}
+                    <BlankTableRow colSpan={showGst ? 12 : 6} height={page.fillerHeight} />
                   </tbody>
                 </table>
               </div>
@@ -653,7 +1213,7 @@ export function DocumentPreviewModal({
                         )}
                         {Math.abs(totals.roundOff) >= 0.01 && (
                           <tr>
-                            <td className="invoice-total-label">Round Off</td>
+                            <td className="invoice-total-label">{totals.manualTotalOverride ? 'Manual Total Adjustment' : 'Round Off'}</td>
                             <td className="invoice-total-value">{totals.roundOff > 0 ? '+' : ''}{formatCurrency(totals.roundOff)}</td>
                           </tr>
                         )}
@@ -710,6 +1270,11 @@ export function DocumentPreviewModal({
                     </BottomCard>
                   </div>
 
+                  <div className="invoice-brand-footer">
+                    <span>Invoice generated by <strong>GoBook</strong></span>
+                    <span>This is a computer generated invoice.</span>
+                    <span className="invoice-brand-url">www.gobooksuite.com</span>
+                  </div>
                 </>
               )}
             </section>

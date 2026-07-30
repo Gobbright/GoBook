@@ -10,6 +10,7 @@ const businessSettingsSchema = new Schema({
   fyStart:         { type: String, default: '01 April' },
   currency:        { type: String, default: 'INR - Indian Rupee (₹)' },
   timezone:        { type: String, default: '(GMT +05:30) Asia/Kolkata' },
+  lastReminderRunDate: { type: String, default: '' },
   dateFormat:      { type: String, default: 'DD MMM YYYY' },
   invoicePrefix:   { type: String, default: 'INV-' },
   emailNotifications:    { type: Boolean, default: true },
@@ -34,6 +35,13 @@ const businessSettingsSchema = new Schema({
   gspUsername:          { type: String, default: '' },
   gspPassword:          { type: String, default: '' },
   gspSandbox:           { type: Boolean, default: true },
+  // Hospital's own outgoing email account, used to send appointment reminders
+  // as the hospital instead of the platform's shared mailbox.
+  emailSmtpHost:        { type: String, default: '' },
+  emailSmtpPort:        { type: Number, default: 587 },
+  emailSmtpSecure:      { type: Boolean, default: false },
+  emailSmtpUser:        { type: String, default: '' },
+  emailSmtpPass:        { type: String, default: '', select: false },
 }, { timestamps: true });
 
 export const BusinessSettings = model('BusinessSettings', businessSettingsSchema);

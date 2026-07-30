@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { createCampaign as createEmailCampaign, deleteCampaign as deleteEmailCampaign, listCampaigns as listEmailCampaigns, updateCampaign as updateEmailCampaign } from './emailController.js';
+import { createCampaign as createEmailCampaign, deleteCampaign as deleteEmailCampaign, listCampaigns as listEmailCampaigns, sendCampaignNow, updateCampaign as updateEmailCampaign } from './emailController.js';
 import { getAiInsights, getReportsSummary } from './insightsController.js';
 import { createSalesRecord, deleteSalesRecord, getNextNumber, listSalesRecords, updateSalesRecord } from './salesRecordController.js';
 import { createVendor, deleteVendor, importVendors, listVendors, updateVendor } from './vendorController.js';
@@ -27,6 +27,7 @@ moreModulesRouter.get('/email-campaigns',      listEmailCampaigns);
 moreModulesRouter.post('/email-campaigns',     createEmailCampaign);
 moreModulesRouter.put('/email-campaigns/:id',  updateEmailCampaign);
 moreModulesRouter.delete('/email-campaigns/:id', deleteEmailCampaign);
+moreModulesRouter.post('/email-campaigns/:id/send', sendCampaignNow);
 
 // Sales Records (quotations, orders, invoices)
 moreModulesRouter.get('/sales-records/next-number', getNextNumber);
