@@ -15,11 +15,6 @@ function createTransporter() {
   });
 }
 
-<<<<<<< HEAD
-export async function sendMail({ to, subject, html, attachments = [] }) {
-  const transporter = createTransporter();
-  const from = process.env.SMTP_FROM || `GoBook Support <${process.env.SMTP_USER || 'support.gobook@gmail.com'}>`;
-=======
 // Builds a nodemailer transport override so mail goes out through a business's
 // own mailbox instead of the platform's shared SMTP account, when configured.
 export function buildSmtpOverride(source, fallbackName) {
@@ -43,7 +38,7 @@ export async function sendMail({ to, subject, html, attachments = [], smtp }) {
         auth: { user: smtp.user, pass: smtp.pass },
       })
     : createTransporter();
-  const from = smtp?.from || process.env.SMTP_FROM || process.env.SMTP_USER;
->>>>>>> origin/Fradrick
+  const from = smtp?.from || process.env.SMTP_FROM
+    || `GoBook Support <${process.env.SMTP_USER || 'support.gobook@gmail.com'}>`;
   await transporter.sendMail({ from, to, subject, html, attachments });
 }
