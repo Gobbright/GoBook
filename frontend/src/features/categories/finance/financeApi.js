@@ -1,4 +1,4 @@
-﻿import { apiClient } from '../../../services/apiClient.js';
+import { apiClient } from '../../../services/apiClient.js';
 
 function query(params = {}) {
   const value = new URLSearchParams(
@@ -29,4 +29,9 @@ export const financeApi = {
   }),
   reminders: () => apiClient('/finance/reminders'),
   reports: (month) => apiClient(`/finance/reports${query({ month })}`),
+  settings: () => apiClient('/settings'),
+  updateSettings: (payload) => apiClient('/settings', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  }),
 };

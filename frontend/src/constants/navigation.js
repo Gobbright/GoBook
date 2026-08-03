@@ -526,6 +526,14 @@ const SECTIONS = {
     title: 'Collection Entry',
     items: [{ label: 'Collection Entry', href: '/finance/collections', icon: 'IndianRupee' }],
   },
+  financeBills: {
+    title: 'Bills',
+    icon: 'ReceiptText',
+    items: [
+      { label: 'Auto Bill', href: '/finance/bills/auto', icon: 'ReceiptText' },
+      { label: 'Manual Bill', href: '/finance/bills/manual', icon: 'FileText' },
+    ],
+  },
   financeReminders: {
     title: 'Reminders',
     items: [{ label: 'Reminders', href: '/finance/reminders', icon: 'CalendarClock' }],
@@ -537,6 +545,10 @@ const SECTIONS = {
   financeReports: {
     title: 'Reports',
     items: [{ label: 'Reports', href: '/finance/reports', icon: 'BarChart3' }],
+  },
+  financeProfileSettings: {
+    title: 'Profile Settings',
+    items: [{ label: 'Profile Settings', href: '/finance/profile-settings', icon: 'Settings' }],
   },
 };
 
@@ -573,8 +585,8 @@ const CATEGORY_LAYOUTS = {
     'automobileService', 'automobileServiceInvoice', ...COMMON_LAYOUT.slice(1),
   ],
   finance: [
-    'financeDashboard', 'financeCustomers', 'financeCollections',
-    'financeReminders', 'financeReports',
+    'financeDashboard', 'financeCustomers', 'financeCollections', 'financeBills',
+    'financeReminders', 'financeReports', 'financeProfileSettings',
   ],
   transport: COMMON_LAYOUT,
   other: COMMON_LAYOUT,
