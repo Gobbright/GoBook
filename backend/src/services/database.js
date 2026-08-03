@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
 
 import { env } from '../config/env.js';
+import { auditPlugin } from './auditPlugin.js';
+
+// Registered before any model is compiled (this module is imported ahead of
+// routes/index.js in server.js, which is what pulls in every controller and
+// therefore every model) so it attaches to all of them automatically.
+mongoose.plugin(auditPlugin);
 
 const READY_STATES = {
   0: 'disconnected',

@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import { Invoice } from '../../../../models/Invoice.js';
 import { Payment } from '../../../../models/Payment.js';
 import { httpError } from '../../../../utils/httpError.js';
@@ -7,6 +6,7 @@ import {
   reverseAccountingPosting,
 } from '../../../../services/accountingPostings.js';
 import { getAccountingStatusForSource } from '../../../../services/salesAccountingStatus.js';
+import { buildSalesAggregationPipeline, unwrapFacetResult } from '../shared/salesFilters.js';
 
 function calcInvoiceTotal(inv) {
   const totals = inv.totals ?? {};
@@ -136,80 +136,70 @@ export async function deletePayment(req, res, next) {
 // GET /sales/invoices/outstanding
 export async function listOutstanding(req, res, next) {
   try {
-    const { status, search, from, to, documentType } = req.query;
+    const { documentType, page = 1, limit = 50 } = req.query;
+    const baseDocumentType = documentType && documentType !== 'all'
+      ? documentType
+      : { $in: ['invoice', 'bill-of-supply'] };
 
-    const docTypeFilter = documentType && documentType !== 'all'
-      ? { documentType }
-      : { documentType: { $in: ['invoice', 'bill-of-supply'] } };
+    const weekEnd = new Date();
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const weekEndStr = weekEnd.toISOString().slice(0, 10);
 
-    const invoices = await Invoice.find({
-      userId: req.user.id,
-      ...docTypeFilter,
-    }).sort({ createdAt: -1 }).lean();
-
-    // Get payment totals grouped by invoiceId
-    const paymentAgg = await Payment.aggregate([
-      { $match: { userId: new Types.ObjectId(req.user.id) } },
-      { $group: { _id: '$invoiceId', totalPaid: { $sum: '$amount' } } },
-    ]);
-    const paidMap = {};
-    for (const p of paymentAgg) paidMap[String(p._id)] = p.totalPaid;
-
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-
-    let rows = invoices.map((inv) => {
-      const invoiceTotal = calcInvoiceTotal(inv);
-      const paymentTotal = paidMap[String(inv._id)] || 0;
-      const totalPaid    = paymentTotal > 0 ? paymentTotal : Math.max(0, Number(inv.advanceReceived) || 0);
-      const balance      = Math.max(0, invoiceTotal - totalPaid);
-
-      const dueDate   = inv.meta?.dueDate ? new Date(inv.meta.dueDate) : null;
-      const isOverdue = balance > 0 && dueDate && dueDate < today;
-
-      let payStatus;
-      if (balance <= 0)    payStatus = 'Paid';
-      else if (totalPaid > 0) payStatus = 'Partial';
-      else if (isOverdue)  payStatus = 'Overdue';
-      else                 payStatus = 'Unpaid';
-
-      return {
-        id:            String(inv._id),
-        number:        inv.number,
-        documentType:  inv.documentType || 'invoice',
-        date:          inv.meta?.date || '',
-        dueDate:       inv.meta?.dueDate || '',
-        customer:      inv.customer?.name || '-',
-        customerPhone: inv.customer?.phone || '',
-        invoiceTotal,
-        totalPaid,
-        balance,
-        status:        payStatus,
-        isOverdue,
-      };
+    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, baseDocumentType, {
+      includePayment: true,
+      stats: {
+        totalOutstanding: { $sum: { $cond: [{ $gt: ['$balance', 0] }, '$balance', 0] } },
+        totalOverdue: { $sum: { $cond: [{ $eq: ['$payStatus', 'Overdue'] }, '$balance', 0] } },
+        dueThisWeek: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $gt: ['$balance', 0] },
+                  { $ne: [{ $ifNull: ['$meta.dueDate', ''] }, ''] },
+                  { $lte: ['$meta.dueDate', weekEndStr] },
+                  { $ne: ['$payStatus', 'Overdue'] },
+                ],
+              },
+              '$balance',
+              0,
+            ],
+          },
+        },
+      },
     });
 
-    // Filters
-    if (status && status !== 'All') rows = rows.filter((r) => r.status === status);
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((r) => r.customer.toLowerCase().includes(q) || r.number.toLowerCase().includes(q));
-    }
-    if (from) rows = rows.filter((r) => r.date >= from);
-    if (to)   rows = rows.filter((r) => r.date <= to);
+    const result = await Invoice.aggregate(pipeline);
+    const { data: rawRows, total, stats } = unwrapFacetResult(result, {
+      stats: { defaultValue: { totalOutstanding: 0, totalOverdue: 0, dueThisWeek: 0 } },
+    });
 
-    // Summary
-    const totalOutstanding = rows.filter((r) => r.balance > 0).reduce((s, r) => s + r.balance, 0);
-    const totalOverdue     = rows.filter((r) => r.isOverdue).reduce((s, r) => s + r.balance, 0);
-    const dueThisWeek      = (() => {
-      const weekEnd = new Date();
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      return rows
-        .filter((r) => r.balance > 0 && r.dueDate && new Date(r.dueDate) <= weekEnd && !r.isOverdue)
-        .reduce((s, r) => s + r.balance, 0);
-    })();
+    const data = rawRows.map((inv) => ({
+      id:            String(inv._id),
+      number:        inv.number,
+      documentType:  inv.documentType || 'invoice',
+      date:          inv.meta?.date || '',
+      dueDate:       inv.meta?.dueDate || '',
+      customer:      inv.customer?.name || '-',
+      customerPhone: inv.customer?.phone || '',
+      invoiceTotal:  inv.invoiceTotal,
+      totalPaid:     inv.totalPaid,
+      balance:       inv.balance,
+      status:        inv.payStatus,
+      isOverdue:     inv.payStatus === 'Overdue',
+    }));
 
-    res.json({ rows, summary: { totalOutstanding, totalOverdue, dueThisWeek } });
+    res.json({
+      data,
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      summary: {
+        totalOutstanding: stats.totalOutstanding || 0,
+        totalOverdue: stats.totalOverdue || 0,
+        dueThisWeek: stats.dueThisWeek || 0,
+      },
+    });
   } catch (err) {
     next(err);
   }

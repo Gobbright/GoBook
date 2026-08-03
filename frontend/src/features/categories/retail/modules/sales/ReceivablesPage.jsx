@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Search, TrendingDown, AlertCircle, Clock } from 'lucide-react';
 import { api } from '../../../../../services/api.js';
+import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
+import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
+import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
 import { RecordPaymentModal } from './shared/RecordPaymentModal.jsx';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
+import { useDebouncedValue } from '../../../../../hooks/useDebouncedValue.js';
+
+const LIMIT = 20;
 
 function fmt(n) {
   return `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -12,8 +18,6 @@ function fmtDate(iso) {
   if (!iso) return '-';
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
-
-const STATUS_FILTERS = ['All', 'Unpaid', 'Partial', 'Overdue', 'Paid'];
 
 const STATUS_CLASSES = {
   Paid:    'bg-green-50 text-green-700',
@@ -43,22 +47,30 @@ function documentViewHref(row) {
 
 export function ReceivablesPage() {
   const [rows, setRows]           = useState([]);
+  const [total, setTotal]         = useState(0);
   const [summary, setSummary]     = useState({ totalOutstanding: 0, totalOverdue: 0, dueThisWeek: 0 });
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
   const [search, setSearch]       = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const debouncedSearch = useDebouncedValue(search);
+  const [filters, setFilters]     = useState(EMPTY_SALES_FILTERS);
   const [dateFrom, setDateFrom]   = useState('');
   const [dateTo, setDateTo]       = useState('');
+  const [page, setPage]           = useState(1);
   const [paymentRow, setPaymentRow] = useState(null);
   const searchRef = useRef(null);
+
+  function updateFilter(key, value) {
+    setFilters((f) => ({ ...f, [key]: value }));
+  }
 
   async function loadData() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.listOutstanding({ status: 'All', search: '', from: '', to: '' });
-      setRows(res.rows ?? []);
+      const res = await api.listOutstanding({ ...filters, search: debouncedSearch, dateFrom, dateTo, page, limit: LIMIT });
+      setRows(res.data ?? []);
+      setTotal(res.total ?? 0);
       setSummary(res.summary ?? { totalOutstanding: 0, totalOverdue: 0, dueThisWeek: 0 });
     } catch (err) {
       setError(err.message || 'Unable to load receivables');
@@ -67,23 +79,15 @@ export function ReceivablesPage() {
     }
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [filters, debouncedSearch, dateFrom, dateTo, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); }, [filters, debouncedSearch, dateFrom, dateTo]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (statusFilter !== 'All' && r.status !== statusFilter) return false;
-      if (q && !r.customer.toLowerCase().includes(q) && !r.number.toLowerCase().includes(q)) return false;
-      if (dateFrom && r.date < dateFrom) return false;
-      if (dateTo && r.date > dateTo) return false;
-      return true;
-    });
-  }, [rows, search, statusFilter, dateFrom, dateTo]);
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   const { highlightedIndex } = useListKeyboardNav({
-    rowCount: filtered.length,
+    rowCount: rows.length,
     onOpen: (index) => {
-      const row = filtered[index];
+      const row = rows[index];
       if (row && row.balance > 0) setPaymentRow(row);
     },
     searchRef,
@@ -134,33 +138,18 @@ export function ReceivablesPage() {
       <div className="bg-white border border-[#dfe7f1] rounded-lg overflow-hidden">
 
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-[#edf2f7]">
-          {/* Date range */}
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] font-[inherit] outline-none focus:border-blue-500 bg-white"
+          <DateRangeFilter
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={setDateFrom}
+            onToChange={setDateTo}
+            onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
-          <span className="text-[#94a3b8] text-[13px]">to</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] font-[inherit] outline-none focus:border-blue-500 bg-white"
+          <SalesFilterBar
+            filters={filters}
+            onChange={updateFilter}
+            fields={['gstType', 'paymentMethod', 'paymentStatus', 'customer', 'city', 'state', 'supplyType', 'amountRange', 'itemType', 'hsn', 'productName', 'barcode']}
           />
-          {(dateFrom || dateTo) && (
-            <button type="button" onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-[13px] text-blue-600 bg-transparent border-0 cursor-pointer font-[inherit] hover:underline">Clear</button>
-          )}
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] font-[inherit] outline-none focus:border-blue-500 bg-white text-[#374151]"
-          >
-            {STATUS_FILTERS.map((s) => (
-              <option key={s} value={s}>{s === 'All' ? 'All Statuses' : s}</option>
-            ))}
-          </select>
 
           <div className="relative ml-auto">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
@@ -200,14 +189,14 @@ export function ReceivablesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {rows.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="text-center py-16 text-[#536173] text-[13px]">
-                      {rows.length === 0 ? 'No invoices found.' : 'No results for the current filters.'}
+                      {total === 0 ? 'No invoices found.' : 'No results for the current filters.'}
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((row, rowIndex) => (
+                  rows.map((row, rowIndex) => (
                     <tr key={row.id} className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}>
                       <td className="px-4 py-3.5">
                         <a href={documentViewHref(row)} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">
@@ -258,6 +247,33 @@ export function ReceivablesPage() {
             </table>
           </div>
         )}
+
+        {/* Pagination footer */}
+        <div className="px-4 py-3 border-t border-[#edf2f7] flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[13px] text-[#536173]">
+            Showing <span className="font-medium text-[#374151]">{rows.length === 0 ? 0 : (page - 1) * LIMIT + 1}-{Math.min(page * LIMIT, total)}</span> of{' '}
+            <span className="font-medium text-[#374151]">{total}</span> invoices
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1.5 border border-[#dbe4ef] rounded text-[13px] text-[#374151] bg-white hover:bg-gray-50 cursor-pointer font-[inherit] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+            >
+              ← Prev
+            </button>
+            <span className="px-2 text-[13px] text-[#536173]">Page {page} / {totalPages}</span>
+            <button
+              type="button"
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="px-3 py-1.5 border border-[#dbe4ef] rounded text-[13px] text-[#374151] bg-white hover:bg-gray-50 cursor-pointer font-[inherit] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
       </div>
 
       {paymentRow && (
@@ -276,4 +292,3 @@ export function ReceivablesPage() {
     </div>
   );
 }
-

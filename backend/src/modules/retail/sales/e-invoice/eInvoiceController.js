@@ -4,6 +4,7 @@ import {
   reverseAccountingPosting,
 } from '../../../../services/accountingPostings.js';
 import { httpError } from '../../../../utils/httpError.js';
+import { buildSalesAggregationPipeline, unwrapFacetResult } from '../shared/salesFilters.js';
 
 const DOCTYPE = 'e-invoice';
 
@@ -31,24 +32,10 @@ export async function getNextEInvoiceNumber(req, res, next) {
 // GET /api/sales/e-invoices
 export async function listEInvoices(req, res, next) {
   try {
-    const { search, page = 1, limit = 50 } = req.query;
-    const filter = { userId: req.user.id, documentType: DOCTYPE };
-    if (search) {
-      filter.$or = [
-        { number: new RegExp(search, 'i') },
-        { 'customer.name': new RegExp(search, 'i') },
-        { 'extra.irn': new RegExp(search, 'i') },
-      ];
-    }
-
-    const [data, total] = await Promise.all([
-      Invoice.find(filter)
-        .sort({ createdAt: -1 })
-        .skip((Number(page) - 1) * Number(limit))
-        .limit(Number(limit))
-        .lean(),
-      Invoice.countDocuments(filter),
-    ]);
+    const { page = 1, limit = 50 } = req.query;
+    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, DOCTYPE, { includePayment: false });
+    const result = await Invoice.aggregate(pipeline);
+    const { data, total } = unwrapFacetResult(result);
 
     res.json({ data, total, page: Number(page), limit: Number(limit) });
   } catch (err) {

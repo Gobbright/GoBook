@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import multer from 'multer';
 
 import { Product } from '../../../models/Product.js';
+import { ProductCategory } from '../../../models/ProductCategory.js';
 import { StockIn } from '../../../models/StockIn.js';
 import { StockOut } from '../../../models/StockOut.js';
 import { httpError } from '../../../utils/httpError.js';
@@ -35,6 +36,23 @@ const FIELD_ALIASES = {
   category: 'category',
   brand: 'brand',
   manufacturer: 'brand',
+  'item group': 'itemGroup',
+  group: 'itemGroup',
+  size: 'size',
+  fabric: 'fabric',
+  material: 'fabric',
+  colour: 'colour',
+  color: 'colour',
+  'fit type': 'type',
+  fit: 'type',
+  variant: 'type',
+  'model number': 'modelNumber',
+  model: 'modelNumber',
+  warranty: 'warrantyPeriod',
+  'warranty period': 'warrantyPeriod',
+  serial: 'serialNumber',
+  'serial number': 'serialNumber',
+  imei: 'serialNumber',
   unit: 'unit',
   uom: 'unit',
   rate: 'rate',
@@ -134,6 +152,17 @@ function normalizeProductPayload(body = {}) {
   if ('hsn' in body) payload.hsn = String(body.hsn ?? '').trim();
   if ('category' in body) payload.category = String(body.category ?? '').trim();
   if ('brand' in body) payload.brand = String(body.brand ?? '').trim();
+  if ('itemGroup' in body) {
+    const grp = String(body.itemGroup ?? '').trim();
+    payload.itemGroup = ['Textile', 'Electronics'].includes(grp) ? grp : 'General';
+  }
+  if ('size' in body) payload.size = String(body.size ?? '').trim();
+  if ('fabric' in body) payload.fabric = String(body.fabric ?? '').trim();
+  if ('colour' in body) payload.colour = String(body.colour ?? '').trim();
+  if ('type' in body) payload.type = String(body.type ?? '').trim();
+  if ('modelNumber' in body) payload.modelNumber = String(body.modelNumber ?? '').trim();
+  if ('warrantyPeriod' in body) payload.warrantyPeriod = String(body.warrantyPeriod ?? '').trim();
+  if ('serialNumber' in body) payload.serialNumber = String(body.serialNumber ?? '').trim();
   if ('unit' in body) payload.unit = String(body.unit ?? '').trim() || 'Nos';
   if ('barcode' in body) payload.barcode = String(body.barcode ?? '').trim();
   if ('status' in body) payload.status = String(body.status ?? '').trim() || 'Active';
@@ -143,9 +172,40 @@ function normalizeProductPayload(body = {}) {
   if ('minStockLevel' in body) payload.minStockLevel = Number(body.minStockLevel);
   if ('gstRate' in body) payload.gstRate = Number(body.gstRate);
 
+  if ('variants' in body) {
+    const rawVariants = Array.isArray(body.variants) ? body.variants : [];
+    payload.variants = rawVariants
+      .map((v) => ({
+        size: String(v?.size ?? '').trim(),
+        stock: Number(v?.stock),
+        minStockLevel: Number(v?.minStockLevel) || 0,
+      }))
+      .filter((v) => v.size);
+
+    if (payload.variants.length) {
+      payload.stock = payload.variants.reduce((sum, v) => sum + (Number.isFinite(v.stock) ? v.stock : 0), 0);
+      payload.minStockLevel = payload.variants.reduce((sum, v) => sum + v.minStockLevel, 0);
+    }
+  }
+
   if (payload.itemType === 'Service') {
     payload.stock = 0;
     payload.minStockLevel = 0;
+    payload.variants = [];
+  }
+
+  if (payload.itemGroup && payload.itemGroup !== 'Textile') {
+    payload.size = '';
+    payload.fabric = '';
+    payload.colour = '';
+    payload.type = '';
+    payload.variants = [];
+  }
+
+  if (payload.itemGroup && payload.itemGroup !== 'Electronics') {
+    payload.modelNumber = '';
+    payload.warrantyPeriod = '';
+    payload.serialNumber = '';
   }
 
   return payload;
@@ -170,6 +230,18 @@ function validateProductPayload(payload, { partial = false } = {}) {
 
   if ('minStockLevel' in payload && (!Number.isFinite(payload.minStockLevel) || payload.minStockLevel < 0)) {
     return 'Minimum stock level must be 0 or more';
+  }
+
+  if ('variants' in payload && payload.variants.length) {
+    const seen = new Set();
+    for (const v of payload.variants) {
+      if (!v.size) return 'Each size row needs a size name';
+      if (!Number.isFinite(v.stock) || v.stock < 0) return `Stock for size "${v.size}" must be 0 or more`;
+      if (!Number.isFinite(v.minStockLevel) || v.minStockLevel < 0) return `Min stock level for size "${v.size}" must be 0 or more`;
+      const key = v.size.toLowerCase();
+      if (seen.has(key)) return `Duplicate size "${v.size}"`;
+      seen.add(key);
+    }
   }
 
   if ('gstRate' in payload && ![0, 5, 12, 18, 28].includes(payload.gstRate)) {
@@ -245,6 +317,25 @@ async function createProductStockMovement(userId, product, qtyDiff, reason = 'St
       sourceNo: product.code,
     });
   }
+}
+
+// Stock is only ever set as Opening Stock at product creation. After that,
+// quantity must flow through a proper movement — Purchase Entry (inbound)
+// or Stock In/Stock Out (manual corrections) — never a silent edit on the
+// product record itself, so this strips any stock the client tried to slip
+// into a product update and preserves the existing per-variant quantities.
+function stripStockFromUpdatePayload(payload, oldProduct) {
+  delete payload.stock;
+  if (payload.variants) {
+    const oldStockBySize = new Map(
+      (oldProduct?.variants ?? []).map((v) => [String(v.size).trim().toLowerCase(), v.stock]),
+    );
+    payload.variants = payload.variants.map((v) => ({
+      ...v,
+      stock: oldStockBySize.get(String(v.size).trim().toLowerCase()) ?? 0,
+    }));
+  }
+  return payload;
 }
 
 async function generateNextProductCode(userId) {
@@ -337,8 +428,20 @@ export async function listProducts(req, res, next) {
 // GET /api/inventory/products/categories
 export async function getCategories(req, res, next) {
   try {
-    const categories = await Product.distinct('category', { userId: req.user.id });
-    res.json(categories.filter(Boolean).sort());
+    const userId = req.user.id;
+    // Source from the Categories master list first, so a category added
+    // there shows up immediately — not only after a product uses it — then
+    // fold in any legacy free-text categories already on products that
+    // never got added to the master list, so nothing disappears.
+    const [defined, usedOnProducts] = await Promise.all([
+      ProductCategory.find({ userId, status: 'Active' }, { name: 1 }).lean(),
+      Product.distinct('category', { userId }),
+    ]);
+    const names = new Set(defined.map((c) => c.name));
+    for (const name of usedOnProducts) {
+      if (name) names.add(name);
+    }
+    res.json([...names].sort());
   } catch (err) {
     next(err);
   }
@@ -349,6 +452,46 @@ export async function getBrands(req, res, next) {
   try {
     const brands = await Product.distinct('brand', { userId: req.user.id });
     res.json(brands.filter(Boolean).sort());
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/inventory/products/sizes
+export async function getSizes(req, res, next) {
+  try {
+    const sizes = await Product.distinct('size', { userId: req.user.id });
+    res.json(sizes.filter(Boolean).sort());
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/inventory/products/fabrics
+export async function getFabrics(req, res, next) {
+  try {
+    const fabrics = await Product.distinct('fabric', { userId: req.user.id });
+    res.json(fabrics.filter(Boolean).sort());
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/inventory/products/colours
+export async function getColours(req, res, next) {
+  try {
+    const colours = await Product.distinct('colour', { userId: req.user.id });
+    res.json(colours.filter(Boolean).sort());
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/inventory/products/types
+export async function getTypes(req, res, next) {
+  try {
+    const types = await Product.distinct('type', { userId: req.user.id });
+    res.json(types.filter(Boolean).sort());
   } catch (err) {
     next(err);
   }
@@ -421,6 +564,19 @@ export async function importProducts(req, res, next) {
       }
       if (record.category) data.category = String(record.category).trim();
       if (record.brand) data.brand = String(record.brand).trim();
+      if (record.itemGroup) {
+        const g = String(record.itemGroup).trim().toLowerCase();
+        if (g === 'textile') data.itemGroup = 'Textile';
+        else if (g === 'electronics') data.itemGroup = 'Electronics';
+        else data.itemGroup = 'General';
+      }
+      if (record.size) data.size = String(record.size).trim();
+      if (record.fabric) data.fabric = String(record.fabric).trim();
+      if (record.colour) data.colour = String(record.colour).trim();
+      if (record.type) data.type = String(record.type).trim();
+      if (record.modelNumber) data.modelNumber = String(record.modelNumber).trim();
+      if (record.warrantyPeriod) data.warrantyPeriod = String(record.warrantyPeriod).trim();
+      if (record.serialNumber) data.serialNumber = String(record.serialNumber).trim();
       if (record.unit) data.unit = String(record.unit).trim();
       if (hsn) data.hsn = hsn;
       if (barcode) data.barcode = barcode;
@@ -533,9 +689,12 @@ export async function updateProduct(req, res, next) {
   try {
     const userId = req.user.id;
     const old = await Product.findOne({ _id: req.params.id, userId }).lean();
+    if (!old) return next(httpError(404, 'Product not found'));
+
     const payload = normalizeProductPayload(req.body);
     const validationError = validateProductPayload(payload, { partial: true });
     if (validationError) return next(httpError(400, validationError));
+    stripStockFromUpdatePayload(payload, old);
 
     const product = await Product.findOneAndUpdate(
       { _id: req.params.id, userId },
@@ -543,11 +702,6 @@ export async function updateProduct(req, res, next) {
       { new: true, runValidators: true },
     ).lean();
     if (!product) return next(httpError(404, 'Product not found'));
-
-    const stockDiff = (product.stock ?? 0) - (old?.stock ?? 0);
-    if (product.itemType !== 'Service' && stockDiff !== 0) {
-      createProductStockMovement(userId, product, stockDiff, 'Stock Adjustment').catch(() => {});
-    }
 
     res.json(product);
   } catch (err) {

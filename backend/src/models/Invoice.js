@@ -7,6 +7,7 @@ const lineItemSchema = new Schema({
   itemType:     { type: String, enum: ['Product', 'Service'], default: 'Product' },
   description: { type: String, default: '' },
   itemDescription: { type: String, default: '' },
+  size:        { type: String, default: '', trim: true },
   hsn:         { type: String, default: '' },
   qty:         { type: Number, default: 1 },
   unit:        { type: String, default: 'Nos' },

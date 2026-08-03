@@ -195,6 +195,15 @@ function addDaysInput(dateInput, days) {
   return formatDateInput(d);
 }
 
+function electronicsNote(product = {}) {
+  if (product.itemGroup !== 'Electronics') return '';
+  const lines = [];
+  if (product.modelNumber) lines.push(`Model: ${product.modelNumber}`);
+  if (product.warrantyPeriod) lines.push(`Warranty: ${product.warrantyPeriod}`);
+  if (product.serialNumber) lines.push(`Serial/IMEI: ${product.serialNumber}`);
+  return lines.join('\n');
+}
+
 function normalizeProduct(product = {}) {
   const description = product.description || product.name || product.productName || '';
   const productDescription = product.productDescription
@@ -203,6 +212,7 @@ function normalizeProduct(product = {}) {
     || product.details
     || product.note
     || product.remark
+    || electronicsNote(product)
     || '';
   return {
     ...product,
@@ -218,6 +228,12 @@ function normalizeProduct(product = {}) {
     gstRate: Number(product.gstRate ?? product.taxRate ?? product.gstPercentage ?? product.gst ?? product.taxPercent ?? 18),
     productDescription,
   };
+}
+
+function stockTextClass(stock, minStockLevel) {
+  if (stock <= 0) return 'text-red-600';
+  if (minStockLevel && stock <= minStockLevel) return 'text-orange-600';
+  return 'text-green-700';
 }
 
 function findCatalogProductForItem(products = [], item = {}) {
@@ -562,6 +578,12 @@ const [customFields, setCustomFields]         = useState([]);
     }
     items.forEach((it, idx) => {
       if (it.description && !(Number(it.qty) > 0)) errs[`item_qty_${idx}`] = 'Required';
+      if (it.description) {
+        const matchedProduct = findCatalogProductForItem(products, it);
+        if (matchedProduct?.variants?.length > 0 && !String(it.size || '').trim()) {
+          errs[`item_size_${idx}`] = 'Select a size';
+        }
+      }
       if (documentType === 'purchase-entry') {
         // A direct Purchase Entry may create the Product on the fly (see
         // inventoryMovements.js), so a missing rate would silently stock a
@@ -932,6 +954,29 @@ const [customFields, setCustomFields]         = useState([]);
     ));
   }
 
+  function clearItemFields(id) {
+    setItems((prev) => prev.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            productId: null,
+            productCode: '',
+            barcode: '',
+            itemType: 'Product',
+            description: '',
+            itemDescription: '',
+            hsn: '',
+            size: '',
+            qty: 1,
+            unit: 'Nos',
+            rate: 0,
+            discount: 0,
+            gstRate: 18,
+          }
+        : item,
+    ));
+  }
+
   function applyGstRateToAllItems() {
     const rate = Number(bulkGstRate) || 0;
     setItems((prev) => prev.map((item) => ({ ...item, gstRate: rate })));
@@ -953,7 +998,7 @@ const [customFields, setCustomFields]         = useState([]);
     const col = cell.dataset.col;
     if (Number.isNaN(row) || !col) return;
 
-    const columns = ['description', 'itemDescription', 'hsn', 'qty', 'unit', 'rate', 'discount', ...(config.showGst ? ['gstRate'] : [])];
+    const columns = ['description', 'itemDescription', 'hsn', 'qty', 'unit', 'rate', ...(config.showGst ? ['gstRate'] : [])];
     const colIndex = columns.indexOf(col);
     const isDescriptionTextarea = cell.tagName === 'TEXTAREA' && col === 'itemDescription';
 
@@ -1093,8 +1138,14 @@ const [customFields, setCustomFields]         = useState([]);
     }
   }
 
+  function productsOfType(itemType) {
+    const wanted = itemType === 'Service' ? 'Service' : 'Product';
+    return products.filter((p) => (p.itemType === 'Service' ? 'Service' : 'Product') === wanted);
+  }
+
   async function handleRowProductEntry(itemId, value) {
-    const chosen = findProductByExactEntry(products, value);
+    const wantedType = items.find((i) => i.id === itemId)?.itemType;
+    const chosen = findProductByExactEntry(productsOfType(wantedType), value);
     if (chosen && String(chosen.productDescription || '').trim()) {
       selectProduct(itemId, chosen);
       return true;
@@ -2603,45 +2654,31 @@ const [customFields, setCustomFields]         = useState([]);
             <div className="billing-search-hint">Type to search product. Press Enter to add item. Scan barcode to add faster.</div>
           </div>
 
-          {products.length > 0 && (
-            <datalist id="billing-product-options">
-              {products.map((p) => (
-                  <option
-                  key={p._id ?? p.id ?? p.description}
-                  value={p.description}
-                  label={[p.itemType || 'Product', p.code, p.barcode].filter(Boolean).join(' - ')}
-                />
-              ))}
-            </datalist>
-          )}
-
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr>
                   {(config.showGst ? [
                     { w: '5%',  label: 'S.No',             align: 'center' },
-                    { w: '17%', label: 'Item Name', align: 'left' },
-                    { w: '17%', label: 'Description', align: 'left' },
+                    { w: '18%', label: 'Item Name', align: 'left' },
+                    { w: '8%',  label: 'Size',              align: 'left' },
+                    { w: '20%', label: 'Description', align: 'left' },
                     { w: '9%',  label: 'HSN / SAC',        align: 'left' },
                     { w: '7%',  label: 'Qty',               align: 'right' },
                     { w: '10%', label: 'Unit',              align: 'left' },
                     { w: '9%',  label: 'Rate (₹)',          align: 'right' },
-                    { w: '7%',  label: 'Disc %',            align: 'right' },
-                    { w: '8%',  label: 'Taxable',           align: 'right' },
                     { w: '6%',  label: 'GST %',             align: 'left' },
-                    { w: '8%',  label: 'Tax Amt',           align: 'right' },
                     { w: '9%',  label: 'Total (₹)',         align: 'right' },
                     { w: '5%',  label: '',                  align: 'center' },
                   ] : [
                     { w: '5%',  label: 'S.No',             align: 'center' },
-                    { w: '25%', label: 'Item Name', align: 'left' },
-                    { w: '25%', label: 'Description', align: 'left' },
+                    { w: '24%', label: 'Item Name', align: 'left' },
+                    { w: '9%',  label: 'Size',              align: 'left' },
+                    { w: '27%', label: 'Description', align: 'left' },
                     { w: '12%', label: 'HSN / SAC',        align: 'left' },
                     { w: '9%',  label: 'Qty',               align: 'right' },
                     { w: '10%', label: 'Unit',              align: 'left' },
                     { w: '12%', label: 'Rate (₹)',          align: 'right' },
-                    { w: '8%',  label: 'Disc %',            align: 'right' },
                     { w: '14%', label: 'Amount (₹)',        align: 'right' },
                     { w: '5%',  label: '',                  align: 'center' },
                   ]).map((col, i) => (
@@ -2670,13 +2707,18 @@ const [customFields, setCustomFields]         = useState([]);
                             <input
                               data-row={idx}
                               data-col="description"
-                              className={`w-full border ${!item.description && errors.items ? 'border-red-400 bg-red-50' : 'border-[#dbe4ef]'} rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none bg-white focus:border-blue-500`}
-                              list="billing-product-options"
+                              className={`w-full min-w-0 border ${!item.description && errors.items ? 'border-red-400 bg-red-50' : 'border-[#dbe4ef]'} rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none bg-white focus:border-blue-500`}
+                              list={`billing-product-options-${item.id}`}
                               placeholder="Type item name..."
                               value={item.description}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                const chosen = findProductByExactEntry(products, value);
+                                if (!value) {
+                                  clearItemFields(item.id);
+                                  clearError('items');
+                                  return;
+                                }
+                                const chosen = findProductByExactEntry(productsOfType(item.itemType), value);
                                 if (chosen) {
                                   selectProduct(item.id, chosen);
                                 } else {
@@ -2698,6 +2740,15 @@ const [customFields, setCustomFields]         = useState([]);
                                 clearError('items');
                               }}
                             />
+                            <datalist id={`billing-product-options-${item.id}`}>
+                              {productsOfType(item.itemType).map((p) => (
+                                <option
+                                  key={p._id ?? p.id ?? p.description}
+                                  value={p.description}
+                                  label={[p.itemType || 'Product', p.code, p.barcode].filter(Boolean).join(' - ')}
+                                />
+                              ))}
+                            </datalist>
                             <div className="mt-1.5 flex items-center gap-1">
                               {['Product', 'Service'].map((type) => (
                                 <button
@@ -2736,6 +2787,52 @@ const [customFields, setCustomFields]         = useState([]);
                       </td>
 
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                        {(() => {
+                          const matchedProduct = findCatalogProductForItem(products, item);
+                          const variants = matchedProduct?.variants || [];
+                          const isService = (matchedProduct?.itemType || item.itemType) === 'Service';
+
+                          if (!variants.length) {
+                            if (!matchedProduct || isService) {
+                              return <span className="text-[13px] text-[#9ca3af] pt-1.5 block">—</span>;
+                            }
+                            const stock = Number(matchedProduct.stock || 0);
+                            return (
+                              <span className={`text-[12px] font-medium pt-1.5 block ${stockTextClass(stock, matchedProduct.minStockLevel)}`}>
+                                {stock} in stock
+                              </span>
+                            );
+                          }
+
+                          const selected = variants.find((v) => v.size === item.size);
+                          return (
+                            <>
+                              <select
+                                data-row={idx}
+                                data-col="size"
+                                className={`w-full border ${errors[`item_size_${idx}`] ? 'border-red-400 bg-red-50' : 'border-[#dbe4ef]'} rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none bg-white focus:border-blue-500`}
+                                value={item.size || ''}
+                                onChange={(e) => {
+                                  updateItem(item.id, 'size', e.target.value);
+                                  setErrors((p) => { const n = { ...p }; delete n[`item_size_${idx}`]; return n; });
+                                }}
+                              >
+                                <option value="">—</option>
+                                {variants.map((v) => (
+                                  <option key={v._id ?? v.size} value={v.size}>{v.size}</option>
+                                ))}
+                              </select>
+                              {selected && (
+                                <div className={`mt-1 text-[11px] font-medium ${stockTextClass(selected.stock, selected.minStockLevel)}`}>
+                                  {selected.stock} in stock
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </td>
+
+                      <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         <textarea
                           data-row={idx}
                           data-col="itemDescription"
@@ -2759,17 +2856,10 @@ const [customFields, setCustomFields]         = useState([]);
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         <input data-row={idx} data-col="rate" className={`w-full border ${errors[`item_rate_${idx}`] ? 'border-red-400 bg-red-50' : 'border-[#dbe4ef]'} rounded px-2 py-1.5 text-[13px] text-right font-[inherit] outline-none focus:border-blue-500 min-w-0`} min="0" type="number" value={item.rate} onChange={(e) => { updateItem(item.id, 'rate', e.target.value); setErrors((p) => { const n = { ...p }; delete n[`item_rate_${idx}`]; return n; }); }} />
                       </td>
-                      <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
-                        <input data-row={idx} data-col="discount" className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-right font-[inherit] outline-none focus:border-blue-500 min-w-0" max="100" min="0" type="number" value={item.discount} onChange={(e) => updateItem(item.id, 'discount', e.target.value)} />
-                      </td>
                       {config.showGst && (
-                        <>
-                          <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] font-medium text-[#374151] pt-3">{formatCurrency(line.taxable)}</td>
-                          <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
-                            <input data-row={idx} data-col="gstRate" className="billing-gst-rate-input w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] font-[inherit] outline-none bg-white" list="sales-gst-rate-options" min="0" type="number" value={item.gstRate ?? 0} onChange={(e) => updateItem(item.id, 'gstRate', e.target.value)} />
-                          </td>
-                          <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] font-medium text-[#374151] pt-3">{formatCurrency(line.gstAmt)}</td>
-                        </>
+                        <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                          <input data-row={idx} data-col="gstRate" className="billing-gst-rate-input w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] font-[inherit] outline-none bg-white" list="sales-gst-rate-options" min="0" type="number" value={item.gstRate ?? 0} onChange={(e) => updateItem(item.id, 'gstRate', e.target.value)} />
+                        </td>
                       )}
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] font-semibold text-[#111827] pt-3">{formatCurrency(config.showGst ? line.total : line.taxable)}</td>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-center">

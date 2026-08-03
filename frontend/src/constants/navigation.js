@@ -112,6 +112,7 @@ const SECTIONS = {
     items: [
       { label: 'Multi Branch', href: '/multi-branch', icon: 'GitBranch' },
       { label: 'Users & Roles', href: '/users-roles', icon: 'Shield' },
+      { label: 'Audit Report', href: '/audit-report', icon: 'History' },
       { label: 'Business Settings', href: '/business-settings', icon: 'Settings' },
     ],
   },

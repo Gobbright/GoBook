@@ -39,6 +39,7 @@ import { SalesManagementPage } from '../features/categories/common/modules/more-
 import { VendorManagementPage } from '../features/categories/common/modules/more-modules/VendorManagementPage.jsx';
 import { WhatsAppBusinessPage } from '../features/categories/common/modules/more-modules/WhatsAppBusinessPage.jsx';
 import { ModuleReportsPage } from '../features/categories/common/modules/reports/ModuleReportsPage.jsx';
+import { AuditReportPage } from '../features/categories/common/modules/settings/AuditReportPage.jsx';
 import { BusinessSettingsPage } from '../features/categories/common/modules/settings/BusinessSettingsPage.jsx';
 import { MultiBranchPage } from '../features/categories/common/modules/settings/MultiBranchPage.jsx';
 import { UsersRolesPage } from '../features/categories/common/modules/settings/UsersRolesPage.jsx';
@@ -96,6 +97,7 @@ export const commonRoutes = [
 
   { path: '/multi-branch', element: <MultiBranchPage /> },
   { path: '/users-roles', element: <UsersRolesPage /> },
+  { path: '/audit-report', element: <AuditReportPage /> },
   { path: '/business-settings', element: <BusinessSettingsPage /> },
 ];
 

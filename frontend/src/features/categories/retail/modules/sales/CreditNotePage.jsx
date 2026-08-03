@@ -8,8 +8,10 @@ import { api } from '../../../../../services/api.js';
 import { ShareModal } from './shared/ShareModal.jsx';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
-import { isWithinDateRange } from '../../../../../utils/dateRange.js';
+import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
+import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
+import { useDebouncedValue } from '../../../../../hooks/useDebouncedValue.js';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
 
 // ── Sub-components ──────────────────────────────────────────────
@@ -177,6 +179,7 @@ function DeleteDialog({ noteNumber, onConfirm, onCancel }) {
 // ── Main page ───────────────────────────────────────────────────
 
 const PAGE_SIZE = 5;
+const FETCH_LIMIT = 500;
 
 function pageNumbers(current, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -187,7 +190,9 @@ function pageNumbers(current, total) {
 
 export function CreditNotePage() {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [openMenu, setOpenMenu] = useState(null);
+  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [notes, setNotes] = useState([]);
@@ -200,12 +205,16 @@ export function CreditNotePage() {
   const [pdfDoc, setPdfDoc] = useState(null);
   const searchRef = useRef(null);
 
+  function updateFilter(key, value) {
+    setFilters((f) => ({ ...f, [key]: value }));
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true);
       setError('');
       try {
-        const response = await api.listCreditNotes({ limit: 100 });
+        const response = await api.listCreditNotes({ ...filters, search: debouncedSearch, dateFrom, dateTo, limit: FETCH_LIMIT });
         const data = Array.isArray(response.data) ? response.data.map(normalizeNote) : [];
         setNotes(data);
       } catch (err) {
@@ -216,7 +225,7 @@ export function CreditNotePage() {
       }
     }
     load();
-  }, []);
+  }, [filters, debouncedSearch, dateFrom, dateTo]);
 
   useEffect(() => {
     api.getSettings().then(setBizSettings).catch(() => {});
@@ -250,19 +259,10 @@ export function CreditNotePage() {
     return { total, totalValue, createdThisMonth, avgValue };
   }, [notes]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return notes.filter((n) => {
-      if (q && !n.number?.toLowerCase().includes(q) && !n.customer?.name?.toLowerCase().includes(q)) return false;
-      if (!isWithinDateRange(n.date || n.createdAt, dateFrom, dateTo)) return false;
-      return true;
-    });
-  }, [dateFrom, dateTo, search, notes]);
+  useEffect(() => { setPage(1); }, [filters, dateFrom, dateTo, debouncedSearch]);
 
-  useEffect(() => { setPage(1); }, [dateFrom, dateTo, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(notes.length / PAGE_SIZE));
+  const paginated = notes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const exportColumns = [
     { label: 'Note No.', value: (row) => row.number },
     { label: 'Customer', value: (row) => row.customer?.name || '' },
@@ -362,7 +362,12 @@ export function CreditNotePage() {
             onToChange={setDateTo}
             onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
-          <ExportButtons title="Credit Notes" filename="credit-notes" rows={filtered} columns={exportColumns} />
+          <SalesFilterBar
+            filters={filters}
+            onChange={updateFilter}
+            fields={['customer', 'city', 'state', 'supplyType', 'amountRange', 'itemType', 'hsn', 'productName', 'barcode']}
+          />
+          <ExportButtons title="Credit Notes" filename="credit-notes" rows={notes} columns={exportColumns} />
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
             <input
@@ -404,7 +409,7 @@ export function CreditNotePage() {
             </thead>
 
             <tbody>
-              {!loading && filtered.length === 0 ? (
+              {!loading && notes.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-16 text-[#536173] text-[13px]">
                     {notes.length === 0
@@ -488,7 +493,7 @@ export function CreditNotePage() {
 
         {/* Footer */}
         <div className="px-4 py-3 border-t border-[#edf2f7] flex items-center justify-between text-[13px] text-[#536173]">
-          <span>Showing {paginated.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+          <span>Showing {paginated.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, notes.length)} of {notes.length}</span>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 text-[12px] border border-[#dbe4ef] rounded hover:bg-gray-50 disabled:opacity-40 bg-white font-[inherit] cursor-pointer">←</button>
             {pageNumbers(page, totalPages).map((p, i) => p === '...' ? (

@@ -2,6 +2,7 @@ import { Product } from '../../../models/Product.js';
 import { StockIn } from '../../../models/StockIn.js';
 import { StockOut } from '../../../models/StockOut.js';
 import { Types } from 'mongoose';
+import { itemTypeCond, productRefCondition, resolveProductRefs } from './itemTypeFilter.js';
 
 function escapeRegex(str) {
   return String(str ?? '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -35,9 +36,9 @@ async function totalsByProduct(Model, userId, dateRange = null) {
 // GET /api/inventory/reports/summary
 export async function getStockSummary(req, res, next) {
   try {
-    const { search, category, status = 'all', page = 1, limit = 50 } = req.query;
+    const { search, category, status = 'all', itemType, page = 1, limit = 50 } = req.query;
     const userId = req.user.id;
-    const filter = { userId };
+    const filter = { userId, itemType: itemTypeCond(itemType) };
 
     if (search) {
       filter.$or = [
@@ -67,7 +68,7 @@ export async function getStockSummary(req, res, next) {
       Product.find(filter).sort({ description: 1 }).skip(skip).limit(Number(limit)).lean(),
       Product.countDocuments(filter),
       Product.aggregate([
-        { $match: { userId: aggregateUserId } },
+        { $match: { userId: aggregateUserId, itemType: itemTypeCond(itemType) } },
         {
           $group: {
             _id: null,
@@ -125,17 +126,19 @@ export async function getStockSummary(req, res, next) {
 // GET /api/inventory/reports/ledger
 export async function getStockLedger(req, res, next) {
   try {
-    const { search, type = 'all', dateFrom, dateTo, page = 1, limit = 50 } = req.query;
+    const { search, type = 'all', dateFrom, dateTo, itemType, page = 1, limit = 50 } = req.query;
     const userId = req.user.id;
-    const inFilter = { userId };
-    const outFilter = { userId };
+    const refs = await resolveProductRefs(Product, userId, itemType);
+    const refCond = productRefCondition(refs);
+    const inFilter = { userId, ...refCond };
+    const outFilter = { userId, ...refCond };
     applyDateRange(inFilter, dateFrom, dateTo);
     applyDateRange(outFilter, dateFrom, dateTo);
 
     if (search) {
       const re = new RegExp(escapeRegex(search), 'i');
-      inFilter.$or = [{ productName: re }, { stockInNo: re }, { supplier: re }, { sourceNo: re }];
-      outFilter.$or = [{ productName: re }, { stockOutNo: re }, { to: re }, { sourceNo: re }];
+      inFilter.$and = [{ $or: [{ productName: re }, { stockInNo: re }, { supplier: re }, { sourceNo: re }] }];
+      outFilter.$and = [{ $or: [{ productName: re }, { stockOutNo: re }, { to: re }, { sourceNo: re }] }];
     }
 
     const inAggregateFilter = { ...inFilter, userId: objectId(userId), status: 'Completed' };

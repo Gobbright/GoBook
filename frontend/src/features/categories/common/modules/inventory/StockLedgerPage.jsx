@@ -34,9 +34,27 @@ function StatCard({ label, value, sub, color, bg }) {
   );
 }
 
+function ItemTypeTabs({ value, onChange }) {
+  return (
+    <div className="inline-flex rounded-md border border-[#dbe4ef] bg-white p-0.5">
+      {['Product', 'Service'].map((t) => (
+        <button
+          key={t}
+          type="button"
+          className={`px-3 py-1.5 text-[13px] font-medium rounded cursor-pointer font-[inherit] ${value === t ? 'bg-blue-600 text-white' : 'text-[#374151] hover:bg-gray-50'}`}
+          onClick={() => onChange(t)}
+        >
+          {t === 'Product' ? 'Products' : 'Services'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function StockLedgerPage() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState('all');
+  const [itemType, setItemType] = useState('Product');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [rows, setRows] = useState([]);
@@ -51,7 +69,7 @@ export function StockLedgerPage() {
   function loadLedger() {
     setLoading(true);
     setError('');
-    const params = { page, limit: LIMIT, type, ...dateRangeParams(dateFrom, dateTo) };
+    const params = { page, limit: LIMIT, type, itemType, ...dateRangeParams(dateFrom, dateTo) };
     if (search) params.search = search;
     api.invStockLedger(params)
       .then((res) => {
@@ -63,14 +81,14 @@ export function StockLedgerPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { loadLedger(); }, [search, type, dateFrom, dateTo, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadLedger(); }, [search, type, itemType, dateFrom, dateTo, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchAllForExport = useCallback(async () => {
-    const params = { page: 1, limit: 9999, type, ...dateRangeParams(dateFrom, dateTo) };
+    const params = { page: 1, limit: 9999, type, itemType, ...dateRangeParams(dateFrom, dateTo) };
     if (search) params.search = search;
     const res = await api.invStockLedger(params);
     return res.data ?? [];
-  }, [dateFrom, dateTo, search, type]);
+  }, [dateFrom, dateTo, search, type, itemType]);
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
   const exportColumns = [
@@ -105,6 +123,7 @@ export function StockLedgerPage() {
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl">
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7] flex-wrap">
+          <ItemTypeTabs value={itemType} onChange={(t) => { setItemType(t); setPage(1); }} />
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search product, number or party..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />

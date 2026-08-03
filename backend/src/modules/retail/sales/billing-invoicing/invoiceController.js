@@ -3,6 +3,7 @@ import { Payment } from '../../../../models/Payment.js';
 import { BusinessSettings } from '../../../../models/BusinessSettings.js';
 import { httpError } from '../../../../utils/httpError.js';
 import { sendMail } from '../../../../utils/mailer.js';
+import { buildSalesAggregationPipeline, isBillableDocType, unwrapFacetResult } from '../shared/salesFilters.js';
 import { postInventoryForDocument, reverseInventoryForDocument } from '../../../../services/inventoryMovements.js';
 import {
   postInvoiceAccounting,
@@ -62,24 +63,13 @@ export async function getNextNumber(req, res, next) {
 // GET /api/sales/invoices
 export async function listInvoices(req, res, next) {
   try {
-    const { documentType, search, page = 1, limit = 50 } = req.query;
-    const filter = { userId: req.user.id };
-    if (documentType) filter.documentType = documentType;
-    if (search) {
-      filter.$or = [
-        { number: new RegExp(search, 'i') },
-        { 'customer.name': new RegExp(search, 'i') },
-      ];
-    }
+    const { documentType, page = 1, limit = 50 } = req.query;
+    const baseDocumentType = documentType || { $in: ['invoice', 'bill-of-supply'] };
+    const includePayment = isBillableDocType(documentType);
 
-    const [data, total] = await Promise.all([
-      Invoice.find(filter)
-        .sort({ createdAt: -1, _id: -1 })
-        .skip((Number(page) - 1) * Number(limit))
-        .limit(Number(limit))
-        .lean(),
-      Invoice.countDocuments(filter),
-    ]);
+    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, baseDocumentType, { includePayment });
+    const result = await Invoice.aggregate(pipeline);
+    const { data, total } = unwrapFacetResult(result);
 
     res.json({ data: await attachAccountingStatusList(req.user.id, data), total, page: Number(page), limit: Number(limit) });
   } catch (err) {

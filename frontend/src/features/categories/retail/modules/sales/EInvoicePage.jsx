@@ -9,8 +9,12 @@ import { ShareModal } from './shared/ShareModal.jsx';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
-import { isWithinDateRange } from '../../../../../utils/dateRange.js';
+import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
+import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
+import { useDebouncedValue } from '../../../../../hooks/useDebouncedValue.js';
+
+const FETCH_LIMIT = 500;
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -151,7 +155,9 @@ function DeleteDialog({ docNumber, onConfirm, onCancel }) {
 
 export function EInvoicePage() {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [openMenu, setOpenMenu] = useState(null);
+  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [docs, setDocs] = useState([]);
@@ -163,12 +169,16 @@ export function EInvoicePage() {
   const [pdfDoc, setPdfDoc] = useState(null);
   const searchRef = useRef(null);
 
+  function updateFilter(key, value) {
+    setFilters((f) => ({ ...f, [key]: value }));
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true);
       setError('');
       try {
-        const response = await api.listEInvoices({ limit: 100 });
+        const response = await api.listEInvoices({ ...filters, search: debouncedSearch, dateFrom, dateTo, limit: FETCH_LIMIT });
         setDocs(Array.isArray(response.data) ? response.data.map(normalizeDoc) : []);
       } catch (err) {
         setError(err.message || 'Unable to load e-invoices');
@@ -178,7 +188,7 @@ export function EInvoicePage() {
       }
     }
     load();
-  }, []);
+  }, [filters, debouncedSearch, dateFrom, dateTo]);
 
   useEffect(() => {
     api.getSettings().then(setBizSettings).catch(() => {});
@@ -208,17 +218,6 @@ export function EInvoicePage() {
     return { total, totalValue, createdThisMonth, avgValue };
   }, [docs]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return docs.filter((d) => {
-      const number = d.number?.toLowerCase() ?? '';
-      const customerName = d.customer?.name?.toLowerCase() ?? '';
-      const irn = d.irn?.toLowerCase() ?? '';
-      if (q && !number.includes(q) && !customerName.includes(q) && !irn.includes(q)) return false;
-      if (!isWithinDateRange(d.date || d.createdAt, dateFrom, dateTo)) return false;
-      return true;
-    });
-  }, [dateFrom, dateTo, search, docs]);
   const exportColumns = [
     { label: 'E-Invoice No.', value: (row) => row.number },
     { label: 'Customer', value: (row) => row.customer?.name || '' },
@@ -231,8 +230,8 @@ export function EInvoicePage() {
   ];
 
   const { highlightedIndex } = useListKeyboardNav({
-    rowCount: filtered.length,
-    onOpen: (index) => window.location.assign(`/billing/e-invoice/${filtered[index].id}/view`),
+    rowCount: docs.length,
+    onOpen: (index) => window.location.assign(`/billing/e-invoice/${docs[index].id}/view`),
     searchRef,
   });
 
@@ -300,7 +299,12 @@ export function EInvoicePage() {
             onToChange={setDateTo}
             onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
-          <ExportButtons title="E-Invoices" filename="e-invoices" rows={filtered} columns={exportColumns} />
+          <SalesFilterBar
+            filters={filters}
+            onChange={updateFilter}
+            fields={['customer', 'city', 'state', 'supplyType', 'amountRange', 'itemType', 'hsn', 'productName', 'barcode', 'irnStatus']}
+          />
+          <ExportButtons title="E-Invoices" filename="e-invoices" rows={docs} columns={exportColumns} />
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
             <input
@@ -335,14 +339,14 @@ export function EInvoicePage() {
               </tr>
             </thead>
             <tbody>
-              {!loading && filtered.length === 0 ? (
+              {!loading && docs.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-16 text-[#536173] text-[13px]">
                     {docs.length === 0 ? 'No e-invoices yet. Generate your first e-invoice.' : 'No e-invoices match your search.'}
                   </td>
                 </tr>
               ) : (
-                filtered.map((doc, rowIndex) => (
+                docs.map((doc, rowIndex) => (
                   <tr key={doc.id} className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}>
                     <td className="px-4 py-3.5">
                       <a href={`/billing/e-invoice/${doc.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">{doc.number}</a>
@@ -374,7 +378,7 @@ export function EInvoicePage() {
 
         <div className="px-4 py-3 border-t border-[#edf2f7] flex flex-wrap items-center justify-between gap-2">
           <span className="text-[13px] text-[#536173]">
-            Showing <span className="font-medium text-[#374151]">{filtered.length}</span> of{' '}
+            Showing <span className="font-medium text-[#374151]">{docs.length}</span> of{' '}
             <span className="font-medium text-[#374151]">{docs.length}</span> e-invoices
           </span>
           <div className="flex items-center gap-1">

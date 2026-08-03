@@ -5,6 +5,7 @@ import { requireCategoryModule } from '../middleware/requireCategoryModule.js';
 import { requirePlatformOwner } from '../middleware/requirePlatformOwner.js';
 import { adminRouter } from '../modules/admin/routes.js';
 import { aiRouter } from '../modules/ai/routes.js';
+import { auditRouter } from '../modules/audit/routes.js';
 import { authRouter } from '../modules/auth/routes.js';
 import { dashboardRouter } from '../modules/dashboard/routes.js';
 import { hospitalRouter } from '../modules/hospital/routes.js';
@@ -28,6 +29,7 @@ apiRouter.use('/admin', adminRouter);
 apiRouter.use(requireAuth);
 
 apiRouter.use('/ai', aiRouter);
+apiRouter.use('/audit-logs', auditRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/sales', requireCategoryModule('sales'), salesRouter);
 apiRouter.use('/gst', gstRouter);

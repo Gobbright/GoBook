@@ -2,6 +2,7 @@ import { StockIn } from '../../../models/StockIn.js';
 import { Product } from '../../../models/Product.js';
 import { httpError } from '../../../utils/httpError.js';
 import { asNumber, asText, enumValue, importSummary, parseExcelRows } from '../../../utils/excelImport.js';
+import { productRefCondition, resolveProductRefs } from './itemTypeFilter.js';
 
 const STOCK_IN_IMPORT_COLUMNS = {
   'stock in no': 'stockInNo',
@@ -62,14 +63,16 @@ export async function getNextStockInNumber(req, res, next) {
   }
 }
 
-// GET /api/inventory/stock-in/stats
+// GET /api/inventory/stock-in/stats?itemType=
 export async function getStockInStats(req, res, next) {
   try {
     const userId = req.user.id;
+    const { itemType } = req.query;
+    const refCond = productRefCondition(await resolveProductRefs(Product, userId, itemType));
     const range = monthRange();
     const [result, pending] = await Promise.all([
       StockIn.aggregate([
-        { $match: { userId, date: range } },
+        { $match: { userId, date: range, ...refCond } },
         {
           $group: {
             _id: null,
@@ -80,7 +83,7 @@ export async function getStockInStats(req, res, next) {
           },
         },
       ]),
-      StockIn.countDocuments({ userId, status: 'Pending' }),
+      StockIn.countDocuments({ userId, status: 'Pending', ...refCond }),
     ]);
     const r = result[0] ?? { count: 0, totalItems: 0, totalValue: 0, totalQty: 0 };
     res.json({
@@ -131,18 +134,22 @@ async function adjustProductStockFromEntry(entry, direction) {
   );
 }
 
-// GET /api/inventory/stock-in?search=&dateFrom=&dateTo=&page=&limit=
+// GET /api/inventory/stock-in?search=&dateFrom=&dateTo=&page=&limit=&itemType=
 export async function listStockIn(req, res, next) {
   try {
-    const { search, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
-    const filter = { userId: req.user.id };
+    const { search, dateFrom, dateTo, itemType, page = 1, limit = 50 } = req.query;
+    const userId = req.user.id;
+    const refCond = productRefCondition(await resolveProductRefs(Product, userId, itemType));
+    const filter = { userId, ...refCond };
     applyDateRange(filter, dateFrom, dateTo);
     if (search) {
-      filter.$or = [
-        { stockInNo: new RegExp(search, 'i') },
-        { productName: new RegExp(search, 'i') },
-        { supplier:  new RegExp(search, 'i') },
-      ];
+      filter.$and = [{
+        $or: [
+          { stockInNo: new RegExp(search, 'i') },
+          { productName: new RegExp(search, 'i') },
+          { supplier:  new RegExp(search, 'i') },
+        ],
+      }];
     }
     const skip = (Number(page) - 1) * Number(limit);
     const [data, total] = await Promise.all([

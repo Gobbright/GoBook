@@ -25,8 +25,29 @@ function normalizeBarcodeValue(value) {
   return raw.replace(/[^0-9A-Z ./$+%-]/g, '-').slice(0, 32) || 'NO-CODE';
 }
 
-function genBarcode() {
-  return Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
+// Deterministic 12-digit code derived from the given text: same input always
+// produces the same digits (djb2 hash, expanded to fill the length).
+function hashToDigits(text, length = 12) {
+  let hash = 5381;
+  const str = String(text || '');
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+  }
+  let digits = String(hash);
+  while (digits.length < length) {
+    hash = ((hash << 5) + hash + 1) >>> 0;
+    digits += String(hash);
+  }
+  return digits.slice(0, length);
+}
+
+// Products that share brand, size, fabric, type and price get the same barcode;
+// any difference in those attributes produces a different barcode.
+function genBarcodeForProduct(product = {}) {
+  const key = [product.brand, product.size, product.fabric, product.type, product.rate]
+    .map((v) => String(v ?? '').trim().toLowerCase())
+    .join('|');
+  return hashToDigits(key);
 }
 
 function Code39Barcode({ value, height = 34 }) {
@@ -147,7 +168,7 @@ function EditModal({ product, onSave, onClose }) {
                 <button
                   type="button"
                   className="px-3 py-2 text-[12px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md cursor-pointer hover:bg-blue-100 font-[inherit]"
-                  onClick={() => set('barcode', genBarcode())}
+                  onClick={() => set('barcode', genBarcodeForProduct(product))}
                 >
                   Regenerate
                 </button>
@@ -166,8 +187,26 @@ function EditModal({ product, onSave, onClose }) {
   );
 }
 
+function ItemTypeTabs({ value, onChange }) {
+  return (
+    <div className="inline-flex rounded-md border border-[#dbe4ef] bg-white p-0.5">
+      {['Product', 'Service'].map((t) => (
+        <button
+          key={t}
+          type="button"
+          className={`px-3 py-1.5 text-[13px] font-medium rounded cursor-pointer font-[inherit] ${value === t ? 'bg-blue-600 text-white' : 'text-[#374151] hover:bg-gray-50'}`}
+          onClick={() => onChange(t)}
+        >
+          {t === 'Product' ? 'Products' : 'Services'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function BarcodePage() {
   const [search, setSearch]         = useState('');
+  const [itemType, setItemType]     = useState('Product');
   const [category, setCategory]     = useState('All Categories');
   const [categories, setCategories] = useState([]);
   const [products, setProducts]     = useState([]);
@@ -189,7 +228,7 @@ export function BarcodePage() {
   function loadProducts() {
     setLoading(true);
     setError('');
-    const params = { page, limit: LIMIT };
+    const params = { page, limit: LIMIT, itemType };
     if (search) params.search = search;
     if (category !== 'All Categories') params.category = category;
     api.invListProducts(params)
@@ -198,7 +237,7 @@ export function BarcodePage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { loadProducts(); }, [search, category, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadProducts(); }, [search, category, itemType, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!printRows.length) return undefined;
@@ -234,7 +273,7 @@ export function BarcodePage() {
     if (!missing.length) return alert('All visible products already have barcodes');
     try {
       const updated = await Promise.all(missing.map((product) => (
-        api.invUpdateProduct(product._id, { barcode: normalizeBarcodeValue(product.code || genBarcode()) })
+        api.invUpdateProduct(product._id, { barcode: normalizeBarcodeValue(genBarcodeForProduct(product)) })
       )));
       setProducts((prev) => prev.map((product) => updated.find((u) => u._id === product._id) || product));
     } catch {
@@ -297,6 +336,7 @@ export function BarcodePage() {
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl">
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7] flex-wrap">
+          <ItemTypeTabs value={itemType} onChange={(t) => { setItemType(t); setPage(1); }} />
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13">
               <circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/>

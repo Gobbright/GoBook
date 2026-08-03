@@ -7,19 +7,24 @@ import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { api } from '../../../../../services/api.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
-import { isWithinDateRange } from '../../../../../utils/dateRange.js';
+import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
+import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
 import { RecordPaymentModal } from './shared/RecordPaymentModal.jsx';
 import { DocumentPreviewModal } from './shared/DocumentPreviewModal.jsx';
 import { documentConfigs } from './documentConfigs.js';
 import { getInvoicePrintTemplate } from './shared/invoiceTemplatePreference.js';
 import { useFocusTrap } from '../../../../../hooks/useFocusTrap.js';
+import { useDebouncedValue } from '../../../../../hooks/useDebouncedValue.js';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
 
 // ── Config ─────────────────────────────────────────────────────
 
 const PAGE_SIZE = 5;
 const INVOICE_NUMBER_COLLATOR = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
-const PAYMENT_FILTERS = ['All', 'Unpaid', 'Partial', 'Paid', 'Overdue'];
+// Bills Register keeps its own client-side paging (PAGE_SIZE) over a
+// generously-limited, server-filtered fetch, since the stat cards above the
+// table need to summarize the whole filtered set, not just one page of it.
+const FETCH_LIMIT = 500;
 
 function normalizeProductForDescription(product = {}) {
   const description = product.description || product.name || product.productName || '';
@@ -429,8 +434,16 @@ function normalizeInvoice(inv) {
   const calculatedTotal = taxable + gst;
   const savedTotal = Number(inv.totals?.finalTotal ?? inv.totals?.grandTotal);
   const total = Number.isFinite(savedTotal) && savedTotal > 0 ? savedTotal : calculatedTotal;
-  const paid = Math.max(0, Number(inv.advanceReceived) || 0);
-  const balanceDue = Math.max(0, total - paid);
+  // Payment status/paid/balance now come pre-computed from the server (joined
+  // against Payment records) — fall back to the old client-only estimate
+  // (advance received only, no payment ledger) if a caller ever passes a raw
+  // invoice that didn't go through the list endpoint's payment-status stage.
+  const hasServerPaymentInfo = inv.payStatus !== undefined;
+  const paid = hasServerPaymentInfo ? Number(inv.totalPaid) || 0 : Math.max(0, Number(inv.advanceReceived) || 0);
+  const balanceDue = hasServerPaymentInfo ? Number(inv.balance) || 0 : Math.max(0, total - paid);
+  const paymentStatus = hasServerPaymentInfo
+    ? inv.payStatus
+    : (balanceDue <= 0 ? 'Paid' : isPastDue(inv.meta?.dueDate) ? 'Overdue' : 'Unpaid');
 
   return {
     ...inv,
@@ -445,25 +458,9 @@ function normalizeInvoice(inv) {
     total: Math.round(total * 100) / 100,
     paid: Math.round(paid * 100) / 100,
     balanceDue: Math.round(balanceDue * 100) / 100,
-    paymentStatus: balanceDue <= 0 ? 'Paid' : isPastDue(inv.meta?.dueDate) ? 'Overdue' : 'Unpaid',
+    paymentStatus,
     totals: inv.totals ?? {},
   };
-}
-
-function applyPaymentData(invoices, paidMap) {
-  return invoices.map((inv) => {
-    const pmt = paidMap[inv.id];
-    if (!pmt) return inv;
-    const totalPaid  = pmt.totalPaid;
-    const balanceDue = pmt.balance;
-    const dueDate    = inv.dueDate;
-    let paymentStatus;
-    if (balanceDue <= 0)      paymentStatus = 'Paid';
-    else if (totalPaid > 0)   paymentStatus = 'Partial';
-    else if (isPastDue(dueDate)) paymentStatus = 'Overdue';
-    else                      paymentStatus = 'Unpaid';
-    return { ...inv, paid: totalPaid, balanceDue, paymentStatus };
-  });
 }
 
 function compareInvoicesByNumber(a, b) {
@@ -478,11 +475,11 @@ function compareInvoicesByNumber(a, b) {
 
 export function InvoicePage() {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [openMenu, setOpenMenu] = useState(null);
   const [shareInvoice, setShareInvoice] = useState(null);
   const [paymentInvoice, setPaymentInvoice] = useState(null);
-  const [paymentFilter, setPaymentFilter] = useState('All');
-  const [billTypeFilter, setBillTypeFilter] = useState('All');
+  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [invoices, setInvoices] = useState([]);
@@ -493,22 +490,16 @@ export function InvoicePage() {
   const [error, setError] = useState('');
   const searchRef = useRef(null);
 
+  function updateFilter(key, value) {
+    setFilters((f) => ({ ...f, [key]: value }));
+  }
+
   async function loadData() {
     setLoading(true);
     setError('');
     try {
-      const [invoiceRes, bosRes, paymentRes] = await Promise.all([
-        api.listInvoices({ documentType: 'invoice', limit: 100 }),
-        api.listInvoices({ documentType: 'bill-of-supply', limit: 100 }),
-        api.listOutstanding().catch(() => ({ rows: [] })),
-      ]);
-      const raw = [
-        ...(Array.isArray(invoiceRes.data) ? invoiceRes.data.map(normalizeInvoice) : []),
-        ...(Array.isArray(bosRes.data)     ? bosRes.data.map(normalizeInvoice)     : []),
-      ];
-      const paidMap = {};
-      for (const row of (paymentRes.rows ?? [])) paidMap[row.id] = row;
-      setInvoices(applyPaymentData(raw, paidMap));
+      const res = await api.listInvoices({ ...filters, search: debouncedSearch, dateFrom, dateTo, limit: FETCH_LIMIT });
+      setInvoices(Array.isArray(res.data) ? res.data.map(normalizeInvoice) : []);
     } catch (err) {
       setError(err.message || 'Unable to load invoices');
       setInvoices([]);
@@ -517,7 +508,7 @@ export function InvoicePage() {
     }
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [filters, debouncedSearch, dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     api.getSettings().then(setBizSettings).catch(() => {});
@@ -582,25 +573,11 @@ export function InvoicePage() {
     return { gstBills, accountingPosted, accountingPending, paid };
   }, [invoices]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return orderedInvoices.filter((inv) => {
-      const number = inv.number?.toLowerCase() ?? '';
-      const customerName = inv.customer?.name?.toLowerCase() ?? '';
-      if (q && !number.includes(q) && !customerName.includes(q)) return false;
-      if (!isWithinDateRange(inv.date || inv.createdAt, dateFrom, dateTo)) return false;
-      if (paymentFilter !== 'All' && inv.paymentStatus !== paymentFilter) return false;
-      if (billTypeFilter === 'GST'     && inv.documentType !== 'invoice')         return false;
-      if (billTypeFilter === 'No GST'  && inv.documentType !== 'bill-of-supply')  return false;
-      return true;
-    });
-  }, [dateFrom, dateTo, paymentFilter, billTypeFilter, search, orderedInvoices]);
-
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFrom, dateTo, paymentFilter, billTypeFilter, search]);
+  }, [filters, debouncedSearch, dateFrom, dateTo]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(orderedInvoices.length / PAGE_SIZE));
   const exportColumns = [
     { label: 'Invoice No.', value: (row) => row.number },
     { label: 'Customer', value: (row) => row.customer?.name || 'Walk-in customer' },
@@ -618,9 +595,9 @@ export function InvoicePage() {
   ];
   const safePage = Math.min(currentPage, totalPages);
   const pageStart = (safePage - 1) * PAGE_SIZE;
-  const paginatedInvoices = filtered.slice(pageStart, pageStart + PAGE_SIZE);
-  const showingFrom = filtered.length === 0 ? 0 : pageStart + 1;
-  const showingTo = Math.min(pageStart + PAGE_SIZE, filtered.length);
+  const paginatedInvoices = orderedInvoices.slice(pageStart, pageStart + PAGE_SIZE);
+  const showingFrom = orderedInvoices.length === 0 ? 0 : pageStart + 1;
+  const showingTo = Math.min(pageStart + PAGE_SIZE, orderedInvoices.length);
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
 
   const { highlightedIndex } = useListKeyboardNav({
@@ -725,25 +702,12 @@ export function InvoicePage() {
             onToChange={setDateTo}
             onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
-          <select
-            className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white text-[#374151]"
-            value={billTypeFilter}
-            onChange={(e) => setBillTypeFilter(e.target.value)}
-          >
-            <option value="All">All Bills</option>
-            <option value="GST">With GST</option>
-            <option value="No GST">Without GST</option>
-          </select>
-          <select
-            className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white text-[#374151]"
-            value={paymentFilter}
-            onChange={(e) => setPaymentFilter(e.target.value)}
-          >
-            {PAYMENT_FILTERS.map((status) => (
-              <option key={status} value={status}>{status === 'All' ? 'All Payments' : status}</option>
-            ))}
-          </select>
-          <ExportButtons title="Bills" filename="bills" rows={filtered} columns={exportColumns} />
+          <SalesFilterBar
+            filters={filters}
+            onChange={updateFilter}
+            fields={['gstType', 'paymentMethod', 'paymentStatus', 'customer', 'city', 'state', 'supplyType', 'amountRange', 'itemType', 'hsn', 'productName', 'barcode']}
+          />
+          <ExportButtons title="Bills" filename="bills" rows={orderedInvoices} columns={exportColumns} />
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
             <input
@@ -789,7 +753,7 @@ export function InvoicePage() {
             </thead>
 
             <tbody>
-              {filtered.length === 0 ? (
+              {orderedInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={13} className="text-center py-16 text-[#536173] text-[13px]">
                     No invoices match your search.
@@ -924,7 +888,7 @@ export function InvoicePage() {
         <div className="px-4 py-3 border-t border-[#edf2f7] flex flex-wrap items-center justify-between gap-2">
           <span className="text-[13px] text-[#536173]">
             Showing <span className="font-medium text-[#374151]">{showingFrom}-{showingTo}</span> of{' '}
-            <span className="font-medium text-[#374151]">{filtered.length}</span> invoices
+            <span className="font-medium text-[#374151]">{orderedInvoices.length}</span> invoices
           </span>
           <div className="flex items-center gap-1">
             <button

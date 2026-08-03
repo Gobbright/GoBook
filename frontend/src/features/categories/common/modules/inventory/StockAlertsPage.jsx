@@ -20,6 +20,13 @@ function StatusBadge({ status }) {
       </span>
     );
   }
+  if (status === 'Not Tracked') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600">
+        {status}
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-600">
       {status}
@@ -27,8 +34,26 @@ function StatusBadge({ status }) {
   );
 }
 
+function ItemTypeTabs({ value, onChange }) {
+  return (
+    <div className="inline-flex rounded-md border border-[#dbe4ef] bg-white p-0.5">
+      {['Product', 'Service'].map((t) => (
+        <button
+          key={t}
+          type="button"
+          className={`px-3 py-1.5 text-[13px] font-medium rounded cursor-pointer font-[inherit] ${value === t ? 'bg-blue-600 text-white' : 'text-[#374151] hover:bg-gray-50'}`}
+          onClick={() => onChange(t)}
+        >
+          {t === 'Product' ? 'Products' : 'Services'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function StockAlertsPage() {
   const [search, setSearch]   = useState('');
+  const [itemType, setItemType] = useState('Product');
   const [alerts, setAlerts]   = useState([]);
   const [stats, setStats]     = useState(null);
   const [total, setTotal]     = useState(0);
@@ -39,21 +64,21 @@ export function StockAlertsPage() {
   const LIMIT = 50;
 
   useEffect(() => {
-    api.invAlertStats()
+    api.invAlertStats({ itemType })
       .then(setStats)
       .catch(() => {});
-  }, []);
+  }, [itemType]);
 
   useEffect(() => {
     setLoading(true);
     setError('');
-    const params = { page, limit: LIMIT };
+    const params = { page, limit: LIMIT, itemType };
     if (search) params.search = search;
     api.invListAlerts(params)
       .then((res) => { setAlerts(res.data); setTotal(res.total); })
       .catch(() => setError('Failed to load stock alerts'))
       .finally(() => setLoading(false));
-  }, [search, page]);
+  }, [search, itemType, page]);
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
@@ -65,6 +90,12 @@ export function StockAlertsPage() {
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">Monitor low stock, out of stock and expiry alerts</p>
         </div>
       </div>
+
+      {itemType === 'Service' && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 text-[13px] rounded-xl px-4 py-3 mb-5">
+          Services aren't stock-tracked, so low/out-of-stock alerts don't apply — this tab just lists your active services.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         {[
@@ -103,7 +134,8 @@ export function StockAlertsPage() {
       </div>
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl">
-        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7]">
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7] flex-wrap">
+          <ItemTypeTabs value={itemType} onChange={(t) => { setItemType(t); setPage(1); }} />
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13">
               <circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/>

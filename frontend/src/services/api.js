@@ -48,6 +48,11 @@ function qs(params) {
 export const api = {
   // ── Settings ──────────────────────────────────────────────────────────────
   getSettings: () => request('GET', '/settings'),
+  listStaffUsers: (params) => request('GET', `/settings/users${qs(params ?? {})}`),
+
+  // ── Audit Log ─────────────────────────────────────────────────────────────
+  listAuditLogs:      (params) => request('GET', `/audit-logs${qs(params ?? {})}`),
+  listAuditModelNames: ()      => request('GET', '/audit-logs/models'),
 
   // ── Global Search ─────────────────────────────────────────────────────────
   globalSearch: (q) => request('GET', `/search${qs({ q: q ?? '' })}`),
@@ -143,6 +148,10 @@ export const api = {
   invProductNextCode:   ()               => request('GET', '/inventory/products/next-code'),
   invProductCategories: ()               => request('GET', '/inventory/products/categories'),
   invProductBrands:     ()               => request('GET', '/inventory/products/brands'),
+  invProductSizes:      ()               => request('GET', '/inventory/products/sizes'),
+  invProductFabrics:    ()               => request('GET', '/inventory/products/fabrics'),
+  invProductColours:    ()               => request('GET', '/inventory/products/colours'),
+  invProductTypes:      ()               => request('GET', '/inventory/products/types'),
   invListProducts:      (params)         => request('GET', `/inventory/products${qs(params ?? {})}`),
   invCreateProduct:     (payload)        => request('POST',   '/inventory/products', payload),
   invUpdateProduct:     (id, payload)    => request('PUT',    `/inventory/products/${id}`, payload),
@@ -154,7 +163,7 @@ export const api = {
 
   // ── Inventory: Stock In ───────────────────────────────────────────────────
   invStockInNextNumber: ()            => request('GET', '/inventory/stock-in/next-number'),
-  invStockInStats:      ()            => request('GET', '/inventory/stock-in/stats'),
+  invStockInStats:      (params)      => request('GET', `/inventory/stock-in/stats${qs(params ?? {})}`),
   invListStockIn:       (params)      => request('GET', `/inventory/stock-in${qs(params ?? {})}`),
   invCreateStockIn:     (payload)     => request('POST',   '/inventory/stock-in', payload),
   invUpdateStockIn:     (id, payload) => request('PUT',    `/inventory/stock-in/${id}`, payload),
@@ -163,7 +172,7 @@ export const api = {
 
   // ── Inventory: Stock Out ──────────────────────────────────────────────────
   invStockOutNextNumber: ()            => request('GET', '/inventory/stock-out/next-number'),
-  invStockOutStats:      ()            => request('GET', '/inventory/stock-out/stats'),
+  invStockOutStats:      (params)      => request('GET', `/inventory/stock-out/stats${qs(params ?? {})}`),
   invListStockOut:       (params)      => request('GET', `/inventory/stock-out${qs(params ?? {})}`),
   invCreateStockOut:     (payload)     => request('POST',   '/inventory/stock-out', payload),
   invUpdateStockOut:     (id, payload) => request('PUT',    `/inventory/stock-out/${id}`, payload),
@@ -191,7 +200,7 @@ export const api = {
   invDeleteBrand:  (id)             => request('DELETE', `/inventory/brands/${id}`),
 
   // ── Inventory: Alerts ─────────────────────────────────────────────────────
-  invAlertStats: ()       => request('GET', '/inventory/alerts/stats'),
+  invAlertStats: (params) => request('GET', `/inventory/alerts/stats${qs(params ?? {})}`),
   invListAlerts: (params) => request('GET', `/inventory/alerts${qs(params ?? {})}`),
 
   // ── HR & Payroll: Employees ───────────────────────────────────────────────

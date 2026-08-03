@@ -8,6 +8,7 @@ import {
   attachAccountingStatusList,
 } from '../../../../services/salesAccountingStatus.js';
 import { httpError } from '../../../../utils/httpError.js';
+import { buildSalesAggregationPipeline, unwrapFacetResult } from '../shared/salesFilters.js';
 
 const DOCTYPE = 'credit-note';
 
@@ -35,23 +36,10 @@ export async function getNextCreditNoteNumber(req, res, next) {
 // GET /api/sales/credit-notes
 export async function listCreditNotes(req, res, next) {
   try {
-    const { search, page = 1, limit = 50 } = req.query;
-    const filter = { userId: req.user.id, documentType: DOCTYPE };
-    if (search) {
-      filter.$or = [
-        { number: new RegExp(search, 'i') },
-        { 'customer.name': new RegExp(search, 'i') },
-      ];
-    }
-
-    const [data, total] = await Promise.all([
-      Invoice.find(filter)
-        .sort({ createdAt: -1 })
-        .skip((Number(page) - 1) * Number(limit))
-        .limit(Number(limit))
-        .lean(),
-      Invoice.countDocuments(filter),
-    ]);
+    const { page = 1, limit = 50 } = req.query;
+    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, DOCTYPE, { includePayment: false });
+    const result = await Invoice.aggregate(pipeline);
+    const { data, total } = unwrapFacetResult(result);
 
     res.json({ data: await attachAccountingStatusList(req.user.id, data), total, page: Number(page), limit: Number(limit) });
   } catch (err) {

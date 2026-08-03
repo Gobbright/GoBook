@@ -6,6 +6,10 @@ import {
   listProducts,
   getCategories,
   getBrands,
+  getSizes,
+  getFabrics,
+  getColours,
+  getTypes,
   getProduct,
   createProduct,
   updateProduct,
@@ -70,6 +74,10 @@ inventoryRouter.get('/products/stats',      getProductStats);
 inventoryRouter.get('/products/next-code',  getNextProductCode);
 inventoryRouter.get('/products/categories', getCategories);
 inventoryRouter.get('/products/brands',     getBrands);
+inventoryRouter.get('/products/sizes',      getSizes);
+inventoryRouter.get('/products/fabrics',    getFabrics);
+inventoryRouter.get('/products/colours',    getColours);
+inventoryRouter.get('/products/types',      getTypes);
 inventoryRouter.post('/products/import',    uploadProductsFile.single('file'), importProducts);
 inventoryRouter.get('/products',            listProducts);
 inventoryRouter.post('/products',           createProduct);
