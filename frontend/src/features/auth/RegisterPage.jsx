@@ -1,9 +1,9 @@
-﻿import { redirectTo } from '../../routes/navigation.js';
+import { redirectTo } from '../../routes/navigation.js';
 import { useMemo, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Building2, Car, CheckCircle2, CreditCard, Eye, EyeOff,
   Factory, GraduationCap, HardHat, Hospital, Lock, Mail, Phone, RefreshCw,
-  Rocket, ShieldCheck, Store, User, Users,
+  Rocket, ShieldCheck, Store, User, Users, Wallet,
 } from 'lucide-react';
 
 import { CATEGORIES } from '../../constants/categories.js';
@@ -12,7 +12,7 @@ import { AuthLayout } from './AuthLayout.jsx';
 import { CHECKBOX_TEXT, ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
 
 const CATEGORY_ICONS = {
-  Store, GraduationCap, Hospital, Building2, Factory, HardHat, Users, Car,
+  Store, GraduationCap, Hospital, Building2, Factory, HardHat, Users, Car, Wallet,
 };
 
 const PLANS = [

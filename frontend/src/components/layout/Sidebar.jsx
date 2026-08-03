@@ -9,7 +9,7 @@ import {
   LayoutGrid, LogIn, LogOut, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus,
   PenLine, Pill, PieChart, QrCode, Receipt, ReceiptText, RefreshCw, Route, Scale, Settings,
   Shield, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound,
-  Users, UtensilsCrossed, Wallet, Warehouse, Wrench, Zap,
+  Users, UtensilsCrossed, Wallet, Warehouse, Wrench, XCircle, Zap,
 } from 'lucide-react';
 
 import { getSidebarSections } from '../../constants/navigation.js';
@@ -27,7 +27,7 @@ const ICON_MAP = {
   LogIn, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus, PenLine,
   Pill, PieChart, QrCode, Receipt, ReceiptText, RefreshCw, Route, Scale, Settings, Shield,
   IndianRupee, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound, Users,
-  UtensilsCrossed, Wallet, Warehouse, Wrench, Zap,
+  UtensilsCrossed, Wallet, Warehouse, Wrench, XCircle, Zap,
 };
 
 function NavIcon({ name }) {
@@ -160,7 +160,7 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                   </Link>
                 )
               ) : (
-                /* Multi-item section ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â collapsible group */
+                /* Multi-item section - collapsible group */
                 <div className="mt-1">
                   <button
                     type="button"
@@ -169,7 +169,10 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                       ${openSection === section.title ? 'text-[#90caf9]' : 'text-[#7ab4d8] hover:text-[#b0d8f0]'}`}
                     aria-expanded={openSection === section.title}
                   >
-                    <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{section.title}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-2 truncate whitespace-nowrap text-left">
+                      {section.icon && <NavIcon name={section.icon} />}
+                      <span className="min-w-0 truncate">{section.title}</span>
+                    </span>
                     <ChevronDown
                       size={13}
                       strokeWidth={2.5}

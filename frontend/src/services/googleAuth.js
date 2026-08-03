@@ -1,7 +1,6 @@
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 
 let scriptPromise = null;
-let hiddenButtonContainer = null;
 
 function loadGsiScript() {
   if (window.google?.accounts?.id) return Promise.resolve();
@@ -26,41 +25,32 @@ function loadGsiScript() {
   return scriptPromise;
 }
 
-// Opens the real Google account chooser popup via a hidden native Google button,
-// so the visible UI can keep a custom-styled "Sign in with Google" button.
-export async function signInWithGoogle() {
+export async function renderGoogleSignInButton(container, onCredential, onError) {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  if (!clientId) {
-    throw new Error('Google sign-in is not configured yet.');
-  }
+  if (!clientId) throw new Error('Google sign-in is not configured yet.');
 
   await loadGsiScript();
 
-  return new Promise((resolve, reject) => {
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      ux_mode: 'popup',
-      callback: (response) => {
-        if (response?.credential) resolve(response.credential);
-        else reject(new Error('Google sign-in was cancelled'));
-      },
-    });
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    ux_mode: 'popup',
+    callback: (response) => {
+      if (!response?.credential) {
+        onError(new Error('Google sign-in was cancelled'));
+        return;
+      }
+      Promise.resolve(onCredential(response.credential)).catch(onError);
+    },
+  });
 
-    if (!hiddenButtonContainer) {
-      hiddenButtonContainer = document.createElement('div');
-      hiddenButtonContainer.style.position = 'fixed';
-      hiddenButtonContainer.style.top = '-9999px';
-      hiddenButtonContainer.style.left = '-9999px';
-      document.body.appendChild(hiddenButtonContainer);
-    }
-    hiddenButtonContainer.innerHTML = '';
-    window.google.accounts.id.renderButton(hiddenButtonContainer, { type: 'standard' });
-
-    const realButton = hiddenButtonContainer.querySelector('div[role="button"]');
-    if (!realButton) {
-      reject(new Error('Unable to start Google sign-in'));
-      return;
-    }
-    realButton.click();
+  container.innerHTML = '';
+  window.google.accounts.id.renderButton(container, {
+    type: 'standard',
+    theme: 'outline',
+    size: 'large',
+    text: 'signin_with',
+    shape: 'rectangular',
+    logo_alignment: 'left',
+    width: String(Math.max(240, Math.floor(container.getBoundingClientRect().width))),
   });
 }

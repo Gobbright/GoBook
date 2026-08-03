@@ -18,19 +18,10 @@ export async function login(email, password) {
   return data.user;
 }
 
-export async function loginWithGoogle(credential) {
-  const data = await apiClient('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
-  setSession(data.token, data.user);
-  return data.user;
-}
-
-
-
-
-export async function startGoogleOtpLogin(email) {
+export async function startGoogleOtpLogin(credential) {
   return apiClient('/auth/google-otp/start', {
     method: 'POST',
-    body: JSON.stringify({ email: email.trim() }),
+    body: JSON.stringify({ credential }),
   });
 }
 

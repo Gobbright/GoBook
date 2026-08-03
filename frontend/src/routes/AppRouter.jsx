@@ -52,6 +52,7 @@ import {
 } from './billingRoutes.jsx';
 import { automobileRoutes } from './automobileRoutes.jsx';
 import { constructionRoutes } from './constructionRoutes.jsx';
+import { financeRoutes } from '../features/categories/finance/routes.jsx';
 import { hospitalRoutes } from './hospitalRoutes.jsx';
 import { hotelRoutes } from './hotelRoutes.jsx';
 import { ngoRoutes } from './ngoRoutes.jsx';
@@ -142,7 +143,7 @@ function AppRoutes() {
 
       <Route element={<ProtectedShell />}>
         <Route index element={<Navigate to={getLastRoute()} replace />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/dashboard" element={category === 'finance' ? <Navigate to="/finance/dashboard" replace /> : <DashboardPage />} />
 
         <Route path="/employee-management/dashboard" element={employeeManagementPage(<EmployeeAdminDashboard />)} />
         <Route path="/employee-management/employees" element={employeeManagementPage(<EmployeeList />)} />
@@ -223,7 +224,11 @@ function AppRoutes() {
           <Route key={path} path={path} element={element} />
         ))}
 
-        <Route path="*" element={<DashboardPage />} />
+        {category === 'finance' && financeRoutes.map(({ path, element }) => (
+          <Route key={path} path={path} element={element} />
+        ))}
+
+        <Route path="*" element={category === 'finance' ? <Navigate to="/finance/dashboard" replace /> : <DashboardPage />} />
       </Route>
     </Routes>
   );
@@ -238,6 +243,3 @@ export function AppRouter() {
     </BrowserRouter>
   );
 }
-
-
-

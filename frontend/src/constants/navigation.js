@@ -101,9 +101,9 @@ const SECTIONS = {
   dataManagement: {
     title: 'Data Management',
     items: [
-      { label: 'Export Data', href: '/data-management/export' },
-      { label: 'Import Data', href: '/data-management/import' },
-      { label: 'Delete Period', href: '/data-management/delete-period' },
+      { label: 'Export Data', href: '/data-management/export', icon: 'Database' },
+      { label: 'Import Data', href: '/data-management/import', icon: 'PackagePlus' },
+      { label: 'Delete Period', href: '/data-management/delete-period', icon: 'CalendarOff' },
     ],
   },
   reports: {
@@ -507,6 +507,37 @@ const SECTIONS = {
       { label: 'Insurance Claim Billing', href: '/automobile/service-invoice/insurance-claim-billing', icon: 'FileCheck' },
     ],
   },
+
+  // --- Finance ---
+  financeDashboard: {
+    title: 'Dashboard',
+    items: [{ label: 'Dashboard', href: '/finance/dashboard', icon: 'LayoutDashboard' }],
+  },
+  financeCustomers: {
+    title: 'Customers',
+    icon: 'Users',
+    items: [
+      { label: 'Add Customers', href: '/finance/customers/add', icon: 'UserPlus' },
+      { label: 'All Customers', href: '/finance/customers/all', icon: 'Users' },
+      { label: 'Closed Customers', href: '/finance/customers/closed', icon: 'XCircle' },
+    ],
+  },
+  financeCollections: {
+    title: 'Collection Entry',
+    items: [{ label: 'Collection Entry', href: '/finance/collections', icon: 'IndianRupee' }],
+  },
+  financeReminders: {
+    title: 'Reminders',
+    items: [{ label: 'Reminders', href: '/finance/reminders', icon: 'CalendarClock' }],
+  },
+  financeFinishedCustomers: {
+    title: 'Closed Customers',
+    items: [{ label: 'Closed Customers', href: '/finance/customers/closed', icon: 'XCircle' }],
+  },
+  financeReports: {
+    title: 'Reports',
+    items: [{ label: 'Reports', href: '/finance/reports', icon: 'BarChart3' }],
+  },
 };
 
 // Shared by every category: GST, Accounting, CRM, Inventory, Employee Management, More Modules, Settings.
@@ -540,6 +571,10 @@ const CATEGORY_LAYOUTS = {
   automobile: [
     'automobileDashboard', 'automobileCustomersVehicles', 'automobileJobCards',
     'automobileService', 'automobileServiceInvoice', ...COMMON_LAYOUT.slice(1),
+  ],
+  finance: [
+    'financeDashboard', 'financeCustomers', 'financeCollections',
+    'financeReminders', 'financeReports',
   ],
   transport: COMMON_LAYOUT,
   other: COMMON_LAYOUT,

@@ -110,6 +110,26 @@ function buildGoogleProfile(payload, email) {
   };
 }
 
+async function verifyGoogleCredential(credential) {
+  if (!googleClient) throw httpError(500, 'Google sign-in is not configured');
+  if (!credential) throw httpError(400, 'Google credential is required');
+
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: env.googleClientId });
+    payload = ticket.getPayload();
+  } catch {
+    throw httpError(401, 'Invalid Google credential');
+  }
+
+  const email = normalizeEmail(payload?.email);
+  if (!email || !payload?.sub || !payload.email_verified) {
+    throw httpError(401, 'Google account email is not verified');
+  }
+
+  return { email, payload };
+}
+
 async function ensureBusinessSettingsForUser(user) {
   await BusinessSettings.findOneAndUpdate(
     { userId: user._id },
@@ -349,12 +369,7 @@ export async function login(req, res, next) {
     if (user.status !== 'Active') {
       return next(httpError(403, 'Account is not active'));
     }
-    if (!user.googleId && !user.emailVerified) {
-      await sendEmailVerificationOtp(user);
-      const token = signToken(user);
-      return res.json({ token, user: toSafeUser(user), message: 'Email verification required. OTP sent to your email.' });
-    }
-
+    if (!user.emailVerified) user.emailVerified = true;
     user.lastLogin = new Date().toISOString();
     await user.save();
 
@@ -368,16 +383,27 @@ export async function login(req, res, next) {
 // POST /api/auth/google-otp/start
 export async function startGoogleOtpLogin(req, res, next) {
   try {
-    const email = normalizeEmail(req.body.email);
-    if (!email) return next(httpError(400, 'Email is required'));
-    const existing = await AppUser.findOne({ email }).select('name email status');
+    const { email, payload } = await verifyGoogleCredential(req.body.credential);
+    const googleProfile = buildGoogleProfile(payload, email);
+    const existing = await AppUser.findOne({ $or: [{ email }, { googleId: payload.sub }] }).select('name email status');
     if (existing && existing.status !== 'Active') return next(httpError(403, 'Account is not active'));
+    if (existing) {
+      await PendingGoogleLogin.deleteMany({ $or: [{ email }, { googleId: payload.sub }] });
+      return res.json({
+        existingAccount: true,
+        email: existing.email,
+        message: 'Account found. Enter your password to sign in.',
+      });
+    }
+
     const otp = createResetOtp();
     await PendingGoogleLogin.findOneAndUpdate(
       { email },
       {
         $set: {
           email,
+          googleId: payload.sub,
+          googleProfile,
           otpHash: await bcrypt.hash(otp, SALT_ROUNDS),
           otpExpiresAt: new Date(Date.now() + GOOGLE_OTP_EXPIRES_MINUTES * 60 * 1000),
           otpAttempts: 0,
@@ -389,10 +415,10 @@ export async function startGoogleOtpLogin(req, res, next) {
     await sendMail({
       to: email,
       subject: 'Your GoBook Google login OTP',
-      html: getGoogleOtpEmailHtml({ name: existing?.name || email.split('@')[0], otp }),
+      html: getGoogleOtpEmailHtml({ name: existing?.name || googleProfile.name || email.split('@')[0], otp }),
     });
 
-    res.json({ message: 'OTP sent to your email', email, expiresInMinutes: GOOGLE_OTP_EXPIRES_MINUTES });
+    res.json({ existingAccount: false, message: 'OTP sent to your Google email', email, expiresInMinutes: GOOGLE_OTP_EXPIRES_MINUTES });
   } catch (err) {
     next(err);
   }
@@ -406,7 +432,7 @@ export async function verifyGoogleOtpLogin(req, res, next) {
 
     if (!email) return next(httpError(400, 'Email is required'));
     if (!/^\d{6}$/.test(otp)) return next(httpError(400, 'OTP must be 6 digits'));
-    const pending = await PendingGoogleLogin.findOne({ email }).select('+otpHash +otpExpiresAt +otpAttempts');
+    const pending = await PendingGoogleLogin.findOne({ email }).select('+googleId +googleProfile +otpHash +otpExpiresAt +otpAttempts');
     if (!pending || !pending.otpHash || !pending.otpExpiresAt) return next(httpError(400, 'Invalid or expired OTP'));
     if (pending.otpExpiresAt.getTime() < Date.now()) {
       await PendingGoogleLogin.deleteOne({ _id: pending._id });
@@ -420,24 +446,24 @@ export async function verifyGoogleOtpLogin(req, res, next) {
       return next(httpError(400, 'Invalid or expired OTP'));
     }
 
-    let user = await AppUser.findOne({ email }).select('+password');
-    if (user && user.status !== 'Active') return next(httpError(403, 'Account is not active'));
-    if (!user) {
-      const name = email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-      user = await AppUser.create({
-        name,
-        email,
-        authProvider: 'email',
-        emailVerified: true,
-        role: 'Super Admin',
-        lastLogin: new Date().toISOString(),
-        onboardingCompleted: false,
-      });
-    } else {
-      user.emailVerified = true;
-      user.lastLogin = new Date().toISOString();
-      await user.save();
+    const existing = await AppUser.exists({ $or: [{ email }, { googleId: pending.googleId }] });
+    if (existing) {
+      await PendingGoogleLogin.deleteOne({ _id: pending._id });
+      return next(httpError(409, 'Account already exists. Sign in with your password.'));
     }
+
+    const name = pending.googleProfile?.name || email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+    const user = await AppUser.create({
+      name,
+      email,
+      googleId: pending.googleId,
+      authProvider: 'google',
+      emailVerified: true,
+      googleProfile: pending.googleProfile,
+      role: 'Super Admin',
+      lastLogin: new Date().toISOString(),
+      onboardingCompleted: false,
+    });
 
     await PendingGoogleLogin.deleteOne({ _id: pending._id });
 
@@ -447,69 +473,6 @@ export async function verifyGoogleOtpLogin(req, res, next) {
     next(err);
   }
 }
-// POST /api/auth/google
-export async function googleLogin(req, res, next) {
-  try {
-    if (!googleClient) {
-      return next(httpError(500, 'Google sign-in is not configured'));
-    }
-
-    const { credential } = req.body;
-    if (!credential) {
-      return next(httpError(400, 'Google credential is required'));
-    }
-
-    let payload;
-    try {
-      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: env.googleClientId });
-      payload = ticket.getPayload();
-    } catch {
-      return next(httpError(401, 'Invalid Google credential'));
-    }
-
-    const email = normalizeEmail(payload?.email);
-    if (!email || !payload.email_verified) {
-      return next(httpError(401, 'Google account email is not verified'));
-    }
-
-    const now = new Date().toISOString();
-    const googleProfile = buildGoogleProfile(payload, email);
-    let user = await AppUser.findOne({ $or: [{ email }, { googleId: payload.sub }] });
-
-    if (user) {
-      if (user.status !== 'Active') {
-      return next(httpError(403, 'Account is not active'));
-    }
-
-      user.googleId = payload.sub;
-      user.authProvider = 'google';
-      user.emailVerified = true;
-      user.googleProfile = googleProfile;
-      user.lastLogin = now;
-      if (!user.name && googleProfile.name) user.name = googleProfile.name;
-      await user.save();
-    } else {
-      const name = googleProfile.name || email.split('@')[0];
-      user = await AppUser.create({
-        name,
-        email,
-        googleId: payload.sub,
-        authProvider: 'google',
-        emailVerified: true,
-        googleProfile,
-        role: 'Super Admin',
-        lastLogin: now,
-        onboardingCompleted: false,
-      });
-    }
-
-    const token = signToken(user);
-    res.json({ token, user: toSafeUser(user) });
-  } catch (err) {
-    next(err);
-  }
-}
-
 // POST /api/auth/complete-google-onboarding
 export async function completeGoogleOnboarding(req, res, next) {
   try {

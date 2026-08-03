@@ -1,14 +1,13 @@
 import { redirectTo } from '../../routes/navigation.js';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw } from 'lucide-react';
 
 import { login, startGoogleOtpLogin, verifyGoogleOtpLogin } from '../../services/authService.js';
+import { renderGoogleSignInButton } from '../../services/googleAuth.js';
 import { AuthLayout } from './AuthLayout.jsx';
-import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, GoogleIcon, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
+import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
 import { LaunchExperience } from './LaunchExperience.jsx';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -20,6 +19,54 @@ export function LoginPage() {
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [googleOtpMode, setGoogleOtpMode] = useState(false);
   const [googleOtp, setGoogleOtp] = useState('');
+  const [googleCredential, setGoogleCredential] = useState('');
+  const googleButtonRef = useRef(null);
+  const passwordInputRef = useRef(null);
+
+  useEffect(() => {
+    if (googleOtpMode || !googleButtonRef.current) return undefined;
+    let active = true;
+
+    renderGoogleSignInButton(
+      googleButtonRef.current,
+      async (credential) => {
+        if (!active) return;
+        setError('');
+        setMessage('');
+        setGoogleSubmitting(true);
+        try {
+          const data = await startGoogleOtpLogin(credential);
+          if (!active) return;
+          setEmail(data.email);
+          if (data.existingAccount) {
+            setPassword('');
+            setGoogleCredential('');
+            setMessage(data.message || 'Account found. Enter your password to sign in.');
+            passwordInputRef.current?.focus();
+            return;
+          }
+          setGoogleCredential(credential);
+          setGoogleOtp('');
+          setGoogleSubmitting(false);
+          setGoogleOtpMode(true);
+          setMessage(data.message || 'OTP sent to your Google email');
+        } catch (err) {
+          if (active) setError(err.message || 'Unable to send OTP. Please try again.');
+        } finally {
+          if (active) setGoogleSubmitting(false);
+        }
+      },
+      (err) => {
+        if (active) setError(err.message || 'Unable to open Google sign-in.');
+      },
+    ).catch((err) => {
+      if (active) setError(err.message || 'Unable to load Google sign-in.');
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [googleOtpMode]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -37,17 +84,16 @@ export function LoginPage() {
   }
 
   async function handleGoogleOtpStart() {
-    const nextEmail = email.trim();
     setError('');
     setMessage('');
-    if (!EMAIL_REGEX.test(nextEmail)) {
-      setError('Enter your Google email address first.');
+    if (!googleCredential) {
+      setError('Select your Google account again.');
       return;
     }
 
     setGoogleSubmitting(true);
     try {
-      const data = await startGoogleOtpLogin(nextEmail);
+      const data = await startGoogleOtpLogin(googleCredential);
       setGoogleOtp('');
       setGoogleOtpMode(true);
       setMessage(data.message || 'OTP sent to your email');
@@ -76,6 +122,7 @@ export function LoginPage() {
   function resetGoogleOtpMode() {
     setGoogleOtpMode(false);
     setGoogleOtp('');
+    setGoogleCredential('');
     setError('');
     setMessage('');
   }
@@ -108,7 +155,7 @@ export function LoginPage() {
               <label htmlFor="password" className={LABEL}>Password</label>
               <div className="relative">
                 <Lock size={15} className={ICON} />
-                <input id="password" type={showPassword ? 'text' : 'password'} required placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${INPUT} pr-11`} />
+                <input ref={passwordInputRef} id="password" type={showPassword ? 'text' : 'password'} required placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${INPUT} pr-11`} />
                 <button type="button" onClick={() => setShowPassword((s) => !s)} aria-label={showPassword ? 'Hide password' : 'Show password'} className={`absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-0 flex items-center transition-colors ${EYE_BUTTON}`}>
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -131,9 +178,10 @@ export function LoginPage() {
               <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
             </div>
 
-            <button type="button" onClick={handleGoogleOtpStart} disabled={googleSubmitting} className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-[13.5px] cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed">
-              <GoogleIcon />{googleSubmitting ? 'Sending OTP...' : 'Sign in with Google OTP'}
-            </button>
+            <div className={`relative min-h-10 w-full overflow-hidden rounded-md [&>div]:w-full ${googleSubmitting ? 'pointer-events-none opacity-60' : ''}`}>
+              <div ref={googleButtonRef} className="w-full flex justify-center" />
+              {googleSubmitting && <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-800/80 text-[13px] font-semibold text-slate-600 dark:text-slate-200">Sending OTP...</div>}
+            </div>
           </form>
         )}
 
