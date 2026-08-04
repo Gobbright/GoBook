@@ -13,6 +13,8 @@ const businessSettingsSchema = new Schema({
   lastReminderRunDate: { type: String, default: '' },
   dateFormat:      { type: String, default: 'DD MMM YYYY' },
   invoicePrefix:   { type: String, default: 'INV-' },
+  financeReceiptPrefix: { type: String, default: 'FIN-' },
+  financeBillFooter:    { type: String, default: 'Thank you for your payment.' },
   emailNotifications:    { type: Boolean, default: true },
   smsNotifications:      { type: Boolean, default: true },
   whatsappNotifications: { type: Boolean, default: true },

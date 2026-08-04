@@ -1,9 +1,0 @@
-
-> gobook-backend@0.1.0 start
-> node src/server.js
-
-GoBook API running on port 5000 [development]
-MongoDB connected - db: gobook
-Database connected - ready to serve requests
-[0mGET /health [32m200[0m 2.181 ms - 137[0m
-[0mGET /health [32m200[0m 0.325 ms - 137[0m

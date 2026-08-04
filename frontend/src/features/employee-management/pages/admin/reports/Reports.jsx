@@ -1,0 +1,2 @@
+import { PageHeader } from '../../../components/common/PageHeader.jsx';
+export default function Reports() { return <><PageHeader title="Reports" subtitle="Employee, attendance, leave and payroll reports" /><div className="card empty">Reports summary will appear here as data grows.</div></>; }

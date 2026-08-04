@@ -20,6 +20,7 @@ const itcRowSchema = new Schema({
 }, { _id: false });
 
 const gstr3bSchema = new Schema({
+  userId:        { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   gstin:        { type: String, default: '27ZZZZZ9999A1Z5' },
   period:       { type: String, required: true },
   status:       { type: String, enum: ['draft', 'filed'], default: 'draft' },
@@ -35,6 +36,6 @@ const gstr3bSchema = new Schema({
   filedAt:      { type: Date },
 }, { timestamps: true });
 
-gstr3bSchema.index({ gstin: 1, period: 1 }, { unique: true });
+gstr3bSchema.index({ userId: 1, gstin: 1, period: 1 }, { unique: true });
 
 export const Gstr3b = model('Gstr3b', gstr3bSchema);

@@ -1,0 +1,2 @@
+import { PageHeader } from '../../../components/common/PageHeader.jsx';
+export default function LeaveTypes() { return <><PageHeader title="Leave Types" subtitle="Casual, sick, annual and unpaid leave types" /><div className="card">Default leave types are active for employee applications.</div></>; }

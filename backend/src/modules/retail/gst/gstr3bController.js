@@ -11,10 +11,11 @@ export async function getGstr3b(req, res, next) {
     if (!period) return next(httpError(400, 'period is required'));
     if (!parsePeriod(period)) return next(httpError(400, 'period must be "Month YYYY" e.g. "May 2026"'));
 
-    const gstin = await getActiveGstin(req.user.id);
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
     const [record, generated] = await Promise.all([
-      Gstr3b.findOne({ gstin, period }).lean(),
-      buildGstr3bFromSales({ userId: req.user.id, period, gstin }),
+      Gstr3b.findOne({ userId, gstin, period }).lean(),
+      buildGstr3bFromSales({ userId, period, gstin }),
     ]);
 
     res.json(mergeDraftGstr3b(record, generated));
@@ -29,11 +30,12 @@ export async function saveGstr3b(req, res, next) {
     const { period, ...rest } = req.body;
     if (!period) return next(httpError(400, 'period is required'));
 
-    const gstin = await getActiveGstin(req.user.id);
-    const generated = await buildGstr3bFromSales({ userId: req.user.id, period, gstin });
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
+    const generated = await buildGstr3bFromSales({ userId, period, gstin });
     const record = await Gstr3b.findOneAndUpdate(
-      { gstin, period },
-      { $set: { ...rest, outwardRows: generated.outwardRows, period, gstin } },
+      { userId, gstin, period },
+      { $set: { ...rest, userId, outwardRows: generated.outwardRows, period, gstin } },
       { new: true, upsert: true, runValidators: false },
     ).lean();
     res.json(record);
@@ -48,14 +50,15 @@ export async function fileGstr3b(req, res, next) {
     const { period } = req.body;
     if (!period) return next(httpError(400, 'period is required'));
 
-    const gstin = await getActiveGstin(req.user.id);
-    const existing = await Gstr3b.findOne({ gstin, period }).lean();
-    const generated = await buildGstr3bFromSales({ userId: req.user.id, period, gstin });
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
+    const existing = await Gstr3b.findOne({ userId, gstin, period }).lean();
+    const generated = await buildGstr3bFromSales({ userId, period, gstin });
     const draft = mergeDraftGstr3b(existing, generated);
     const arn = `AA${Date.now().toString().slice(-10)}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
     const record = await Gstr3b.findOneAndUpdate(
-      { gstin, period },
-      { $set: { ...draft, status: 'filed', arn, filedAt: new Date(), gstin, period } },
+      { userId, gstin, period },
+      { $set: { ...draft, userId, status: 'filed', arn, filedAt: new Date(), gstin, period } },
       { new: true, upsert: true, runValidators: false },
     ).lean();
     res.json(record);

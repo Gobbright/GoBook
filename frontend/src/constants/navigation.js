@@ -1,3 +1,6 @@
+function isAdminUser(user = {}) {
+  return user.isPlatformOwner || ['Super Admin', 'Admin', 'Owner'].includes(user.role);
+}
 const SECTIONS = {
   main: {
     title: 'Dashboard',
@@ -76,23 +79,31 @@ const SECTIONS = {
       { label: 'Inventory Reports', href: '/inventory-reports', icon: 'BarChart3' },
     ],
   },  hrPayroll: {
-    title: 'HR & Payroll',
+    title: 'Employee Management',
+    forceGroup: true,
     items: [
-      { label: 'Employees', href: '/employees', icon: 'Users' },
-      { label: 'Attendance', href: '/attendance', icon: 'CalendarCheck' },
-      { label: 'Payroll', href: '/payroll', icon: 'IndianRupee' },
-      { label: 'Leave Management', href: '/leave-management', icon: 'CalendarOff' },
-      { label: 'Documents', href: '/documents', icon: 'FolderOpen' },
-      { label: 'HR Reports', href: '/hr-reports', icon: 'BarChart3' },
+      { label: 'Dashboard', href: '/employee-management/dashboard', icon: 'LayoutDashboard' },
+      { label: 'Employees', href: '/employee-management/employees', icon: 'Users' },
+      { label: 'Attendance', href: '/employee-management/attendance', icon: 'CalendarCheck' },
+      { label: 'Leave', href: '/employee-management/leave', icon: 'CalendarOff' },
+      { label: 'Payroll', href: '/employee-management/payroll', icon: 'IndianRupee' },
+      { label: 'Notices', href: '/employee-management/notices', icon: 'Bell' },
     ],
-  },
-  moreModules: {
+  },  moreModules: {
     title: 'Marketing',
     items: [
       { label: 'WhatsApp Business', href: '/whatsapp-business', icon: 'MessageCircle' },
       { label: 'Email Marketing', href: '/email-marketing', icon: 'Mail' },
       { label: 'Sales Management', href: '/sales-management', icon: 'TrendingUp' },
       { label: 'Vendor Management', href: '/vendor-management', icon: 'UserCheck' },
+    ],
+  },
+  dataManagement: {
+    title: 'Data Management',
+    items: [
+      { label: 'Export Data', href: '/data-management/export', icon: 'Database' },
+      { label: 'Import Data', href: '/data-management/import', icon: 'PackagePlus' },
+      { label: 'Delete Period', href: '/data-management/delete-period', icon: 'CalendarOff' },
     ],
   },
   reports: {
@@ -497,13 +508,56 @@ const SECTIONS = {
       { label: 'Insurance Claim Billing', href: '/automobile/service-invoice/insurance-claim-billing', icon: 'FileCheck' },
     ],
   },
+
+  // --- Finance ---
+  financeDashboard: {
+    title: 'Dashboard',
+    items: [{ label: 'Dashboard', href: '/finance/dashboard', icon: 'LayoutDashboard' }],
+  },
+  financeCustomers: {
+    title: 'Customers',
+    icon: 'Users',
+    items: [
+      { label: 'Add Customers', href: '/finance/customers/add', icon: 'UserPlus' },
+      { label: 'All Customers', href: '/finance/customers/all', icon: 'Users' },
+      { label: 'Closed Customers', href: '/finance/customers/closed', icon: 'XCircle' },
+    ],
+  },
+  financeCollections: {
+    title: 'Collection Entry',
+    items: [{ label: 'Collection Entry', href: '/finance/collections', icon: 'IndianRupee' }],
+  },
+  financeBills: {
+    title: 'Bills',
+    icon: 'ReceiptText',
+    items: [
+      { label: 'Auto Bill', href: '/finance/bills/auto', icon: 'ReceiptText' },
+      { label: 'Manual Bill', href: '/finance/bills/manual', icon: 'FileText' },
+    ],
+  },
+  financeReminders: {
+    title: 'Reminders',
+    items: [{ label: 'Reminders', href: '/finance/reminders', icon: 'CalendarClock' }],
+  },
+  financeFinishedCustomers: {
+    title: 'Closed Customers',
+    items: [{ label: 'Closed Customers', href: '/finance/customers/closed', icon: 'XCircle' }],
+  },
+  financeReports: {
+    title: 'Reports',
+    items: [{ label: 'Reports', href: '/finance/reports', icon: 'BarChart3' }],
+  },
+  financeProfileSettings: {
+    title: 'Profile Settings',
+    items: [{ label: 'Profile Settings', href: '/finance/profile-settings', icon: 'Settings' }],
+  },
 };
 
-// Shared by every category: GST, Accounting, CRM, Inventory, HR & Payroll, More Modules, Settings.
-const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayroll', 'moreModules', 'settings'];
+// Shared by every category: GST, Accounting, CRM, Inventory, Employee Management, More Modules, Settings.
+const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayroll', 'moreModules', 'dataManagement', 'settings'];
 
 const CATEGORY_LAYOUTS = {
-  retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports', 'settings'],
+  retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports', 'dataManagement', 'settings'],
   hospital: [
     'main', 'patientManagement', 'appointmentManagement', 'opd', 'ipd', 'emergency',
     'doctors', 'nursing', 'wardBedManagement', 'laboratory', 'radiology', 'pharmacy',
@@ -531,11 +585,15 @@ const CATEGORY_LAYOUTS = {
     'automobileDashboard', 'automobileCustomersVehicles', 'automobileJobCards',
     'automobileService', 'automobileServiceInvoice', ...COMMON_LAYOUT.slice(1),
   ],
+  finance: [
+    'financeDashboard', 'financeCustomers', 'financeCollections', 'financeBills',
+    'financeReminders', 'financeReports', 'financeProfileSettings',
+  ],
   transport: COMMON_LAYOUT,
   other: COMMON_LAYOUT,
 };
 
-export function getSidebarSections(category) {
-  const layout = CATEGORY_LAYOUTS[category] || CATEGORY_LAYOUTS.retail;
-  return layout.map((key) => SECTIONS[key]);
+export function getSidebarSections(category, user = {}) {
+  const layout = CATEGORY_LAYOUTS[category] || CATEGORY_LAYOUTS.other;
+  return layout.map((key) => SECTIONS[key]).filter((section) => section && (!section.adminOnly || isAdminUser(user)));
 }

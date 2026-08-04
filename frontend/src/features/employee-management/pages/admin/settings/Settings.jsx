@@ -1,0 +1,2 @@
+import { PageHeader } from '../../../components/common/PageHeader.jsx';
+export default function Settings() { return <><PageHeader title="Settings" subtitle="Employee portal settings" /><div className="card">Role based access is active for Admin, HR and Employee users.</div></>; }

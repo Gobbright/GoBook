@@ -1,6 +1,12 @@
 const TOKEN_KEY = 'gobook.token';
 const USER_KEY = 'gobook.user';
 const LAST_ROUTE_KEY = 'gobook.lastRoute';
+const USER_SESSION_EVENT = 'gobook:user-session';
+
+function notifySession(user) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(USER_SESSION_EVENT, { detail: { user } }));
+}
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -20,12 +26,14 @@ export function setSession(token, user) {
   const normalizedUser = { ...user, id: user.id ?? user._id };
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+  notifySession(normalizedUser);
 }
 
 export function clearSession({ preserveUser = false, preserveRoute = false } = {}) {
   localStorage.removeItem(TOKEN_KEY);
   if (!preserveUser) localStorage.removeItem(USER_KEY);
   if (!preserveRoute) sessionStorage.removeItem(LAST_ROUTE_KEY);
+  notifySession(preserveUser ? getStoredUser() : null);
 }
 
 export function expireSession() {
@@ -35,3 +43,5 @@ export function expireSession() {
 export function isAuthenticated() {
   return Boolean(getToken());
 }
+
+export { USER_SESSION_EVENT };

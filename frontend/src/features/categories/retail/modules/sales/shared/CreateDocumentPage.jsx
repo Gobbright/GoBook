@@ -1772,7 +1772,7 @@ const [customFields, setCustomFields]         = useState([]);
         if (e.key === 'F6')  { e.preventDefault(); document.querySelector('[data-fkey="party"]')?.focus(); return; }
         if (e.key === 'F7')  { e.preventDefault(); const f7k = F7_FKEY[documentType]; if (f7k) { document.querySelector(`[data-fkey="${f7k}"]`)?.focus(); } else { setShowAddDiscount((v) => !v); } return; }
         if (e.key === 'F8')  { e.preventDefault(); window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice'); return; }
-        if (e.key === 'F10') { e.preventDefault(); window.location.assign('//dashboard'); return; }
+        if (e.key === 'F10') { e.preventDefault(); window.location.assign('/dashboard'); return; }
         if (e.key === 'F11') { e.preventDefault(); window.location.assign('/business-settings'); return; }
         if (e.key === 'F12') { e.preventDefault(); window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice'); }
       }
@@ -1823,7 +1823,7 @@ const [customFields, setCustomFields]         = useState([]);
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
         <div className="flex flex-col gap-1">
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] flex-wrap">
-            <a className="text-blue-600 no-underline hover:underline" href="//dashboard">Home</a>
+            <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
             <span>›</span><span>Sales</span><span>›</span>
             <a className="text-blue-600 no-underline hover:underline" href={LIST_ROUTES[documentType] ?? '/billing/invoice'}>{documentType === 'invoice' ? 'Bills' : `${config.title}s`}</a>
             <span>›</span><span>{invoiceId ? `Edit ${config.title}` : `New ${config.title}`}</span>
@@ -3855,7 +3855,7 @@ const [customFields, setCustomFields]         = useState([]);
               { key: 'F6',  label: f6Label,    action: () => document.querySelector('[data-fkey="party"]')?.focus() },
               { key: 'F7',  label: f7Label,    action: () => { if (f7fkey) { document.querySelector(`[data-fkey="${f7fkey}"]`)?.focus(); } else { setShowAddDiscount((v) => !v); } } },
               { key: 'F8',  label: 'View List', action: () => window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice') },
-              { key: 'F10', label: 'Home',     action: () => window.location.assign('//dashboard') },
+              { key: 'F10', label: 'Home',     action: () => window.location.assign('/dashboard') },
               { key: 'F11', label: 'Settings', action: () => window.location.assign('/business-settings') },
               { key: 'F12', label: 'Close',    action: () => window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice') },
             ];

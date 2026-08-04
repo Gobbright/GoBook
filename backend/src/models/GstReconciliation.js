@@ -14,12 +14,13 @@ const entrySchema = new Schema({
 }, { _id: true });
 
 const reconSchema = new Schema({
+  userId:  { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   gstin:   { type: String, default: '27ZZZZZ9999A1Z5' },
   period:  { type: String, required: true },
   type:    { type: String, enum: ['2a', '2b'], default: '2b' },
   entries: { type: [entrySchema], default: [] },
 }, { timestamps: true });
 
-reconSchema.index({ gstin: 1, period: 1, type: 1 }, { unique: true });
+reconSchema.index({ userId: 1, gstin: 1, period: 1, type: 1 }, { unique: true });
 
 export const GstReconciliation = model('GstReconciliation', reconSchema);

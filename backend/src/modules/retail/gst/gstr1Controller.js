@@ -10,11 +10,12 @@ export async function getGstr1(req, res, next) {
     if (!period) return next(httpError(400, 'period is required'));
     if (!parsePeriod(period)) return next(httpError(400, 'period must be "Month YYYY" e.g. "May 2026"'));
 
-    const gstin = await getActiveGstin(req.user.id);
-    const record = await Gstr1.findOne({ gstin, period, filingType }).lean();
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
+    const record = await Gstr1.findOne({ userId, gstin, period, filingType }).lean();
     if (record?.status === 'filed') return res.json(record);
 
-    const generated = await buildGstr1FromSales({ userId: req.user.id, period, filingType, gstin });
+    const generated = await buildGstr1FromSales({ userId, period, filingType, gstin });
     res.json(record
       ? { ...generated, ...record, b2b: generated.b2b, b2cs: generated.b2cs, hsn: generated.hsn, source: 'sales+draft' }
       : generated);
@@ -29,10 +30,11 @@ export async function saveGstr1(req, res, next) {
     const { period, filingType = 'monthly', ...rest } = req.body;
     if (!period) return next(httpError(400, 'period is required'));
 
-    const gstin = await getActiveGstin(req.user.id);
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
     const record = await Gstr1.findOneAndUpdate(
-      { gstin, period, filingType },
-      { $set: { ...rest, period, filingType, gstin } },
+      { userId, gstin, period, filingType },
+      { $set: { ...rest, userId, period, filingType, gstin } },
       { new: true, upsert: true, runValidators: false },
     ).lean();
     res.json(record);
@@ -47,12 +49,13 @@ export async function fileGstr1(req, res, next) {
     const { period, filingType = 'monthly' } = req.body;
     if (!period) return next(httpError(400, 'period is required'));
 
-    const gstin = await getActiveGstin(req.user.id);
-    const generated = await buildGstr1FromSales({ userId: req.user.id, period, filingType, gstin });
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
+    const generated = await buildGstr1FromSales({ userId, period, filingType, gstin });
     const arn = `AA${Date.now().toString().slice(-10)}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
     const record = await Gstr1.findOneAndUpdate(
-      { gstin, period, filingType },
-      { $set: { ...generated, status: 'filed', arn, filedAt: new Date(), gstin, period, filingType } },
+      { userId, gstin, period, filingType },
+      { $set: { ...generated, userId, status: 'filed', arn, filedAt: new Date(), gstin, period, filingType } },
       { new: true, upsert: true, runValidators: false },
     ).lean();
     res.json(record);
@@ -68,8 +71,9 @@ export async function autoPopulateGstr1(req, res, next) {
     if (!period) return next(httpError(400, 'period is required'));
     if (!parsePeriod(period)) return next(httpError(400, 'period must be "Month YYYY" e.g. "May 2026"'));
 
-    const gstin = await getActiveGstin(req.user.id);
-    const generated = await buildGstr1FromSales({ userId: req.user.id, period, filingType, gstin });
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
+    const generated = await buildGstr1FromSales({ userId, period, filingType, gstin });
     res.json(generated);
   } catch (err) {
     next(err);

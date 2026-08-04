@@ -30,14 +30,15 @@ export async function getReconciliation(req, res, next) {
     if (!period) return next(httpError(400, 'period is required'));
     if (!parsePeriod(period)) return next(httpError(400, 'period must be "Month YYYY" e.g. "May 2026"'));
 
-    const gstin = await getActiveGstin(req.user.id);
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
     const [record, generated] = await Promise.all([
-      GstReconciliation.findOne({ gstin, period, type }),
-      buildPurchaseReconciliationFromSales({ userId: req.user.id, period, gstin, type }),
+      GstReconciliation.findOne({ userId, gstin, period, type }),
+      buildPurchaseReconciliationFromSales({ userId, period, gstin, type }),
     ]);
 
     if (!record) {
-      const created = await GstReconciliation.create({ gstin, period, type, entries: generated.entries });
+      const created = await GstReconciliation.create({ userId, gstin, period, type, entries: generated.entries });
       return res.json({ ...created.toObject(), source: 'sales' });
     }
 
@@ -55,11 +56,12 @@ export async function saveReconciliation(req, res, next) {
     const { period, type = '2b', entries } = req.body;
     if (!period) return next(httpError(400, 'period is required'));
 
-    const gstin = await getActiveGstin(req.user.id);
-    const generated = await buildPurchaseReconciliationFromSales({ userId: req.user.id, period, gstin, type });
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
+    const generated = await buildPurchaseReconciliationFromSales({ userId, period, gstin, type });
     const record = await GstReconciliation.findOneAndUpdate(
-      { gstin, period, type },
-      { $set: { entries: mergeEntries(generated.entries, entries ?? []), gstin, period, type } },
+      { userId, gstin, period, type },
+      { $set: { userId, entries: mergeEntries(generated.entries, entries ?? []), gstin, period, type } },
       { new: true, upsert: true, runValidators: false },
     ).lean();
     res.json(record);
@@ -78,11 +80,12 @@ export async function updateEntry(req, res, next) {
       return next(httpError(400, 'resolution must be accepted, disputed, or none'));
     }
 
-    const gstin = await getActiveGstin(req.user.id);
-    let record = await GstReconciliation.findOne({ gstin, period, type });
+    const userId = req.user.id;
+    const gstin = await getActiveGstin(userId);
+    let record = await GstReconciliation.findOne({ userId, gstin, period, type });
     if (!record) {
-      const generated = await buildPurchaseReconciliationFromSales({ userId: req.user.id, period, gstin, type });
-      record = await GstReconciliation.create({ gstin, period, type, entries: generated.entries });
+      const generated = await buildPurchaseReconciliationFromSales({ userId, period, gstin, type });
+      record = await GstReconciliation.create({ userId, gstin, period, type, entries: generated.entries });
     }
 
     const entry = record.entries.id(entryId);

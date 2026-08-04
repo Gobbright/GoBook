@@ -1,13 +1,42 @@
-import { BarChart3, Cloud, FileText, Moon, ShieldCheck, Star, Sun } from 'lucide-react';
+import { BarChart3, CheckCircle2, Cloud, FileText, Moon, Star, Sun } from 'lucide-react';
 
 import { useTheme } from '../../app/ThemeContext.jsx';
 
-const FEATURES = [
-  { icon: ShieldCheck, label: 'Secure',    desc: 'Enterprise-grade\ndata security'   },
-  { icon: BarChart3,   label: 'Insights',  desc: 'Real-time reports\n& analytics'     },
-  { icon: FileText,    label: 'Invoicing', desc: 'GST & Non-GST\nbilling made easy'   },
-  { icon: Cloud,       label: 'Anywhere',  desc: 'Access your business\nfrom anywhere' },
+const DECISION_GUIDE = [
+  { icon: FileText, label: 'Billing first', desc: 'GST, non-GST, invoices and returns' },
+  { icon: BarChart3, label: 'Control stock', desc: 'Inventory, alerts and movement reports' },
+  { icon: Cloud, label: 'Grow modules', desc: 'CRM, HR, accounting and branch tools' },
 ];
+
+function DecisionGuide() {
+  return (
+    <div className="w-full max-w-[500px] min-w-0 text-left mb-4">
+      <section className="rounded-[22px] border border-blue-100/80 dark:border-blue-500/20 bg-white/90 dark:bg-slate-900/80 px-4 py-3.5 shadow-[0_18px_42px_-28px_rgba(30,64,175,0.45)]">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.14em] text-blue-500">Decision Guide</p>
+            <h2 className="m-0 mt-1 text-[15px] font-black text-slate-900 dark:text-white">Choose the right start</h2>
+          </div>
+          <span className="inline-flex h-8 w-8 min-[1180px]:h-9 min-[1180px]:w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600">
+            <CheckCircle2 className="h-4 w-4 min-[1180px]:h-[18px] min-[1180px]:w-[18px]" />
+          </span>
+        </div>
+        <div className="grid grid-cols-1 min-[1180px]:grid-cols-3 gap-2.5">
+          {DECISION_GUIDE.map(({ icon: Icon, label, desc }) => (
+            <div key={label} className="min-w-0 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:shadow-[0_14px_26px_-22px_rgba(37,99,235,0.8)] dark:hover:bg-slate-900">
+              <span className="mb-2 inline-flex h-7 w-7 min-[1180px]:h-8 min-[1180px]:w-8 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400">
+                <Icon className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
+              </span>
+              <strong className="block text-[12px] leading-tight text-slate-900 dark:text-slate-100">{label}</strong>
+              <span className="mt-1 block text-[10.5px] leading-snug text-slate-500 dark:text-slate-400">{desc}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+    </div>
+  );
+}
 
 function FacebookIcon({ size = 17 }) {
   return (
@@ -47,7 +76,7 @@ export function AuthLayout({ children, cardMaxWidth = 430, compact = false }) {
   return (
     <div className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} auth-shell relative flex bg-white dark:bg-slate-950`}>
       {/* Left brand panel */}
-      <div className="hidden lg:flex lg:w-[46%] relative flex-col items-center justify-center text-center px-16 py-10 overflow-hidden">
+      <div className="hidden xl:flex xl:w-[46%] relative flex-col items-center justify-center text-center px-12 2xl:px-16 py-10 overflow-hidden">
         {/* Dot grid (top-left) */}
         <div className="absolute left-0 top-0 pointer-events-none" style={{ width: 260, height: 260, backgroundImage: 'radial-gradient(circle, rgba(79,144,255,0.35) 1.5px, transparent 1.5px)', backgroundSize: '18px 18px' }} />
         {/* Decorative blob (bottom-left) */}
@@ -72,19 +101,7 @@ export function AuthLayout({ children, cardMaxWidth = 430, compact = false }) {
             GoBook helps you create invoices, manage customers, track payments and grow your business with ease.
           </p>
 
-          {/* Feature cards */}
-          <div className="grid grid-cols-4 gap-3 mb-5 max-w-[460px]">
-            {FEATURES.map(({ icon: Icon, label, desc }) => (
-              <div key={label} className="rounded-2xl bg-white dark:bg-slate-900 border border-[#eef1f6] dark:border-slate-800 px-2.5 py-4 flex flex-col items-center text-center"
-                   style={{ boxShadow: '0 8px 20px -12px rgba(30,41,59,0.15)' }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2.5 bg-blue-500/10">
-                  <Icon size={17} style={{ color: '#3b6dff' }} />
-                </div>
-                <span className="text-slate-800 dark:text-slate-100 text-[12.5px] font-bold mb-1">{label}</span>
-                <span className="text-slate-400 dark:text-slate-500 text-[10.5px] leading-snug whitespace-pre-line">{desc}</span>
-              </div>
-            ))}
-          </div>
+          <DecisionGuide />
 
           <div className="flex items-center justify-center gap-3 mt-1 mb-3" aria-label="Social links">
             {SOCIAL_LINKS.map(({ label, href, icon: Icon, className }) => (
@@ -117,7 +134,7 @@ export function AuthLayout({ children, cardMaxWidth = 430, compact = false }) {
 
         <div className="auth-card-wrap w-full flex-none" style={{ maxWidth: cardMaxWidth }}>
           {/* Mobile-only logo */}
-          <div className={`${compact ? 'hidden' : 'flex'} auth-mobile-logo justify-center mb-6 lg:hidden`}>
+          <div className={`${compact ? 'hidden' : 'flex'} auth-mobile-logo justify-center mb-6 xl:hidden`}>
             <div className="inline-flex bg-white rounded-xl px-4 py-2.5">
               <img src="/gobook-logo-full.png" alt="GoBook" className="h-8 w-auto object-contain" />
             </div>

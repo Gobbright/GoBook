@@ -1,6 +1,6 @@
 export const CATEGORIES = [
   'retail', 'school', 'hospital', 'hotel',
-  'manufacturing', 'construction', 'ngo', 'automobile',
+  'manufacturing', 'construction', 'ngo', 'automobile', 'finance',
 ];
 
 export const CATEGORY_LABELS = {
@@ -12,6 +12,7 @@ export const CATEGORY_LABELS = {
   construction: 'Construction',
   ngo: 'NGO',
   automobile: 'Automobile',
+  finance: 'Finance',
 };
 
 // Backend modules that are only reachable by specific categories.
@@ -20,4 +21,5 @@ export const CATEGORY_LABELS = {
 export const EXCLUSIVE_MODULES_BY_CATEGORY = {
   retail: ['sales'],
   hospital: ['hospital', 'sales'],
+  finance: ['finance'],
 };

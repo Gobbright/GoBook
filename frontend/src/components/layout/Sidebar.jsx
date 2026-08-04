@@ -1,31 +1,33 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
   Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, ChevronDown, Contact,
-  ClipboardList, CreditCard, FileCheck, FileMinus, FilePlus,
+  ClipboardList, CreditCard, Database, FileCheck, FileMinus, FilePlus,
   FileSpreadsheet, FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3,
   HeartPulse, History, Home, IndianRupee, LayoutDashboard,
   LayoutGrid, LogIn, LogOut, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus,
   PenLine, Pill, PieChart, QrCode, Receipt, ReceiptText, RefreshCw, Route, Scale, Settings,
   Shield, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound,
-  Users, UtensilsCrossed, Wallet, Warehouse, Wrench, Zap,
+  Users, UtensilsCrossed, Wallet, Warehouse, Wrench, XCircle, Zap,
 } from 'lucide-react';
 
 import { getSidebarSections } from '../../constants/navigation.js';
-import { getCurrentUser, logout } from '../../services/authService.js';
+import { logout } from '../../services/authService.js';
+import { useCurrentUser } from '../../hooks/useCurrentUser.js';
+import { getToken } from '../../services/authToken.js';
 import sidebarLogo from '../../assets/images/logo/logo.png';
 import { normalizeAppPath } from '../../routes/navigation.js';
 
 const ICON_MAP = {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
-  Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, Contact, ClipboardList, CreditCard,
+  Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, Contact, ClipboardList, CreditCard, Database,
   FileCheck, FileMinus, FilePlus, FileSpreadsheet,
   FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3, HeartPulse, History, Home, LayoutDashboard, LayoutGrid,
   LogIn, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus, PenLine,
   Pill, PieChart, QrCode, Receipt, ReceiptText, RefreshCw, Route, Scale, Settings, Shield,
   IndianRupee, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound, Users,
-  UtensilsCrossed, Wallet, Warehouse, Wrench, Zap,
+  UtensilsCrossed, Wallet, Warehouse, Wrench, XCircle, Zap,
 };
 
 function NavIcon({ name }) {
@@ -36,7 +38,7 @@ function NavIcon({ name }) {
 function findOpenNavItem(sidebarSections, path) {
   for (const section of sidebarSections) {
     for (const item of section.items) {
-      if (item.children?.some((c) => normalizeAppPath(c.href) === path || path === normalizeAppPath(item.href))) return item.label;
+      if (item.children?.some((c) => normalizeAppPath(c.href) === path || (item.href && path === normalizeAppPath(item.href)))) return item.label;
     }
   }
   return null;
@@ -45,19 +47,30 @@ function findOpenNavItem(sidebarSections, path) {
 function findActiveSection(sidebarSections, path) {
   for (const section of sidebarSections) {
     for (const item of section.items) {
-      if (normalizeAppPath(item.href) === path) return section.title;
+      if (item.href && normalizeAppPath(item.href) === path) return section.title;
       if (item.children?.some((c) => normalizeAppPath(c.href) === path)) return section.title;
     }
   }
   return null;
 }
 
+function getExternalHref(item) {
+  if (!item.sso) return item.externalUrl;
+  const token = getToken();
+  const url = new URL('/login', item.externalUrl);
+  if (token) url.searchParams.set('token', token);
+  if (item.ssoTarget) url.searchParams.set('target', item.ssoTarget);
+  return url.toString();
+}
 const SECTION_KEY = 'gobook.openSection';
 
 export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
   const location = useLocation();
-  // Recomputed on every mount so switching accounts (different category) within the same tab picks up fresh nav.
-  const [sidebarSections] = useState(() => getSidebarSections(getCurrentUser()?.category || 'retail'));
+  const storedUser = useCurrentUser();
+  const sidebarSections = useMemo(() => {
+    const currentUser = storedUser || {};
+    return getSidebarSections(currentUser.category || 'other', currentUser);
+  }, [storedUser]);
   const [openSection, setOpenSection] = useState(() => {
     // Active section from current URL takes priority; otherwise restore last saved; Sales is the default
     const fromPath = findActiveSection(sidebarSections, normalizeAppPath(window.location.pathname || '/dashboard'));
@@ -118,23 +131,36 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
         <nav className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3">
           {sidebarSections.map((section) => (
             <div key={section.title}>
-              {section.items.length === 1 ? (
-                /* Single-item section — render as direct link */
-                <Link
-                  to={normalizeAppPath(section.items[0].href)}
-                  onClick={onClose}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium no-underline transition-colors
-                    ${currentPath === normalizeAppPath(section.items[0].href)
-                      ? 'bg-blue-600 text-white'
-                      : 'text-[#c8dff2] hover:text-white hover:bg-white/8'}`}
-                >
-                  <span className={currentPath === normalizeAppPath(section.items[0].href) ? 'text-white' : 'text-[#7ab4d8]'}>
-                    <NavIcon name={section.items[0].icon} />
-                  </span>
-                  {section.items[0].label}
-                </Link>
+              {section.items.length === 1 && !section.forceGroup ? (
+                /* Single-item section - render as direct link */
+                section.items[0].externalUrl ? (
+                  <a
+                    href={getExternalHref(section.items[0])}
+                    onClick={onClose}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium no-underline transition-colors text-[#c8dff2] hover:text-white hover:bg-white/8"
+                  >
+                    <span className="text-[#7ab4d8]">
+                      <NavIcon name={section.items[0].icon} />
+                    </span>
+                    {section.items[0].label}
+                  </a>
+                ) : (
+                  <Link
+                    to={normalizeAppPath(section.items[0].href)}
+                    onClick={onClose}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium no-underline transition-colors
+                      ${currentPath === normalizeAppPath(section.items[0].href)
+                        ? 'bg-blue-600 text-white'
+                        : 'text-[#c8dff2] hover:text-white hover:bg-white/8'}`}
+                  >
+                    <span className={currentPath === normalizeAppPath(section.items[0].href) ? 'text-white' : 'text-[#7ab4d8]'}>
+                      <NavIcon name={section.items[0].icon} />
+                    </span>
+                    {section.items[0].label}
+                  </Link>
+                )
               ) : (
-                /* Multi-item section — collapsible group */
+                /* Multi-item section - collapsible group */
                 <div className="mt-1">
                   <button
                     type="button"
@@ -143,7 +169,10 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                       ${openSection === section.title ? 'text-[#90caf9]' : 'text-[#7ab4d8] hover:text-[#b0d8f0]'}`}
                     aria-expanded={openSection === section.title}
                   >
-                    <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{section.title}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-2 truncate whitespace-nowrap text-left">
+                      {section.icon && <NavIcon name={section.icon} />}
+                      <span className="min-w-0 truncate">{section.title}</span>
+                    </span>
                     <ChevronDown
                       size={13}
                       strokeWidth={2.5}
@@ -215,18 +244,30 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                           );
                         }
 
+                        if (item.externalUrl) {
+                          return (
+                            <a
+                              key={item.label}
+                              href={getExternalHref(item)}
+                              onClick={onClose}
+                              className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] no-underline transition-colors text-[#c8dff2] hover:text-white hover:bg-white/8"
+                            >
+                              <span className="flex-none text-[#7ab4d8]">
+                                <NavIcon name={item.icon} />
+                              </span>
+                              {item.label}
+                            </a>
+                          );
+                        }
+
                         const active = currentPath === normalizeAppPath(item.href);
                         return (
                           <Link
                             key={item.label}
                             to={normalizeAppPath(item.href)}
                             onClick={onClose}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] no-underline transition-colors
-                              ${active
-                                ? 'bg-blue-600 text-white'
-                                : 'text-[#c8dff2] hover:text-white hover:bg-white/8'}`}
-                          >
-                            <span className={`flex-none ${active ? 'text-white' : 'text-[#7ab4d8]'}`}>
+                            className={active ? 'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] no-underline transition-colors bg-blue-600 text-white' : 'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] no-underline transition-colors text-[#c8dff2] hover:text-white hover:bg-white/8'}>
+                            <span className={active ? 'flex-none text-white' : 'flex-none text-[#7ab4d8]'}>
                               <NavIcon name={item.icon} />
                             </span>
                             {item.label}

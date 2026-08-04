@@ -22,6 +22,7 @@ const CATEGORY_MEDIA = {
   construction: { image: '/category-images/construction.svg', tint: 'from-yellow-500 to-stone-700' },
   ngo: { image: '/category-images/ngo.svg', tint: 'from-violet-500 to-fuchsia-600' },
   automobile: { image: '/category-images/automobile.svg', tint: 'from-cyan-500 to-indigo-600' },
+  finance: { image: '/category-images/finance.svg', tint: 'from-emerald-500 to-teal-700' },
 };
 
 function FieldError({ message }) {
@@ -278,5 +279,3 @@ export function GoogleOnboardingPage() {
     </AuthLayout>
   );
 }
-
-
