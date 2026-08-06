@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../../../../services/apiClient.js';
 import { API_BASE_URL, SERVER_ORIGIN } from '../../../../../services/apiBase.js';
 import { getToken } from '../../../../../services/authToken.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const API_BASE = API_BASE_URL;
 
@@ -260,14 +261,13 @@ export function BusinessSettingsPage() {
                 <label className="text-[13px] text-[#536173] sm:w-36 sm:flex-none">
                   State <span className="text-blue-600 font-semibold">*</span>
                 </label>
-                <select
+                <SelectDropdown
                   value={draft.state ?? 'Tamil Nadu'}
-                  onChange={(e) => setDraft((p) => ({ ...p, state: e.target.value }))}
-                  className="flex-1 border border-[#dbe4ef] rounded-md px-3 py-1.5 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white"
+                  onChange={(v) => setDraft((p) => ({ ...p, state: v }))}
+                  buttonClassName="flex-1 border border-[#dbe4ef] rounded-md px-3 py-1.5 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white"
                   disabled={saving}
-                >
-                  {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                  options={INDIAN_STATES}
+                />
               </div>
               <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 sm:items-center">
                 <label className="text-[13px] text-[#536173] sm:w-36 sm:flex-none">Pincode</label>
@@ -472,25 +472,21 @@ export function BusinessSettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-[#536173] font-medium">GSP Provider</label>
-                  <select
-                    className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] outline-none bg-white font-[inherit]"
+                  <SelectDropdown
+                    buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] outline-none bg-white font-[inherit]"
                     value={draft.gspProvider}
-                    onChange={e => setDraft(p => ({ ...p, gspProvider: e.target.value }))}
-                  >
-                    <option value="">— Select Provider —</option>
-                    <option value="masters-india">Masters India (MasterGST)</option>
-                  </select>
+                    onChange={v => setDraft(p => ({ ...p, gspProvider: v }))}
+                    options={[{ value: '', label: '— Select Provider —' }, { value: 'masters-india', label: 'Masters India (MasterGST)' }]}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-[#536173] font-medium">Mode</label>
-                  <select
-                    className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] outline-none bg-white font-[inherit]"
+                  <SelectDropdown
+                    buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] outline-none bg-white font-[inherit]"
                     value={draft.gspSandbox ? 'sandbox' : 'production'}
-                    onChange={e => setDraft(p => ({ ...p, gspSandbox: e.target.value === 'sandbox' }))}
-                  >
-                    <option value="sandbox">Sandbox (Testing)</option>
-                    <option value="production">Production (Live)</option>
-                  </select>
+                    onChange={v => setDraft(p => ({ ...p, gspSandbox: v === 'sandbox' }))}
+                    options={[{ value: 'sandbox', label: 'Sandbox (Testing)' }, { value: 'production', label: 'Production (Live)' }]}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-[#536173] font-medium">Client ID</label>
@@ -638,16 +634,13 @@ export function BusinessSettingsPage() {
               ))}
               <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 sm:items-center">
                 <label className="text-[13px] text-[#536173] sm:w-44 sm:flex-none">Account Type</label>
-                <select
+                <SelectDropdown
                   value={draft.accountType ?? 'Savings'}
-                  onChange={(e) => setDraft((p) => ({ ...p, accountType: e.target.value }))}
-                  className="flex-1 border border-[#dbe4ef] rounded-md px-3 py-1.5 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white"
+                  onChange={(v) => setDraft((p) => ({ ...p, accountType: v }))}
+                  buttonClassName="flex-1 border border-[#dbe4ef] rounded-md px-3 py-1.5 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white"
                   disabled={saving}
-                >
-                  <option>Savings</option>
-                  <option>Current</option>
-                  <option>Overdraft</option>
-                </select>
+                  options={['Savings', 'Current', 'Overdraft']}
+                />
               </div>
             </div>
           ) : (

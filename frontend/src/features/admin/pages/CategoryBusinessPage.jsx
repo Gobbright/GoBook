@@ -46,9 +46,9 @@ export function CategoryBusinessPage() {
                 <div className="p-1.5 md:p-2 bg-white/20 rounded-lg">
                   <BarChart3 size={18} className="md:w-6 md:h-6" />
                 </div>
-                <h1 className="text-lg md:text-3xl font-extrabold">Business Management</h1>
+                <h1 data-admin-hide className="text-lg md:text-3xl font-extrabold">Business Management</h1>
               </div>
-              <p className="text-xs md:text-base text-blue-100">Manage all retail businesses and commerce operations</p>
+              <p data-admin-hide className="text-xs md:text-base text-blue-100">Manage all retail businesses and commerce operations</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button className="px-3 md:px-4 py-2 bg-white text-blue-600 rounded-lg flex items-center gap-1 md:gap-2 hover:bg-blue-50 transition font-semibold text-xs md:text-sm">

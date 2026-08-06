@@ -3,6 +3,7 @@ import { Search, Download } from 'lucide-react';
 import { fetchAdminSection } from '../adminService.js';
 import { AdminLayout } from '../AdminLayout.jsx';
 import { DataTable } from '../components/DataTable.jsx';
+import { SelectDropdown } from '../../../components/forms/SelectDropdown.jsx';
 
 export function UsersManagementPage() {
   const [data, setData] = useState(null);
@@ -69,8 +70,8 @@ export function UsersManagementPage() {
         <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 md:py-5">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
           <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-slate-900">Users & Businesses</h1>
-            <p className="text-xs md:text-sm text-slate-500 mt-1">Manage all user accounts and business data</p>
+            <h1 data-admin-hide className="text-xl md:text-2xl font-extrabold text-slate-900">Users & Businesses</h1>
+            <p data-admin-hide className="text-xs md:text-sm text-slate-500 mt-1">Manage all user accounts and business data</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button className="px-3 md:px-4 py-2 bg-slate-900 text-white rounded-lg flex items-center gap-2 hover:bg-slate-800 transition text-xs md:text-sm">
@@ -93,18 +94,19 @@ export function UsersManagementPage() {
               className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 outline-none"
             />
           </div>
-          <select
+          <SelectDropdown
+            className="w-48 flex-none"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 outline-none"
-          >
-            <option value="all">All Users</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive / Restricted</option>
-            <option value="blocked">Blocked</option>
-            <option value="expired">Expired</option>
-            <option value="deleted">Deleted</option>
-          </select>
+            onChange={setFilter}
+            options={[
+              { value: 'all', label: 'All Users' },
+              { value: 'active', label: 'Active' },
+              { value: 'inactive', label: 'Inactive / Restricted' },
+              { value: 'blocked', label: 'Blocked' },
+              { value: 'expired', label: 'Expired' },
+              { value: 'deleted', label: 'Deleted' },
+            ]}
+          />
         </div>
       </div>
 

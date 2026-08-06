@@ -3,6 +3,8 @@ import { IndianRupee } from 'lucide-react';
 
 import { api } from '../../../../../services/api.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { AutocompleteInput } from '../../../../../components/forms/AutocompleteInput.jsx';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
@@ -117,8 +119,7 @@ function MedicineModal({ mode, initial, nextCode, initialBarcode = '', categorie
             </div>
             <div>
               <label className={LABEL}>Category</label>
-              <input className={INPUT} value={form.category} onChange={(e) => set('category', e.target.value)} placeholder="e.g. Tablet" list="med-cat-list" />
-              <datalist id="med-cat-list">{categories.filter((c) => c !== 'All Categories').map((c) => <option key={c} value={c} />)}</datalist>
+              <AutocompleteInput inputClassName={INPUT} value={form.category} onChange={(v) => set('category', v)} placeholder="e.g. Tablet" options={categories.filter((c) => c !== 'All Categories')} />
             </div>
             <div>
               <label className={LABEL}>Manufacturer</label>
@@ -126,9 +127,7 @@ function MedicineModal({ mode, initial, nextCode, initialBarcode = '', categorie
             </div>
             <div>
               <label className={LABEL}>Unit</label>
-              <select className={INPUT} value={form.unit} onChange={(e) => set('unit', e.target.value)}>
-                {UNITS.map((u) => <option key={u}>{u}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={INPUT} value={form.unit} onChange={(v) => set('unit', v)} options={UNITS} />
             </div>
             <div>
               <label className={LABEL}>Price (₹) *</label>
@@ -136,9 +135,7 @@ function MedicineModal({ mode, initial, nextCode, initialBarcode = '', categorie
             </div>
             <div>
               <label className={LABEL}>GST Rate (%)</label>
-              <select className={INPUT} value={form.gstRate} onChange={(e) => set('gstRate', e.target.value)}>
-                {GST_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
-              </select>
+              <SelectDropdown buttonClassName={INPUT} value={form.gstRate} onChange={(v) => set('gstRate', v)} options={GST_RATES.map((r) => ({ value: r, label: `${r}%` }))} />
             </div>
             <div>
               <label className={LABEL}>Current Stock</label>
@@ -159,10 +156,7 @@ function MedicineModal({ mode, initial, nextCode, initialBarcode = '', categorie
             </div>
             <div>
               <label className={LABEL}>Status</label>
-              <select className={INPUT} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
+              <SelectDropdown buttonClassName={INPUT} value={form.status} onChange={(v) => set('status', v)} options={['Active', 'Inactive']} />
             </div>
           </div>
           <div className="flex gap-3 mt-5 justify-end">
@@ -434,9 +428,7 @@ export function MedicinesPage() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search medicines..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
-            {categories.map((c) => <option key={c}>{c}</option>)}
-          </select>
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer" value={category} onChange={(v) => { setCategory(v); setPage(1); }} options={categories} />
         </div>
 
         {error && <div className="px-5 py-4 text-[13px] text-red-600">{error}</div>}

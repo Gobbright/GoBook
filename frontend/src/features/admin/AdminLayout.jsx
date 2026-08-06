@@ -225,10 +225,7 @@ export function AdminLayout({ children }) {
 
         <main className="admin-main-content min-h-screen pt-16">
           <style>{`
-            .admin-main-content > div > header:first-child h1,
-            .admin-main-content > div > div:first-child h1,
-            .admin-main-content > div > div:first-child p,
-            .admin-main-content > div > header:first-child p {
+            [data-admin-hide] {
               display: none !important;
             }
           `}</style>

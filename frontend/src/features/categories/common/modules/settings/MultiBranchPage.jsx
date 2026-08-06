@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const EMPTY = { name: '', code: '', manager: '', phone: '', email: '', city: '', status: 'Active', users: 0, revenue: 0 };
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
@@ -97,9 +98,7 @@ export function MultiBranchPage() {
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Phone" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email" type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="City" value={form.city} onChange={(e) => updateForm('city', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-              <option>Active</option><option>Inactive</option>
-            </select>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="Users count" type="number" value={form.users} onChange={(e) => updateForm('users', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="Revenue (₹)" type="number" value={form.revenue} onChange={(e) => updateForm('revenue', e.target.value)} />
           </div>

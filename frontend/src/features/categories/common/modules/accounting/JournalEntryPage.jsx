@@ -8,6 +8,7 @@ import {
   updateJournalEntry,
 } from '../../../../../services/accountingService.js';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 
@@ -157,9 +158,7 @@ export function JournalEntryPage() {
             <span className="text-[#536173]">–</span>
             <input className="outline-none font-[inherit] text-[13px] w-28 border-0" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option>All</option><option>Posted</option><option>Draft</option>
-          </select>
+          <SelectDropdown className="w-32 flex-none" value={filterStatus} onChange={setFilterStatus} options={['All', 'Posted', 'Draft']} />
           <ExportButtons title="Journal Entries" filename="journal-entries" rows={filtered} columns={exportColumns} />
           <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImportFile} />
           <button type="button" disabled={importing} onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit] disabled:opacity-60">
@@ -224,10 +223,7 @@ export function JournalEntryPage() {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Status</label>
-              <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-                <option>Posted</option>
-                <option>Draft</option>
-              </select>
+              <SelectDropdown value={form.status} onChange={(v) => updateForm('status', v)} options={['Posted', 'Draft']} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">

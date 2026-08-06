@@ -8,6 +8,7 @@ import { ShareModal } from './shared/ShareModal.jsx';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { api, SERVER_ORIGIN } from '../../../../../services/api.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
@@ -882,9 +883,7 @@ export function EWayBillFormPage({ ewbId }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-[#536173] font-medium">State</label>
-                <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={customer.state} onChange={e => updateCustomer('state', e.target.value)}>
-                  {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={customer.state} onChange={v => updateCustomer('state', v)} options={INDIAN_STATES} />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-[#536173] font-medium">Email</label>
@@ -909,9 +908,7 @@ export function EWayBillFormPage({ ewbId }) {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-[#536173] font-medium">Invoice Type</label>
-                <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={ewbMeta.invoiceType} onChange={e => updateEwbMeta('invoiceType', e.target.value)}>
-                  {INVOICE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+                <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={ewbMeta.invoiceType} onChange={v => updateEwbMeta('invoiceType', v)} options={INVOICE_TYPES} />
               </div>
             </div>
 
@@ -940,9 +937,7 @@ export function EWayBillFormPage({ ewbId }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Transport Mode *</label>
-              <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={transport.mode} onChange={e => updateTransport('mode', e.target.value)}>
-                {TRANSPORT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+              <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={transport.mode} onChange={v => updateTransport('mode', v)} options={TRANSPORT_MODES} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Vehicle Number *</label>
@@ -987,9 +982,7 @@ export function EWayBillFormPage({ ewbId }) {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">From State</label>
-              <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={routeInfo.dispatchFromState} onChange={e => updateRoute('dispatchFromState', e.target.value)}>
-                {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={routeInfo.dispatchFromState} onChange={v => updateRoute('dispatchFromState', v)} options={INDIAN_STATES} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Dispatch To *</label>
@@ -997,9 +990,7 @@ export function EWayBillFormPage({ ewbId }) {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">To State</label>
-              <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={routeInfo.dispatchToState} onChange={e => updateRoute('dispatchToState', e.target.value)}>
-                {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none bg-white font-[inherit]" value={routeInfo.dispatchToState} onChange={v => updateRoute('dispatchToState', v)} options={INDIAN_STATES} />
             </div>
           </div>
         </div>
@@ -1075,9 +1066,7 @@ export function EWayBillFormPage({ ewbId }) {
                         <input className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-right font-[inherit] outline-none focus:border-blue-500 min-w-0" min="0" type="number" value={item.qty} onChange={e => updateItem(item.id, 'qty', e.target.value)} />
                       </td>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
-                        <select className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] font-[inherit] outline-none bg-white" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}>
-                          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
+                        <SelectDropdown buttonClassName="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] font-[inherit] outline-none bg-white" value={item.unit} onChange={v => updateItem(item.id, 'unit', v)} options={UNITS} />
                       </td>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         <input className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-right font-[inherit] outline-none focus:border-blue-500 min-w-0" min="0" type="number" value={item.rate} onChange={e => updateItem(item.id, 'rate', e.target.value)} />
@@ -1087,9 +1076,7 @@ export function EWayBillFormPage({ ewbId }) {
                       </td>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] font-medium text-[#374151] pt-3">{formatCurrency(line.taxable)}</td>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
-                        <select className="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] font-[inherit] outline-none bg-white" value={item.gstRate} onChange={e => updateItem(item.id, 'gstRate', e.target.value)}>
-                          {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-                        </select>
+                        <SelectDropdown buttonClassName="w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] font-[inherit] outline-none bg-white" value={item.gstRate} onChange={v => updateItem(item.id, 'gstRate', v)} options={GST_RATES.map((r) => ({ value: r, label: `${r}%` }))} />
                       </td>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] font-medium text-[#374151] pt-3">{formatCurrency(line.gstAmt)}</td>
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] font-semibold text-[#111827] pt-3">{formatCurrency(line.total)}</td>

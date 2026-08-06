@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
 import { getCurrentUser } from '../../../../../services/authService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const ROLES = ['Super Admin', 'Branch Manager', 'Accountant', 'Sales Executive', 'Inventory Manager'];
 
@@ -189,13 +190,9 @@ export function UsersRolesPage() {
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email *" required type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Phone" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder={editingId ? 'New password (optional)' : 'Password *'} required={!editingId} minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" title="Password must be at least 8 characters and include one letter and one number" type="password" value={form.password} onChange={(e) => updateForm('password', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.role} onChange={(e) => updateForm('role', e.target.value)}>
-              {ROLES.map((r) => <option key={r}>{r}</option>)}
-            </select>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.role} onChange={(v) => updateForm('role', v)} options={ROLES} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Branch" value={form.branch} onChange={(e) => updateForm('branch', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-              <option>Active</option><option>Inactive</option>
-            </select>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
           </div>
           <div className="flex justify-end gap-2">
             <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
@@ -223,9 +220,7 @@ export function UsersRolesPage() {
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
               <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search users..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
             </div>
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}>
-              {roleOptions.map((r) => <option key={r}>{r}</option>)}
-            </select>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={roleFilter} onChange={(v) => { setRoleFilter(v); setPage(1); }} options={roleOptions} />
           </div>
 
           <div className="overflow-x-auto">

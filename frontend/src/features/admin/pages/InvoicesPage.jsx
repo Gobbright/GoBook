@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Download, Plus, Edit, Eye } from 'lucide-react';
 import { fetchAdminSection } from '../adminService.js';
 import { AdminLayout } from '../AdminLayout.jsx';
+import { SelectDropdown } from '../../../components/forms/SelectDropdown.jsx';
 
 export function InvoicesPage() {
   const [data, setData] = useState(null);
@@ -51,8 +52,8 @@ export function InvoicesPage() {
         <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 md:py-5">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
           <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-slate-900">Invoices & Billing</h1>
-            <p className="text-xs md:text-sm text-slate-500 mt-1">Manage all invoices and billing information</p>
+            <h1 data-admin-hide className="text-xl md:text-2xl font-extrabold text-slate-900">Invoices & Billing</h1>
+            <p data-admin-hide className="text-xs md:text-sm text-slate-500 mt-1">Manage all invoices and billing information</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button className="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-blue-700 transition text-xs md:text-sm">
@@ -78,17 +79,18 @@ export function InvoicesPage() {
               className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 outline-none"
             />
           </div>
-          <select
+          <SelectDropdown
+            className="w-40 flex-none"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 outline-none"
-          >
-            <option value="all">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="issued">Issued</option>
-            <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
-          </select>
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'All Statuses' },
+              { value: 'draft', label: 'Draft' },
+              { value: 'issued', label: 'Issued' },
+              { value: 'paid', label: 'Paid' },
+              { value: 'overdue', label: 'Overdue' },
+            ]}
+          />
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { CheckCircle2, RefreshCw } from 'lucide-react';
 
 import { getBankReconciliation, updateBankReconciliation } from '../../../../../services/accountingService.js';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-4 py-3 border-b border-[#edf2f7]';
@@ -101,16 +102,10 @@ export function BankReconciliationPage() {
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl p-4 my-5">
         <div className="flex flex-wrap items-center gap-3">
-          <select className={FIELD} value={bank} onChange={(e) => setBank(e.target.value)}>
-            {banks.map((bankName) => <option key={bankName}>{bankName}</option>)}
-          </select>
+          <SelectDropdown buttonClassName={FIELD} value={bank} onChange={setBank} options={banks} />
           <input className={FIELD} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           <input className={FIELD} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          <select className={FIELD} value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option>All</option>
-            <option>Cleared</option>
-            <option>Uncleared</option>
-          </select>
+          <SelectDropdown buttonClassName={FIELD} value={status} onChange={setStatus} options={['All', 'Cleared', 'Uncleared']} />
           <span className="text-[13px] text-[#536173]">
             {bankDetails.accountNo || '-'} · {bankDetails.ifsc || '-'} · {bankDetails.accountType || '-'}
           </span>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { IndianRupee } from 'lucide-react';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { api } from '../../../../../services/api.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
@@ -72,9 +73,7 @@ function PayrollModal({ initial, onClose, onSaved }) {
             </div>
             <div>
               <label className={IL}>Status</label>
-              <select className={IC} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                {['Pending', 'Paid'].map((s) => <option key={s}>{s}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={IC} value={form.status} onChange={(v) => set('status', v)} options={['Pending', 'Paid']} />
             </div>
             <div className="sm:col-span-2 bg-blue-50 rounded-lg px-4 py-3 flex justify-between items-center">
               <span className="text-[13px] font-medium text-[#374151]">Net Salary</span>
@@ -246,12 +245,8 @@ export function PayrollPage() {
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl">
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7] flex-wrap">
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#111827] bg-white cursor-pointer" value={month} onChange={(e) => setMonth(e.target.value)}>
-            {months.length === 0 ? <option value="">All Months</option> : months.map((m) => <option key={m}>{m}</option>)}
-          </select>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={dept} onChange={(e) => setDept(e.target.value)}>
-            {depts.map((d) => <option key={d}>{d}</option>)}
-          </select>
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#111827] bg-white cursor-pointer" value={month} onChange={setMonth} options={months.length === 0 ? [{ value: '', label: 'All Months' }] : months} />
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={dept} onChange={setDept} options={depts} />
           <ExportButtons title="Payroll" filename="payroll" rows={records} columns={exportColumns} fetchRows={fetchAllForExport} />
         </div>
         <div className="overflow-x-auto">

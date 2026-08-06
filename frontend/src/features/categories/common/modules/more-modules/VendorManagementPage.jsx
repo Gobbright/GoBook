@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const EMPTY = { name: '', contact: '', phone: '', email: '', category: '', status: 'Active', gstin: '', address: '' };
 const AVATAR_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#e11d48', '#65a30d'];
@@ -145,9 +146,7 @@ export function VendorManagementPage() {
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email" type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Category (e.g. Raw Material)" value={form.category} onChange={(e) => updateForm('category', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="GSTIN" value={form.gstin} onChange={(e) => updateForm('gstin', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-              <option>Active</option><option>Inactive</option>
-            </select>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] sm:col-span-2" placeholder="Address" value={form.address} onChange={(e) => updateForm('address', e.target.value)} />
           </div>
           {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{formError}</p>}
@@ -184,9 +183,7 @@ export function VendorManagementPage() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search vendor..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={category} onChange={(e) => setCategory(e.target.value)}>
-            {catOptions.map((c) => <option key={c}>{c}</option>)}
-          </select>
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={category} onChange={setCategory} options={catOptions} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">

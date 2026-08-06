@@ -720,8 +720,88 @@ export function InvoicePage() {
           </div>
         </div>
 
+        {/* Mobile card list */}
+        <div className="md:hidden divide-y divide-[#edf2f7]">
+          {orderedInvoices.length === 0 ? (
+            <div className="text-center py-16 text-[#536173] text-[13px]">No invoices match your search.</div>
+          ) : (
+            paginatedInvoices.map((inv) => (
+              <div key={inv.id} className="p-4 flex flex-col gap-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <a
+                      href={`/billing/invoice/${inv.id}/view`}
+                      className="text-[14px] font-semibold text-blue-600 no-underline hover:underline"
+                    >
+                      {inv.number}
+                    </a>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {inv.documentType === 'bill-of-supply' ? (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">No GST</span>
+                      ) : (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-500">GST</span>
+                      )}
+                      <span
+                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                          inv.supplyType === 'intrastate' ? 'bg-purple-50 text-purple-700' : 'bg-cyan-50 text-cyan-700'
+                        }`}
+                      >
+                        {inv.supplyType === 'intrastate' ? 'Intra' : 'Inter'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-none">
+                    <PaymentStatusBadge status={inv.paymentStatus} />
+                    <ActionMenu
+                      invoice={inv}
+                      openMenu={openMenu}
+                      setOpenMenu={setOpenMenu}
+                      onShare={setShareInvoice}
+                      onPayment={(inv) => setPaymentInvoice({ ...inv, balance: inv.balanceDue, invoiceTotal: inv.total })}
+                      onDownload={handleDownloadPdf}
+                      onDelete={handleDelete}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[13px] font-medium text-[#111827] leading-snug">{inv.customer.name || 'Walk-in customer'}</div>
+                  <div className="text-xs text-[#94a3b8] mt-0.5 font-mono tracking-tight">
+                    {inv.customer.gstin}
+                    <span className="font-sans tracking-normal text-[#b0bec5]"> · </span>
+                    {inv.customer.city}
+                    {inv.customer.phone && <span className="font-sans tracking-normal text-[#b0bec5]"> · {inv.customer.phone}</span>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12.5px]">
+                  <div className="flex justify-between"><span className="text-[#94a3b8]">Invoice Date</span><span className="text-[#374151]">{fmtDate(inv.date)}</span></div>
+                  <div className="flex justify-between"><span className="text-[#94a3b8]">Due Date</span><span className="text-[#374151]">{fmtDate(inv.dueDate)}</span></div>
+                  <div className="flex justify-between"><span className="text-[#94a3b8]">Taxable</span><span className="text-[#374151]">{formatCurrency(inv.taxable)}</span></div>
+                  <div className="flex justify-between"><span className="text-[#94a3b8]">GST</span><span className="text-[#374151]">{formatCurrency(inv.gst)}</span></div>
+                  <div className="flex justify-between"><span className="text-[#94a3b8]">Paid</span><span className="text-[#374151]">{formatCurrency(inv.paid)}</span></div>
+                  <div className="flex justify-between"><span className="text-[#94a3b8]">Balance</span><span className={`font-semibold ${inv.balanceDue > 0 ? 'text-[#b45309]' : 'text-green-700'}`}>{formatCurrency(inv.balanceDue)}</span></div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1.5 border-t border-[#f3f4f6]">
+                  <span className="text-[11px] text-[#94a3b8]">Total</span>
+                  <span className="text-[15px] font-bold text-[#111827]">{formatCurrency(inv.total)}</span>
+                </div>
+
+                <div>
+                  {inv.accounting?.posted ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-50 text-green-700">{inv.accounting.voucherNo}</span>
+                  ) : (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700">Accounting pending</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">

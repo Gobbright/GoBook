@@ -4,6 +4,7 @@ import { History, PlusCircle, Pencil, Trash2, ListChecks } from 'lucide-react';
 import { api } from '../../../../../services/api.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { useDebouncedValue } from '../../../../../hooks/useDebouncedValue.js';
 
 const LIMIT = 25;
@@ -126,20 +127,29 @@ export function AuditReportPage() {
             onToChange={setDateTo}
             onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
-          <select className={SELECT} value={action} onChange={(e) => setAction(e.target.value)}>
-            <option value="">All Actions</option>
-            <option value="create">Create</option>
-            <option value="update">Update</option>
-            <option value="delete">Delete</option>
-          </select>
-          <select className={SELECT} value={modelName} onChange={(e) => setModelName(e.target.value)}>
-            <option value="">All Modules</option>
-            {modelNames.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-          <select className={SELECT} value={performedBy} onChange={(e) => setPerformedBy(e.target.value)}>
-            <option value="">All Users</option>
-            {staffUsers.map((u) => <option key={u._id} value={u._id}>{u.name || u.email}</option>)}
-          </select>
+          <SelectDropdown
+            buttonClassName={SELECT}
+            value={action}
+            onChange={setAction}
+            options={[
+              { value: '', label: 'All Actions' },
+              { value: 'create', label: 'Create' },
+              { value: 'update', label: 'Update' },
+              { value: 'delete', label: 'Delete' },
+            ]}
+          />
+          <SelectDropdown
+            buttonClassName={SELECT}
+            value={modelName}
+            onChange={setModelName}
+            options={[{ value: '', label: 'All Modules' }, ...modelNames.map((name) => ({ value: name, label: name }))]}
+          />
+          <SelectDropdown
+            buttonClassName={SELECT}
+            value={performedBy}
+            onChange={setPerformedBy}
+            options={[{ value: '', label: 'All Users' }, ...staffUsers.map((u) => ({ value: u._id, label: u.name || u.email }))]}
+          />
           <input
             className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white w-52"
             placeholder="Search record or user…"

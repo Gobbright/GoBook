@@ -5,7 +5,7 @@ import {
 
 import { formatCurrency } from '../../../../../../utils/formatCurrency.js';
 import { numberToWords } from '../../../../../../utils/numberToWords.js';
-import { SERVER_ORIGIN } from '../../../../../../services/api.js';
+import { api, SERVER_ORIGIN } from '../../../../../../services/api.js';
 import { useFocusTrap } from '../../../../../../hooks/useFocusTrap.js';
 
 const btnOutline = 'inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]';
@@ -610,6 +610,31 @@ function DocumentClassicTemplate({
   notes, terms, supplyType, bizSettings, paymentMethod, showGst,
   advanceAmt, addDiscount, tds, tcs,
 }) {
+  const [oldBalance, setOldBalance] = useState(0);
+
+  // "Old Balance" = whatever this customer already owed from other unpaid
+  // invoices, before this one. Excludes this invoice's own row (matched by
+  // number) so editing an already-saved, partly-paid invoice doesn't double
+  // count its own outstanding balance into "old".
+  useEffect(() => {
+    let active = true;
+    const customerName = String(customer?.name || '').trim();
+    if (!customerName) {
+      setOldBalance(0);
+      return undefined;
+    }
+    api.listOutstanding({ customer: customerName, limit: 200 })
+      .then((res) => {
+        if (!active) return;
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        const ownBalance = rows.find((row) => row.number === docMeta.number)?.balance || 0;
+        const total = Math.max(0, (Number(res?.summary?.totalOutstanding) || 0) - Number(ownBalance));
+        setOldBalance(total);
+      })
+      .catch(() => { if (active) setOldBalance(0); });
+    return () => { active = false; };
+  }, [customer?.name, docMeta.number]);
+
   const visibleItems = items.filter((item) => item.description || Number(item.rate) > 0);
   const combinedRows = [
     ...visibleItems.map((item) => ({ kind: 'item', data: item })),
@@ -706,9 +731,9 @@ function DocumentClassicTemplate({
                 <div className="invoice-classic-ledger">
                   <div className="invoice-classic-ledger-heading">Last Transaction:</div>
                   <p>{classicPaymentPendingText(docMeta)}</p>
-                  <div className="invoice-classic-ledger-row"><span>Old Balance</span><b>=</b><strong>{formatClassicAmount(0)}</strong></div>
+                  <div className="invoice-classic-ledger-row"><span>Old Balance</span><b>=</b><strong>{formatClassicAmount(oldBalance)}</strong></div>
                   <div className="invoice-classic-ledger-row"><span>Adding this Invoice Amount</span><b>=</b><strong>+{formatClassicAmount(totals.finalTotal)}</strong></div>
-                  <div className="invoice-classic-ledger-row invoice-classic-ledger-total"><span>New Balance after this Invoice</span><b>=</b><strong>{formatClassicAmount(totals.finalTotal)}</strong></div>
+                  <div className="invoice-classic-ledger-row invoice-classic-ledger-total"><span>New Balance after this Invoice</span><b>=</b><strong>{formatClassicAmount(oldBalance + totals.finalTotal)}</strong></div>
                 </div>
               </div>
             </>

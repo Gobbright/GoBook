@@ -5,6 +5,7 @@ import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx
 import { api } from '../../../../../services/api.js';
 import { dateRangeParams } from '../../../../../utils/dateRange.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
@@ -128,11 +129,12 @@ export function StockLedgerPage() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search product, number or party..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
-            <option value="all">All Movements</option>
-            <option value="in">Stock In Only</option>
-            <option value="out">Stock Out Only</option>
-          </select>
+          <SelectDropdown
+            buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer"
+            value={type}
+            onChange={(v) => { setType(v); setPage(1); }}
+            options={[{ value: 'all', label: 'All Movements' }, { value: 'in', label: 'Stock In Only' }, { value: 'out', label: 'Stock Out Only' }]}
+          />
           <DateRangeFilter
             from={dateFrom}
             to={dateTo}

@@ -6,6 +6,7 @@ import {
   WalletCards, X, XCircle,
 } from 'lucide-react';
 
+import { SelectDropdown } from '../../../components/forms/SelectDropdown.jsx';
 import { FinanceCustomerNav } from './FinanceCustomerNav.jsx';
 import { financeApi } from './financeApi.js';
 import {
@@ -132,11 +133,7 @@ function CustomerEditModal({ customer, saving, error, onClose, onSave }) {
           </label>
           <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">
             <IconLabel icon={ClipboardList}>Type</IconLabel>
-            <select value={form.type} onChange={set('type')} className={`${fieldClass} mt-1.5`}>
-              <option value="Loan">Loan</option>
-              <option value="Chit">Chit</option>
-              <option value="Deposit">Deposit</option>
-            </select>
+            <SelectDropdown value={form.type} onChange={(v) => setForm((current) => ({ ...current, type: v }))} buttonClassName={`${fieldClass} mt-1.5`} options={['Loan', 'Chit', 'Deposit']} />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -288,11 +285,7 @@ export function FinanceAddCustomerPage() {
           </label>
           <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">
             <IconLabel icon={ClipboardList}>Type</IconLabel>
-            <select value={form.type} onChange={set('type')} className={`${fieldClass} mt-1.5`}>
-              <option value="Loan">Loan</option>
-              <option value="Chit">Chit</option>
-              <option value="Deposit">Deposit</option>
-            </select>
+            <SelectDropdown value={form.type} onChange={(v) => setForm((current) => ({ ...current, type: v }))} buttonClassName={`${fieldClass} mt-1.5`} options={['Loan', 'Chit', 'Deposit']} />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">

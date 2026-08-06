@@ -80,9 +80,9 @@ export function AdminSubscriptionPage({ type = 'plans' }) {
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-4 md:py-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
             <div>
-              <p className="m-0 text-[10px] md:text-[12px] font-black uppercase tracking-wide text-blue-600 dark:text-blue-400">Subscription</p>
-              <h1 className="m-0 text-lg md:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">{view.title}</h1>
-              <p className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">DB connected: {view.source}</p>
+              <p data-admin-hide className="m-0 text-[10px] md:text-[12px] font-black uppercase tracking-wide text-blue-600 dark:text-blue-400">Subscription</p>
+              <h1 data-admin-hide className="m-0 text-lg md:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">{view.title}</h1>
+              <p data-admin-hide className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">DB connected: {view.source}</p>
             </div>
           </div>
         </header>

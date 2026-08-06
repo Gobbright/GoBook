@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, IndianRupee } from 'lucide-react';
 import { api } from '../../../../../../services/api.js';
 import { formatCurrency } from '../../../../../../utils/formatCurrency.js';
+import { SelectDropdown } from '../../../../../../components/forms/SelectDropdown.jsx';
 import { useFocusTrap } from '../../../../../../hooks/useFocusTrap.js';
 
 const METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Online'];
@@ -109,13 +110,12 @@ export function RecordPaymentModal({ invoice, onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-[12px] font-semibold text-[#374151] mb-1.5">Payment Method</label>
-              <select
-                className="w-full border border-[#dbe4ef] rounded-lg px-3 py-2 text-[13px] font-[inherit] outline-none focus:border-blue-500 bg-white"
+              <SelectDropdown
+                buttonClassName="w-full border border-[#dbe4ef] rounded-lg px-3 py-2 text-[13px] font-[inherit] outline-none focus:border-blue-500 bg-white"
                 value={form.method}
-                onChange={(e) => set('method', e.target.value)}
-              >
-                {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
+                onChange={(v) => set('method', v)}
+                options={METHODS}
+              />
             </div>
           </div>
 

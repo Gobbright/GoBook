@@ -6,6 +6,7 @@ import { Plus, Search } from 'lucide-react';
 import { AdminLayout } from '../AdminLayout.jsx';
 import { createAdminRecord, fetchAdminRecords, isAdminAuthenticated } from '../adminService.js';
 import { DataTable } from '../components/DataTable.jsx';
+import { SelectDropdown } from '../../../components/forms/SelectDropdown.jsx';
 
 const ADMIN_RECORD_VIEWS = {
   renewalReminder: { group: 'Notifications', title: 'Renewal Reminder', defaultStatus: 'Scheduled' },
@@ -126,9 +127,9 @@ export function AdminRecordPage({ kind }) {
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-4 md:py-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
             <div>
-              <p className="m-0 text-[10px] md:text-[12px] font-black uppercase tracking-wide text-blue-600 dark:text-blue-400">{view.group}</p>
-              <h1 className="m-0 text-lg md:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">{view.title}</h1>
-              <p className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">DB connected: admin records</p>
+              <p data-admin-hide className="m-0 text-[10px] md:text-[12px] font-black uppercase tracking-wide text-blue-600 dark:text-blue-400">{view.group}</p>
+              <h1 data-admin-hide className="m-0 text-lg md:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">{view.title}</h1>
+              <p data-admin-hide className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">DB connected: admin records</p>
             </div>
           </div>
         </header>
@@ -151,13 +152,9 @@ export function AdminRecordPage({ kind }) {
 
           <form onSubmit={addData} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 md:p-4 grid grid-cols-1 md:grid-cols-6 gap-2 md:gap-3">
             <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} className={`md:col-span-2 ${ADMIN_FIELD_CLASS}`} placeholder="Title" />
-            <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })} className={ADMIN_SELECT_CLASS}>
-              {ADMIN_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
-            </select>
+            <SelectDropdown value={form.status} onChange={(v) => setForm({ ...form, status: v })} options={ADMIN_STATUS_OPTIONS} buttonClassName={ADMIN_SELECT_CLASS} />
             <input type="number" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} className={ADMIN_FIELD_CLASS} placeholder="Amount" />
-            <select value={form.target} onChange={(event) => setForm({ ...form, target: event.target.value })} className={ADMIN_SELECT_CLASS}>
-              {ADMIN_TARGET_OPTIONS.map((target) => <option key={target} value={target}>{target}</option>)}
-            </select>
+            <SelectDropdown value={form.target} onChange={(v) => setForm({ ...form, target: v })} options={ADMIN_TARGET_OPTIONS} buttonClassName={ADMIN_SELECT_CLASS} />
             <input type="date" value={form.scheduledDate || ''} onChange={(event) => setForm({ ...form, scheduledDate: event.target.value })} className={ADMIN_FIELD_CLASS} />
             <textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} className={`md:col-span-5 min-h-10 resize-y ${ADMIN_FIELD_CLASS}`} placeholder="Notes" />
             <button disabled={saving} className="px-2 md:px-4 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg flex items-center justify-center gap-1 md:gap-2 border-0 cursor-pointer disabled:opacity-60 text-xs md:text-sm font-bold">

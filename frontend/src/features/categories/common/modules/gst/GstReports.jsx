@@ -3,6 +3,7 @@ import { IndianRupee } from 'lucide-react';
 
 import { api } from '../../../../../services/api.js';
 import { gstService } from '../../../../../services/gstService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const REPORT_TYPES = [
@@ -109,9 +110,7 @@ export function GstReports() {
           <div className="text-[13px] text-[#536173] mt-0.5">Detailed tax analytics and compliance reports for your business</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={period} onChange={(e) => setPeriod(e.target.value)}>
-            {PERIOD_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <SelectDropdown className="w-36 flex-none" value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
           <button className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button">
             <svg fill="none" height="14" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="14">
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" />

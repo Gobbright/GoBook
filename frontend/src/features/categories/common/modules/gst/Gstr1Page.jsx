@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../../../../../services/api.js';
 import { gstService } from '../../../../../services/gstService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -237,13 +238,7 @@ export function Gstr1Page() {
               </button>
             ))}
           </div>
-          <select
-            className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none"
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-          >
-            {PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <SelectDropdown className="w-36 flex-none" value={period} onChange={setPeriod} options={PERIODS} />
           {!locked && (
             <button
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md cursor-pointer hover:bg-purple-100 font-[inherit] disabled:opacity-50"
@@ -389,15 +384,15 @@ export function Gstr1Page() {
                         <input className={INPUT_CLS} min="0" placeholder="Taxable amount" step="0.01" type="number" value={newB2b.taxable} onChange={e => setNewB2b(p => ({ ...p, taxable: e.target.value }))} />
                       </td>
                       <td className="px-4 py-2">
-                        <select className={INPUT_CLS} value={newB2b.rate} onChange={e => setNewB2b(p => ({ ...p, rate: e.target.value }))}>
-                          {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-                        </select>
+                        <SelectDropdown buttonClassName={INPUT_CLS} value={newB2b.rate} onChange={(v) => setNewB2b(p => ({ ...p, rate: v }))} options={GST_RATES.map((r) => ({ value: r, label: `${r}%` }))} />
                       </td>
                       <td className="px-4 py-2" colSpan={3}>
-                        <select className={INPUT_CLS} value={newB2b.supplyType} onChange={e => setNewB2b(p => ({ ...p, supplyType: e.target.value }))}>
-                          <option value="Intrastate">Intrastate (CGST+SGST)</option>
-                          <option value="Interstate">Interstate (IGST)</option>
-                        </select>
+                        <SelectDropdown
+                          buttonClassName={INPUT_CLS}
+                          value={newB2b.supplyType}
+                          onChange={(v) => setNewB2b(p => ({ ...p, supplyType: v }))}
+                          options={[{ value: 'Intrastate', label: 'Intrastate (CGST+SGST)' }, { value: 'Interstate', label: 'Interstate (IGST)' }]}
+                        />
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex gap-1">
@@ -501,23 +496,21 @@ export function Gstr1Page() {
                   {addingB2cs && (
                     <tr className="bg-blue-50">
                       <td className="px-4 py-2">
-                        <select className={INPUT_CLS} value={newB2cs.state} onChange={e => setNewB2cs(p => ({ ...p, state: e.target.value }))}>
-                          {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        <SelectDropdown buttonClassName={INPUT_CLS} value={newB2cs.state} onChange={(v) => setNewB2cs(p => ({ ...p, state: v }))} options={INDIAN_STATES} />
                       </td>
                       <td className="px-4 py-2">
-                        <select className={INPUT_CLS} value={newB2cs.supplyType} onChange={e => setNewB2cs(p => ({ ...p, supplyType: e.target.value }))}>
-                          <option value="Intrastate">Intrastate</option>
-                          <option value="Interstate">Interstate</option>
-                        </select>
+                        <SelectDropdown
+                          buttonClassName={INPUT_CLS}
+                          value={newB2cs.supplyType}
+                          onChange={(v) => setNewB2cs(p => ({ ...p, supplyType: v }))}
+                          options={['Intrastate', 'Interstate']}
+                        />
                       </td>
                       <td className="px-4 py-2">
                         <input className={INPUT_CLS} min="0" placeholder="Taxable amount" step="0.01" type="number" value={newB2cs.taxable} onChange={e => setNewB2cs(p => ({ ...p, taxable: e.target.value }))} />
                       </td>
                       <td className="px-4 py-2">
-                        <select className={INPUT_CLS} value={newB2cs.rate} onChange={e => setNewB2cs(p => ({ ...p, rate: e.target.value }))}>
-                          {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-                        </select>
+                        <SelectDropdown buttonClassName={INPUT_CLS} value={newB2cs.rate} onChange={(v) => setNewB2cs(p => ({ ...p, rate: v }))} options={GST_RATES.map((r) => ({ value: r, label: `${r}%` }))} />
                       </td>
                       <td className="px-4 py-2 text-[13px] text-right text-[#536173]" colSpan={3}>
                         {newB2cs.taxable ? (

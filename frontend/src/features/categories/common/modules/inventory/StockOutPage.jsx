@@ -5,6 +5,7 @@ import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { api } from '../../../../../services/api.js';
 import { dateRangeParams } from '../../../../../utils/dateRange.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
@@ -110,10 +111,7 @@ function EditModal({ entry, onSave, onClose }) {
             </div>
             <div>
               <label className={LABEL}>Status</label>
-              <select className={INPUT} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                <option>Pending</option>
-                <option>Completed</option>
-              </select>
+              <SelectDropdown buttonClassName={INPUT} value={form.status} onChange={(v) => set('status', v)} options={['Pending', 'Completed']} />
             </div>
           </div>
           <div className="flex gap-3 mt-5 justify-end">

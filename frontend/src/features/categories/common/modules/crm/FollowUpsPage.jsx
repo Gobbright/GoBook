@@ -6,6 +6,7 @@ import {
   getFollowUps,
   updateFollowUp,
 } from '../../../../../services/crmService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
@@ -130,11 +131,7 @@ export function FollowUpsPage() {
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Owner" value={form.owner} onChange={(e) => updateForm('owner', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" type="date" value={form.date} onChange={(e) => updateForm('date', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" type="time" value={form.time} onChange={(e) => updateForm('time', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-              <option>Pending</option>
-              <option>Done</option>
-              <option>Overdue</option>
-            </select>
+            <SelectDropdown value={form.status} onChange={(v) => updateForm('status', v)} options={['Pending', 'Done', 'Overdue']} />
           </div>
           <div className="flex justify-end gap-2">
             <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>

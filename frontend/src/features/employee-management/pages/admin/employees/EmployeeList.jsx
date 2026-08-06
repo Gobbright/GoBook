@@ -5,6 +5,7 @@ import { DataTable } from '../../../components/common/DataTable.jsx';
 import { PageHeader } from '../../../components/common/PageHeader.jsx';
 import { useLoad } from '../../../hooks/useLoad.js';
 import { adminService } from '../../../services/adminService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 function buildLoginUrl(row) {
   const url = new URL('/employee-login', window.location.origin);
@@ -96,9 +97,9 @@ function EmployeeEditModal({ employee, saving, error, onClose, onSave }) {
           <div className="field"><label>Designation</label><input value={form.designation} onChange={(event) => set('designation', event.target.value)} /></div>
           <div className="field"><label>Joining Date</label><input type="date" value={form.joinDate} onChange={(event) => set('joinDate', event.target.value)} /></div>
           <div className="field"><label>Basic Salary</label><input type="number" min="0" value={form.basicSalary} onChange={(event) => set('basicSalary', event.target.value)} /></div>
-          <div className="field"><label>Login Access</label><select value={form.loginAccess ? 'Enable' : 'Disable'} onChange={(event) => set('loginAccess', event.target.value === 'Enable')}><option>Enable</option><option>Disable</option></select></div>
-          <div className="field"><label>Status</label><select value={form.status} onChange={(event) => set('status', event.target.value)}><option>Active</option><option>Inactive</option></select></div>
-          <div className="field"><label>Portal Role</label><select value={form.role} onChange={(event) => set('role', event.target.value)}><option value="employee">Employee</option><option value="hr">HR</option><option value="admin">Admin</option></select></div>
+          <div className="field"><label>Login Access</label><SelectDropdown value={form.loginAccess ? 'Enable' : 'Disable'} onChange={(v) => set('loginAccess', v === 'Enable')} options={['Enable', 'Disable']} /></div>
+          <div className="field"><label>Status</label><SelectDropdown value={form.status} onChange={(v) => set('status', v)} options={['Active', 'Inactive']} /></div>
+          <div className="field"><label>Portal Role</label><SelectDropdown value={form.role} onChange={(v) => set('role', v)} options={[{ value: 'employee', label: 'Employee' }, { value: 'hr', label: 'HR' }, { value: 'admin', label: 'Admin' }]} /></div>
           <div className="field"><label>Login Password</label><input type="text" value={form.currentPassword || '-'} readOnly /></div>
           <label className="employee-check-field"><input type="checkbox" checked={form.changePassword} onChange={(event) => set('changePassword', event.target.checked)} />Change Password</label>
           {form.changePassword && <div className="field"><label>New Password</label><input type="text" value={form.newPassword} required onChange={(event) => set('newPassword', event.target.value)} /></div>}

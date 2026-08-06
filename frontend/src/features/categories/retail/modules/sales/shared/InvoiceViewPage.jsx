@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Download, Printer, Send, Wallet, Trash2, IndianRupee } from 'lucide-react';
 import { api } from '../../../../../../services/api.js';
+import { SelectDropdown } from '../../../../../../components/forms/SelectDropdown.jsx';
 import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
 import { RecordPaymentModal } from './RecordPaymentModal.jsx';
@@ -271,14 +272,12 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
         <div className="flex items-center gap-2 flex-wrap">
           <label className="inline-flex items-center gap-2 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white">
             <span className="text-[#536173] font-medium">Template</span>
-            <select
+            <SelectDropdown
               value={printTemplate}
-              onChange={(event) => setPrintTemplate(event.target.value)}
-              className="border-0 bg-transparent text-[13px] font-semibold text-[#111827] outline-none font-[inherit]"
-            >
-              <option value="modern">Modern</option>
-              <option value="classic">Classic</option>
-            </select>
+              onChange={setPrintTemplate}
+              buttonClassName="border-0 bg-transparent text-[13px] font-semibold text-[#111827] outline-none font-[inherit]"
+              options={[{ value: 'modern', label: 'Modern' }, { value: 'classic', label: 'Classic' }]}
+            />
           </label>
           <button type="button" onClick={() => setShowShareModal(true)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white hover:bg-gray-50 transition-colors">
             <Send size={13} className="text-[#94a3b8]" />

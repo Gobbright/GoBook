@@ -11,6 +11,8 @@ import {
   updateAccountingVoucher,
 } from '../../../../../services/accountingService.js';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { AutocompleteInput } from '../../../../../components/forms/AutocompleteInput.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const EMPTY_LINE = {
@@ -324,9 +326,7 @@ export function AccountingVoucherPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Voucher Type</label>
-              <select className={FIELD} value={form.voucherType} onChange={(e) => updateForm('voucherType', e.target.value)}>
-                {voucherTypes.map((type) => <option key={type}>{type}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={FIELD} value={form.voucherType} onChange={(v) => updateForm('voucherType', v)} options={voucherTypes} />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Voucher No.</label>
@@ -346,10 +346,7 @@ export function AccountingVoucherPage() {
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Status</label>
-              <select className={FIELD} value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-                <option>Posted</option>
-                <option>Draft</option>
-              </select>
+              <SelectDropdown buttonClassName={FIELD} value={form.status} onChange={(v) => updateForm('status', v)} options={['Posted', 'Draft']} />
             </div>
           </div>
 
@@ -371,16 +368,18 @@ export function AccountingVoucherPage() {
                 {form.lines.map((line, index) => (
                   <tr key={`${index}-${line.side}`}>
                     <td className={TD}>
-                      <input className={FIELD} list="voucher-ledgers" required value={line.ledgerName} onChange={(e) => updateLine(index, 'ledgerName', e.target.value)} placeholder="Select or type ledger" />
+                      <AutocompleteInput inputClassName={FIELD} value={line.ledgerName} onChange={(v) => updateLine(index, 'ledgerName', v)} options={ledgers.map((l) => l.name)} placeholder="Select or type ledger" />
                     </td>
                     <td className={TD}>
                       <input className={FIELD} value={line.ledgerGroup} onChange={(e) => updateLine(index, 'ledgerGroup', e.target.value)} placeholder="Ledger group" />
                     </td>
                     <td className={TD}>
-                      <select className={FIELD} value={line.side} onChange={(e) => updateLine(index, 'side', e.target.value)}>
-                        <option value="debit">Debit</option>
-                        <option value="credit">Credit</option>
-                      </select>
+                      <SelectDropdown
+                        buttonClassName={FIELD}
+                        value={line.side}
+                        onChange={(v) => updateLine(index, 'side', v)}
+                        options={[{ value: 'debit', label: 'Debit' }, { value: 'credit', label: 'Credit' }]}
+                      />
                     </td>
                     <td className={TD}>
                       <input className={`${FIELD} text-right`} required min="0" step="0.01" type="number" value={line.amount} onChange={(e) => updateLine(index, 'amount', e.target.value)} />
@@ -403,9 +402,6 @@ export function AccountingVoucherPage() {
                 ))}
               </tbody>
             </table>
-            <datalist id="voucher-ledgers">
-              {ledgers.map((ledger) => <option key={ledger._id} value={ledger.name} />)}
-            </datalist>
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mt-4">
@@ -448,16 +444,8 @@ export function AccountingVoucherPage() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" />
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search vouchers..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-            <option>All</option>
-            {voucherTypes.map((type) => <option key={type}>{type}</option>)}
-          </select>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option>All</option>
-            <option>Posted</option>
-            <option>Draft</option>
-            <option>Cancelled</option>
-          </select>
+          <SelectDropdown className="w-36 flex-none" value={typeFilter} onChange={setTypeFilter} options={['All', ...voucherTypes]} />
+          <SelectDropdown className="w-32 flex-none" value={statusFilter} onChange={setStatusFilter} options={['All', 'Posted', 'Draft', 'Cancelled']} />
         </div>
 
         <div className="overflow-x-auto">

@@ -3,6 +3,9 @@ import { IndianRupee } from 'lucide-react';
 
 import { api } from '../../../../../services/api.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
+import { AutocompleteInput } from '../../../../../components/forms/AutocompleteInput.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { useCurrentUser } from '../../../../../hooks/useCurrentUser.js';
 import { useFocusTrap } from '../../../../../hooks/useFocusTrap.js';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
 
@@ -32,7 +35,7 @@ const Kbd = ({ children }) => (
 
 function ShortcutsHint({ items, className = '' }) {
   return (
-    <div className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-[#536173] ${className}`}>
+    <div className={`hidden md:flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-[#536173] ${className}`}>
       {items.map(([keys, label]) => (
         <span key={label} className="inline-flex items-center gap-1.5">
           <span className="inline-flex items-center gap-0.5">
@@ -48,9 +51,87 @@ function ShortcutsHint({ items, className = '' }) {
 const GST_RATES = [0, 5, 12, 18, 28];
 const UNITS = ['Nos', 'Pcs', 'Kg', 'Box', 'Ltr', 'Mtr', 'Set'];
 const ITEM_TYPES = ['Product', 'Service'];
-const ITEM_GROUPS = ['General', 'Textile', 'Electronics'];
 
-const EMPTY_FORM = { description: '', productDescription: '', itemType: 'Product', code: '', hsn: '', category: '', brand: '', itemGroup: 'General', size: '', fabric: '', colour: '', type: '', modelNumber: '', warrantyPeriod: '', serialNumber: '', unit: 'Nos', rate: '', gstRate: 18, stock: 0, minStockLevel: 0, variants: [], barcode: '', status: 'Active' };
+// Each business category gets its own set of item groups. Textile/Electronics
+// (retail) keep their existing dedicated UI further down; every other group
+// here is rendered generically from GROUP_FIELDS + FIELD_DEFS below.
+const CATEGORY_ITEM_GROUPS = {
+  retail: ['General', 'Textile', 'Electronics'],
+  hospital: ['General', 'Pharma'],
+  school: ['General', 'Books', 'Uniform'],
+  hotel: ['General', 'Perishable'],
+  manufacturing: ['General', 'RawMaterial', 'FinishedGood'],
+  construction: ['General', 'Material', 'Equipment'],
+  automobile: ['General', 'SparePart'],
+  ngo: ['General', 'DonatedGoods'],
+  finance: ['General'],
+};
+
+const GROUP_LABELS = {
+  General: 'General',
+  Textile: 'Textile',
+  Electronics: 'Electronics',
+  Pharma: 'Pharma',
+  Books: 'Books',
+  Uniform: 'Uniform',
+  Perishable: 'F&B / Perishable',
+  RawMaterial: 'Raw Material',
+  FinishedGood: 'Finished Good',
+  Material: 'Material',
+  Equipment: 'Equipment',
+  SparePart: 'Spare Part',
+  DonatedGoods: 'Donated Goods',
+};
+
+// Fields owned by each non-retail group, rendered generically. Textile/
+// Electronics are excluded here since they keep their existing hardcoded UI.
+const GROUP_FIELDS = {
+  Pharma: ['batchNumber', 'expiryDate', 'manufacturer', 'prescriptionRequired'],
+  Books: ['author', 'publisher', 'classGrade', 'edition'],
+  Uniform: ['size'],
+  Perishable: ['expiryDate', 'storageType'],
+  RawMaterial: ['batchLotNo', 'gradeSpec', 'supplier'],
+  FinishedGood: ['gradeSpec', 'warrantyPeriod'],
+  Material: ['gradeSpec', 'unitWeight'],
+  Equipment: ['modelNumber', 'serialNumber'],
+  SparePart: ['partNumber', 'compatibleModel', 'warrantyPeriod'],
+  DonatedGoods: ['donorName', 'condition'],
+};
+const ALL_GROUP_EXTRA_FIELDS = [...new Set(['size', 'fabric', 'colour', 'type', 'modelNumber', 'warrantyPeriod', 'serialNumber', ...Object.values(GROUP_FIELDS).flat()])];
+
+const FIELD_DEFS = {
+  size: { label: 'Size', placeholder: 'e.g. M, L, XL' },
+  modelNumber: { label: 'Model Number', placeholder: 'e.g. SM-G998B' },
+  warrantyPeriod: { label: 'Warranty Period', placeholder: 'e.g. 12 Months' },
+  serialNumber: { label: 'Serial Number', placeholder: 'e.g. 356789104561234' },
+  batchNumber: { label: 'Batch Number', placeholder: 'e.g. B-2024-0091' },
+  expiryDate: { label: 'Expiry Date', type: 'date' },
+  manufacturer: { label: 'Manufacturer', placeholder: 'e.g. Cipla Ltd' },
+  prescriptionRequired: { label: 'Prescription Required', type: 'toggle' },
+  author: { label: 'Author', placeholder: 'e.g. R.K. Narayan' },
+  publisher: { label: 'Publisher', placeholder: 'e.g. NCERT' },
+  classGrade: { label: 'Class / Grade', placeholder: 'e.g. Grade 8' },
+  edition: { label: 'Edition', placeholder: 'e.g. 3rd Edition' },
+  storageType: { label: 'Storage Type', type: 'select', options: ['Chilled', 'Frozen', 'Dry'] },
+  batchLotNo: { label: 'Batch / Lot No.', placeholder: 'e.g. LOT-2024-118' },
+  gradeSpec: { label: 'Grade / Specification', placeholder: 'e.g. Grade 53, IS 269' },
+  supplier: { label: 'Supplier', placeholder: 'e.g. Ultratech' },
+  unitWeight: { label: 'Unit Weight', placeholder: 'e.g. 50kg per bag' },
+  partNumber: { label: 'Part Number', placeholder: 'e.g. OE-4589231' },
+  compatibleModel: { label: 'Compatible Vehicle / Model', placeholder: 'e.g. Swift 2018-2022' },
+  donorName: { label: 'Donor Name', placeholder: 'e.g. XYZ Foundation' },
+  condition: { label: 'Condition', type: 'select', options: ['New', 'Used', 'Refurbished'] },
+};
+
+const EMPTY_FORM = {
+  description: '', productDescription: '', itemType: 'Product', code: '', hsn: '', category: '', brand: '', itemGroup: 'General',
+  size: '', fabric: '', colour: '', type: '', modelNumber: '', warrantyPeriod: '', serialNumber: '',
+  batchNumber: '', expiryDate: '', manufacturer: '', prescriptionRequired: false,
+  author: '', publisher: '', classGrade: '', edition: '',
+  storageType: '', batchLotNo: '', gradeSpec: '', supplier: '', unitWeight: '',
+  partNumber: '', compatibleModel: '', donorName: '', condition: '',
+  unit: 'Nos', rate: '', gstRate: 18, stock: 0, minStockLevel: 0, variants: [], barcode: '', status: 'Active',
+};
 
 function genBarcode() {
   return Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
@@ -81,15 +162,21 @@ const UploadIcon = () => (
 );
 
 function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories, brands, sizes, fabrics, colours, types, onSave, onClose }) {
+  const currentUser = useCurrentUser();
+  const businessCategory = currentUser?.category || 'retail';
+  const isRetail = businessCategory === 'retail';
+  const itemGroups = CATEGORY_ITEM_GROUPS[businessCategory] || ['General'];
   const [form, setForm] = useState(() => {
     if (mode === 'add') return { ...EMPTY_FORM, code: nextCode ?? '', barcode: initialBarcode || genBarcode() };
-    return { ...EMPTY_FORM, ...initial, variants: initial?.variants ?? [] };
+    const initialGroup = itemGroups.includes(initial?.itemGroup) ? initial.itemGroup : 'General';
+    return { ...EMPTY_FORM, ...initial, variants: initial?.variants ?? [], itemGroup: initialGroup };
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const isService = form.itemType === 'Service';
-  const isTextile = !isService && form.itemGroup === 'Textile';
-  const isElectronics = !isService && form.itemGroup === 'Electronics';
+  const isTextile = isRetail && !isService && form.itemGroup === 'Textile';
+  const isElectronics = isRetail && !isService && form.itemGroup === 'Electronics';
+  const genericGroupFields = !isService ? (GROUP_FIELDS[form.itemGroup] || []) : [];
   const isMultiSize = isTextile && (form.variants || []).length > 0;
   const variantTotalStock = (form.variants || []).reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
   const nameInputRef = useRef(null);
@@ -107,12 +194,19 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
   }
 
   function setItemGroup(grp) {
-    setForm((f) => ({
-      ...f,
-      itemGroup: grp,
-      ...(grp !== 'Textile' ? { size: '', fabric: '', colour: '', type: '', variants: [] } : {}),
-      ...(grp !== 'Electronics' ? { modelNumber: '', warrantyPeriod: '', serialNumber: '' } : {}),
-    }));
+    const ownedFields = grp === 'Textile'
+      ? ['size', 'fabric', 'colour', 'type']
+      : grp === 'Electronics'
+        ? ['modelNumber', 'warrantyPeriod', 'serialNumber']
+        : (GROUP_FIELDS[grp] || []);
+    setForm((f) => {
+      const cleared = {};
+      for (const field of ALL_GROUP_EXTRA_FIELDS) {
+        if (ownedFields.includes(field)) continue;
+        cleared[field] = field === 'prescriptionRequired' ? false : '';
+      }
+      return { ...f, ...cleared, itemGroup: grp, variants: grp === 'Textile' ? f.variants : [] };
+    });
   }
 
   function enableMultiSize() {
@@ -252,27 +346,25 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
               </div>
               <div>
                 <label className={LABEL}>Category</label>
-                <input className={INPUT} value={form.category} onChange={(e) => set('category', e.target.value)} placeholder="e.g. Electronics" list="cat-list" />
-                <datalist id="cat-list">{categories.filter((c) => c !== 'All Categories').map((c) => <option key={c} value={c} />)}</datalist>
+                <AutocompleteInput value={form.category} onChange={(v) => set('category', v)} options={categories.filter((c) => c !== 'All Categories')} placeholder="e.g. Electronics" />
               </div>
               <div>
                 <label className={LABEL}>Brand</label>
-                <input className={INPUT} value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} placeholder="e.g. Samsung" list="brand-list" />
-                <datalist id="brand-list">{brands.map((b) => <option key={b} value={b} />)}</datalist>
+                <AutocompleteInput value={form.brand || ''} onChange={(v) => set('brand', v)} options={brands} placeholder="e.g. Samsung" />
               </div>
             </div>
-            {!isService && (
+            {!isService && itemGroups.length > 1 && (
               <div className="sm:col-span-2">
                 <label className={LABEL}>Item Group</label>
-                <div className={TOGGLE_WRAP} onKeyDown={(e) => handleToggleArrowKeys(e, (idx) => setItemGroup(ITEM_GROUPS[idx]))}>
-                  {ITEM_GROUPS.map((grp) => (
+                <div className={TOGGLE_WRAP} onKeyDown={(e) => handleToggleArrowKeys(e, (idx) => setItemGroup(itemGroups[idx]))}>
+                  {itemGroups.map((grp) => (
                     <button
                       key={grp}
                       type="button"
                       className={toggleBtnClass(form.itemGroup === grp)}
                       onClick={() => setItemGroup(grp)}
                     >
-                      {grp}
+                      {GROUP_LABELS[grp] || grp}
                     </button>
                   ))}
                 </div>
@@ -283,24 +375,20 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
                 {!isMultiSize && (
                   <div>
                     <label className={LABEL}>Size</label>
-                    <input className={INPUT} value={form.size || ''} onChange={(e) => set('size', e.target.value)} placeholder="e.g. M, L, XL" list="size-list" />
+                    <AutocompleteInput value={form.size || ''} onChange={(v) => set('size', v)} options={sizes} placeholder="e.g. M, L, XL" />
                   </div>
                 )}
-                <datalist id="size-list">{sizes.map((s) => <option key={s} value={s} />)}</datalist>
                 <div>
                   <label className={LABEL}>Fabric</label>
-                  <input className={INPUT} value={form.fabric || ''} onChange={(e) => set('fabric', e.target.value)} placeholder="e.g. Cotton" list="fabric-list" />
-                  <datalist id="fabric-list">{fabrics.map((f) => <option key={f} value={f} />)}</datalist>
+                  <AutocompleteInput value={form.fabric || ''} onChange={(v) => set('fabric', v)} options={fabrics} placeholder="e.g. Cotton" />
                 </div>
                 <div>
                   <label className={LABEL}>Colour</label>
-                  <input className={INPUT} value={form.colour || ''} onChange={(e) => set('colour', e.target.value)} placeholder="e.g. Maroon" list="colour-list" />
-                  <datalist id="colour-list">{colours.map((c) => <option key={c} value={c} />)}</datalist>
+                  <AutocompleteInput value={form.colour || ''} onChange={(v) => set('colour', v)} options={colours} placeholder="e.g. Maroon" />
                 </div>
                 <div>
                   <label className={LABEL}>Type</label>
-                  <input className={INPUT} value={form.type || ''} onChange={(e) => set('type', e.target.value)} placeholder="e.g. Formal, Casual" list="type-list" />
-                  <datalist id="type-list">{types.map((t) => <option key={t} value={t} />)}</datalist>
+                  <AutocompleteInput value={form.type || ''} onChange={(v) => set('type', v)} options={types} placeholder="e.g. Formal, Casual" />
                 </div>
               </>
             )}
@@ -320,11 +408,46 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
                 </div>
               </>
             )}
+            {!isRetail && genericGroupFields.map((field) => {
+              const def = FIELD_DEFS[field];
+              if (!def) return null;
+              if (def.type === 'toggle') {
+                return (
+                  <label key={field} className="flex items-center justify-between gap-3 border border-[#dbe4ef] rounded-md px-3 py-2.5 cursor-pointer">
+                    <span className="text-[13px] font-medium text-[#374151]">{def.label}</span>
+                    <div
+                      className={`w-9 h-5 rounded-full transition-colors cursor-pointer flex-none ${form[field] ? 'bg-blue-600' : 'bg-[#dbe4ef]'}`}
+                      onClick={() => set(field, !form[field])}
+                    >
+                      <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${form[field] ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+                    </div>
+                  </label>
+                );
+              }
+              if (def.type === 'select') {
+                return (
+                  <div key={field}>
+                    <label className={LABEL}>{def.label}</label>
+                    <SelectDropdown value={form[field] || ''} onChange={(v) => set(field, v)} options={def.options} placeholder="Select…" />
+                  </div>
+                );
+              }
+              return (
+                <div key={field}>
+                  <label className={LABEL}>{def.label}</label>
+                  <input
+                    className={INPUT}
+                    type={def.type === 'date' ? 'date' : 'text'}
+                    value={form[field] || ''}
+                    onChange={(e) => set(field, e.target.value)}
+                    placeholder={def.placeholder}
+                  />
+                </div>
+              );
+            })}
             <div>
               <label className={LABEL}>Unit</label>
-              <select className={INPUT} value={form.unit} onChange={(e) => set('unit', e.target.value)}>
-                {UNITS.map((u) => <option key={u}>{u}</option>)}
-              </select>
+              <SelectDropdown value={form.unit} onChange={(v) => set('unit', v)} options={UNITS} />
             </div>
             <div>
               <label className={LABEL}>Sale Price (₹) *</label>
@@ -332,9 +455,11 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
             </div>
             <div>
               <label className={LABEL}>GST Rate (%)</label>
-              <select className={INPUT} value={form.gstRate} onChange={(e) => set('gstRate', e.target.value)}>
-                {GST_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
-              </select>
+              <SelectDropdown
+                value={form.gstRate}
+                onChange={(v) => set('gstRate', v)}
+                options={GST_RATES.map((r) => ({ value: r, label: `${r}%` }))}
+              />
             </div>
             {!isService && isTextile && (
               <div className="sm:col-span-2">
@@ -425,10 +550,7 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
             </div>
             <div>
               <label className={LABEL}>Status</label>
-              <select className={INPUT} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
+              <SelectDropdown value={form.status} onChange={(v) => set('status', v)} options={['Active', 'Inactive']} />
             </div>
           </div>
           </div>
@@ -517,6 +639,20 @@ export function ProductsPage() {
 
   useEffect(() => { loadStats(); loadCategories(); loadBrands(); loadSizes(); loadFabrics(); loadColours(); loadTypes(); }, []);
   useEffect(() => { loadProducts(); }, [search, category, itemType, page]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Arriving here from a billing screen's "unrecognized barcode" scan —
+  // open the add form pre-filled so the product can be registered properly
+  // (full details, not just the barcode) instead of dropping a bare line
+  // item into that invoice.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const newBarcode = params.get('newBarcode');
+    if (!newBarcode) return;
+    setModal({ mode: 'add', nextCode: '', initialBarcode: newBarcode });
+    params.delete('newBarcode');
+    const rest = params.toString();
+    window.history.replaceState(null, '', rest ? `${window.location.pathname}?${rest}` : window.location.pathname);
+  }, []);
 
   useEffect(() => {
     function handleListShortcut(e) {
@@ -759,13 +895,13 @@ export function ProductsPage() {
           { label: 'Low Stock Items',     value: stats ? stats.lowStock.toLocaleString('en-IN') : '—',     sub: 'Alert',           color: '#f59e0b', bg: '#fffbeb', icon: <svg fill="none" height="20" stroke="#f59e0b" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg> },
           { label: 'Total Value',         value: stats ? formatINR(stats.totalValue) : '—',                sub: 'Inventory Value', color: '#7c3aed', bg: '#f5f3ff', icon: <IndianRupee size={20} color="#7c3aed" /> },
         ].map((s) => (
-          <div key={s.label} className="bg-white border border-[#dfe7f1] rounded-xl p-4 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-none" style={{ background: s.bg }}>{s.icon}</div>
+          <div key={s.label} className="bg-white border border-[#dfe7f1] rounded-xl p-4 flex items-start justify-between gap-3">
             <div>
-              <div className="text-xs text-[#536173] mb-0.5">{s.label}</div>
-              <div className="text-[17px] font-bold leading-tight" style={{ color: s.color }}>{s.value}</div>
-              <div className="text-xs text-[#536173] mt-0.5">{s.sub}</div>
+              <div className="text-xs text-[#536173] mb-1">{s.label}</div>
+              <div className="text-[24px] font-bold leading-tight" style={{ color: s.color }}>{s.value}</div>
+              <div className="text-xs text-[#536173] mt-1">{s.sub}</div>
             </div>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-none" style={{ background: s.bg }}>{s.icon}</div>
           </div>
         ))}
       </div>
@@ -776,14 +912,18 @@ export function ProductsPage() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
             <input ref={searchRef} className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search items… (/)" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer" value={itemType} onChange={(e) => { setItemType(e.target.value); setPage(1); }}>
-            <option>All Items</option>
-            <option>Product</option>
-            <option>Service</option>
-          </select>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
-            {categories.map((c) => <option key={c}>{c}</option>)}
-          </select>
+          <SelectDropdown
+            className="w-36 flex-none"
+            value={itemType}
+            onChange={(v) => { setItemType(v); setPage(1); }}
+            options={['All Items', 'Product', 'Service']}
+          />
+          <SelectDropdown
+            className="w-40 flex-none"
+            value={category}
+            onChange={(v) => { setCategory(v); setPage(1); }}
+            options={categories}
+          />
         </div>
 
         {error && <div className="px-5 py-4 text-[13px] text-red-600">{error}</div>}

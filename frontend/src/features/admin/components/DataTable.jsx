@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Edit3, Eye, EyeOff, FileSpreadsheet, FileText, Search, Trash2, X } from 'lucide-react';
 
 import { deleteAdminTableRow, updateAdminTableRow } from '../adminService.js';
+import { SelectDropdown } from '../../../components/forms/SelectDropdown.jsx';
 
 function formatValue(value) {
   if (value === null || value === undefined || value === '') return '-';
@@ -181,9 +182,9 @@ export function DataTable({ section, onChanged }) {
       return (
         <label key={field} className="text-sm font-semibold text-slate-600 dark:text-slate-300">
           {label}
-          <select value={value} onChange={(event) => updateField(event.target.value)} className={SELECT_BASE_CLASS}>
-            {options.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
+          <div className="mt-1">
+            <SelectDropdown value={value} onChange={updateField} options={options} />
+          </div>
         </label>
       );
     }
@@ -231,9 +232,12 @@ export function DataTable({ section, onChanged }) {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search table..." className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-8 pr-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" />
           </div>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-            {statusValues.map((status) => <option key={status} value={status}>{status === 'all' ? 'All Filter' : status}</option>)}
-          </select>
+          <SelectDropdown
+            className="w-40 flex-none"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={statusValues.map((status) => ({ value: status, label: status === 'all' ? 'All Filter' : status }))}
+          />
           <button onClick={exportPdf} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center justify-center gap-2"><FileText size={15} /> PDF</button>
           <button onClick={exportExcel} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center justify-center gap-2"><FileSpreadsheet size={15} /> Excel</button>
         </div>

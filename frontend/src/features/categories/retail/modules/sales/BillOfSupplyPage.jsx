@@ -7,6 +7,7 @@ import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { api } from '../../../../../services/api.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 import { RecordPaymentModal } from './shared/RecordPaymentModal.jsx';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
@@ -380,13 +381,12 @@ export function BillOfSupplyPage() {
         {/* Filters */}
         <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[#edf2f7] px-4 py-2.5">
           <DateRangeFilter from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} onClear={() => { setDateFrom(''); setDateTo(''); }} />
-          <select
-            className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white text-[#374151]"
+          <SelectDropdown
+            buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white text-[#374151]"
             value={paymentFilter}
-            onChange={(e) => setPaymentFilter(e.target.value)}
-          >
-            {PAYMENT_FILTERS.map((s) => <option key={s} value={s}>{s === 'All' ? 'All Payments' : s}</option>)}
-          </select>
+            onChange={setPaymentFilter}
+            options={PAYMENT_FILTERS.map((s) => ({ value: s, label: s === 'All' ? 'All Payments' : s }))}
+          />
           <ExportButtons title="Bills of Supply" filename="bills-of-supply" rows={filtered} columns={exportColumns} />
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />

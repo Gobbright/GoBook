@@ -11,6 +11,7 @@ import { RowActions } from '../shared/recordUi/RowActions.jsx';
 import { StatusBadge } from '../shared/recordUi/StatusBadge.jsx';
 import { KanbanBoard } from '../shared/recordUi/KanbanBoard.jsx';
 import { fmtDate, todayISO } from '../shared/recordUi/dateUtils.js';
+import { AutocompleteInput } from '../../../components/forms/AutocompleteInput.jsx';
 
 function useHospitalLookups() {
   const patients = useLookupRecords('hospital/patients');
@@ -258,8 +259,7 @@ export function ClinicalWorkflowPage({ moduleKey, title, group, subtitle, fields
       <WorkflowModal modal={modal} title={title} fields={fields} lookupOptions={lookupOptions} onClose={() => setModal(null)} onSubmit={submit} />
       <div className="bg-white border border-[#dfe7f1] rounded-xl p-4 mb-5 flex items-center gap-3">
         <label className="text-[13px] font-medium text-[#374151]">Patient:</label>
-        <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] w-64" list="clinical-patients" placeholder="All patients" value={patient} onChange={(e) => setPatient(e.target.value)} />
-        <datalist id="clinical-patients">{lookupOptions['hospital/patients'].map((name) => <option key={name} value={name} />)}</datalist>
+        <AutocompleteInput className="w-64" placeholder="All patients" value={patient} onChange={setPatient} options={lookupOptions['hospital/patients']} />
         {patient && <button type="button" onClick={() => setPatient('')} className="text-[12px] text-blue-600 bg-transparent border-0 cursor-pointer font-[inherit] hover:underline">Clear</button>}
       </div>
       {loading ? <p className="text-[13px] text-[#536173] px-5 py-8 text-center">Loading...</p> : (

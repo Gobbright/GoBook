@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { api } from '../../../../../services/api.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
@@ -120,13 +121,18 @@ export function StockSummaryPage() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search product, code or HSN..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="all">All Stock</option>
-            <option value="active">Active Products</option>
-            <option value="low">Low Stock</option>
-            <option value="out">Out of Stock</option>
-            <option value="inactive">Inactive Products</option>
-          </select>
+          <SelectDropdown
+            buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer"
+            value={status}
+            onChange={(v) => { setStatus(v); setPage(1); }}
+            options={[
+              { value: 'all', label: 'All Stock' },
+              { value: 'active', label: 'Active Products' },
+              { value: 'low', label: 'Low Stock' },
+              { value: 'out', label: 'Out of Stock' },
+              { value: 'inactive', label: 'Inactive Products' },
+            ]}
+          />
         </div>
 
         {error && <div className="px-5 py-4 text-[13px] text-red-600">{error}</div>}

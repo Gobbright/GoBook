@@ -7,6 +7,7 @@ import {
   importLedgerAccounts,
   updateLedgerAccount,
 } from '../../../../../services/accountingService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const GROUPS = ['All Groups', 'Cash-In-Hand', 'Bank Accounts', 'Sundry Debtors', 'Sundry Creditors', 'Direct Expenses', 'Direct Incomes', 'Fixed Assets', 'Capital Account'];
@@ -182,9 +183,7 @@ export function LedgerPage() {
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Account Group <span className="text-red-500">*</span></label>
-              <select className="w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.group} onChange={(e) => updateForm('group', e.target.value)}>
-                {GROUPS.filter((item) => item !== 'All Groups').map((item) => <option key={item}>{item}</option>)}
-              </select>
+              <SelectDropdown value={form.group} onChange={(v) => updateForm('group', v)} options={GROUPS.filter((item) => item !== 'All Groups')} />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Opening Balance (₹)</label>
@@ -245,9 +244,7 @@ export function LedgerPage() {
             </svg>
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search ledger accounts..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={group} onChange={(e) => setGroup(e.target.value)}>
-            {GROUPS.map((g) => <option key={g}>{g}</option>)}
-          </select>
+          <SelectDropdown className="w-40 flex-none" value={group} onChange={setGroup} options={GROUPS} />
           <button className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button">
             <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
             Filter

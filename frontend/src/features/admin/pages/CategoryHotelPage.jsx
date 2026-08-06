@@ -46,9 +46,9 @@ export function CategoryHotelPage() {
                 <div className="p-1.5 md:p-2 bg-white/20 rounded-lg">
                   <Building2 size={18} className="md:w-6 md:h-6" />
                 </div>
-                <h1 className="text-lg md:text-3xl font-extrabold">Hotel Management</h1>
+                <h1 data-admin-hide className="text-lg md:text-3xl font-extrabold">Hotel Management</h1>
               </div>
-              <p className="text-xs md:text-base text-amber-100">Manage properties, rooms, guests, and reservations</p>
+              <p data-admin-hide className="text-xs md:text-base text-amber-100">Manage properties, rooms, guests, and reservations</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button className="px-3 md:px-4 py-2 bg-white text-amber-600 rounded-lg flex items-center gap-1 md:gap-2 hover:bg-amber-50 transition font-semibold text-xs md:text-sm">

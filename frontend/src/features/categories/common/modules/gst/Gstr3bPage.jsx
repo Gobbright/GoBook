@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { gstService } from '../../../../../services/gstService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -301,9 +302,7 @@ export function Gstr3bPage() {
           <div className="text-[13px] text-[#536173] mt-0.5">Monthly Self-Assessed Summary Return — enter values and pay net tax</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={period} onChange={(e) => setPeriod(e.target.value)}>
-            {PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <SelectDropdown className="w-36 flex-none" value={period} onChange={setPeriod} options={PERIODS} />
           {!locked && (
             <button
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md cursor-pointer hover:bg-purple-100 font-[inherit] disabled:opacity-50"

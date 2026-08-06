@@ -18,7 +18,14 @@ const productSchema = new Schema({
   gstRate:       { type: Number, default: 18, enum: [0, 5, 12, 18, 28] },
   category:      { type: String, trim: true, default: '' },
   brand:         { type: String, trim: true, default: '' },
-  itemGroup:     { type: String, enum: ['General', 'Textile', 'Electronics'], default: 'General' },
+  itemGroup:     {
+    type: String,
+    enum: [
+      'General', 'Textile', 'Electronics', 'Pharma', 'Books', 'Uniform', 'Perishable',
+      'RawMaterial', 'FinishedGood', 'Material', 'Equipment', 'SparePart', 'DonatedGoods',
+    ],
+    default: 'General',
+  },
   size:          { type: String, trim: true, default: '' },
   fabric:        { type: String, trim: true, default: '' },
   colour:        { type: String, trim: true, default: '' },
@@ -26,6 +33,29 @@ const productSchema = new Schema({
   modelNumber:   { type: String, trim: true, default: '' },
   warrantyPeriod: { type: String, trim: true, default: '' },
   serialNumber:  { type: String, trim: true, default: '' },
+  // Hospital — Pharma
+  batchNumber:   { type: String, trim: true, default: '' },
+  expiryDate:    { type: Date, default: null },
+  manufacturer:  { type: String, trim: true, default: '' },
+  prescriptionRequired: { type: Boolean, default: false },
+  // School — Books / Uniform
+  author:        { type: String, trim: true, default: '' },
+  publisher:     { type: String, trim: true, default: '' },
+  classGrade:    { type: String, trim: true, default: '' },
+  edition:       { type: String, trim: true, default: '' },
+  // Hotel — F&B / Perishable
+  storageType:   { type: String, trim: true, default: '' },
+  // Manufacturing / Construction — Raw Material / Finished Good / Material
+  batchLotNo:    { type: String, trim: true, default: '' },
+  gradeSpec:     { type: String, trim: true, default: '' },
+  supplier:      { type: String, trim: true, default: '' },
+  unitWeight:    { type: String, trim: true, default: '' },
+  // Automobile — Spare Part
+  partNumber:    { type: String, trim: true, default: '' },
+  compatibleModel: { type: String, trim: true, default: '' },
+  // NGO — Donated Goods
+  donorName:     { type: String, trim: true, default: '' },
+  condition:     { type: String, trim: true, default: '' },
   stock:         { type: Number, default: 0, min: 0 },
   minStockLevel: { type: Number, default: 0, min: 0 },
   variants:      { type: [productVariantSchema], default: [] },

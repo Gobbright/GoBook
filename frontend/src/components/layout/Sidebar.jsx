@@ -64,6 +64,17 @@ function getExternalHref(item) {
 }
 const SECTION_KEY = 'gobook.openSection';
 
+const ALT_SHORTCUT_HINTS = {
+  Dashboard: 'Alt+D',
+  'Sales & Bill': 'Alt+S',
+  Purchase: 'Alt+P',
+  Inventory: 'Alt+I',
+  Customers: 'Alt+C',
+  GST: 'Alt+G',
+  Reports: 'Alt+R',
+  Settings: 'Alt+T',
+};
+
 export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
   const location = useLocation();
   const storedUser = useCurrentUser();
@@ -128,7 +139,7 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
         </div>
 
         {/* Nav sections */}
-        <nav className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3">
+        <nav className="flex flex-col justify-between gap-3 flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3">
           {sidebarSections.map((section) => (
             <div key={section.title}>
               {section.items.length === 1 && !section.forceGroup ? (
@@ -156,7 +167,10 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                     <span className={currentPath === normalizeAppPath(section.items[0].href) ? 'text-white' : 'text-[#7ab4d8]'}>
                       <NavIcon name={section.items[0].icon} />
                     </span>
-                    {section.items[0].label}
+                    <span className="flex-1 min-w-0 truncate">{section.items[0].label}</span>
+                    {ALT_SHORTCUT_HINTS[section.title] && (
+                      <span className="hidden md:inline text-[10px] font-semibold text-[#7ab4d8] flex-none">{ALT_SHORTCUT_HINTS[section.title]}</span>
+                    )}
                   </Link>
                 )
               ) : (
@@ -173,6 +187,9 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
                       {section.icon && <NavIcon name={section.icon} />}
                       <span className="min-w-0 truncate">{section.title}</span>
                     </span>
+                    {ALT_SHORTCUT_HINTS[section.title] && (
+                      <span className="hidden md:inline text-[10px] font-semibold text-[#7ab4d8] flex-none">{ALT_SHORTCUT_HINTS[section.title]}</span>
+                    )}
                     <ChevronDown
                       size={13}
                       strokeWidth={2.5}

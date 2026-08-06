@@ -4,6 +4,7 @@ import { useModuleRecords, useLookupRecords, names } from '../../../shared/recor
 import { FormModal } from '../../../shared/recordUi/FormModal.jsx';
 import { PageHeader } from '../../../shared/recordUi/PageHeader.jsx';
 import { RowActions } from '../../../shared/recordUi/RowActions.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -70,14 +71,12 @@ export function TimetablePage() {
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl p-4 mb-5 flex items-center gap-3">
         <label className="text-[13px] font-medium text-[#374151]">Class:</label>
-        <select
-          className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white w-56"
+        <SelectDropdown
+          buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white w-56"
           value={selectedClass}
-          onChange={(e) => setSelectedClass(e.target.value)}
-        >
-          <option value="">All classes</option>
-          {classOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+          onChange={setSelectedClass}
+          options={[{ value: '', label: 'All classes' }, ...classOptions.map((c) => ({ value: c, label: c }))]}
+        />
       </div>
 
       {loading ? (

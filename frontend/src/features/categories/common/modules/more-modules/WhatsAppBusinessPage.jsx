@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const TYPES    = ['Promotional', 'Transactional', 'Utility'];
 const STATUSES = ['Draft', 'Active', 'Completed', 'Paused'];
@@ -99,12 +100,8 @@ export function WhatsAppBusinessPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Campaign name *" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.type} onChange={(e) => updateForm('type', e.target.value)}>
-              {TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-              {STATUSES.map((s) => <option key={s}>{s}</option>)}
-            </select>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.type} onChange={(v) => updateForm('type', v)} options={TYPES} />
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={STATUSES} />
           </div>
           <textarea
             className="w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] resize-y mb-3"

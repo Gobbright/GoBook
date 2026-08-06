@@ -10,6 +10,7 @@ import {
 } from '../../../../../services/crmService.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 
@@ -162,10 +163,7 @@ export function CustomersPage() {
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email" type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Phone" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="City" value={form.city} onChange={(e) => updateForm('city', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-              <option>Active</option>
-              <option>Inactive</option>
-            </select>
+            <SelectDropdown value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Address" value={form.address} onChange={(e) => updateForm('address', e.target.value)} />
           </div>
           {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{formError}</p>}
@@ -191,13 +189,13 @@ export function CustomersPage() {
           { label: 'Inactive Customers', value: inactiveCustomers.toLocaleString(), color: '#f97316', bg: '#fff7ed',  icon: <svg fill="none" height="20" stroke="#f97316" strokeWidth="2" viewBox="0 0 24 24" width="20"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="11" y2="16"/><line x1="22" x2="17" y1="11" y2="16"/></svg> },
           { label: 'Total Revenue',      value: formatCurrency(totalRevenue),       color: '#7c3aed', bg: '#f5f3ff',  icon: <IndianRupee size={20} color="#7c3aed" /> },
         ].map((s) => (
-          <div key={s.label} className="bg-white border border-[#dfe7f1] rounded-xl p-4 flex items-center gap-4">
+          <div key={s.label} className="bg-white border border-[#dfe7f1] rounded-xl p-4 flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs text-[#536173] mb-1">{s.label}</div>
+              <div className="text-[24px] font-bold leading-tight" style={{ color: s.color }}>{s.value}</div>
+            </div>
             <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-none" style={{ background: s.bg }}>
               {s.icon}
-            </div>
-            <div>
-              <div className="text-xs text-[#536173] mb-0.5">{s.label}</div>
-              <div className="text-[17px] font-bold leading-tight" style={{ color: s.color }}>{s.value}</div>
             </div>
           </div>
         ))}

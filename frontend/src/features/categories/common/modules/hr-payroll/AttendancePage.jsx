@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { api } from '../../../../../services/api.js';
 import { dateRangeParams } from '../../../../../utils/dateRange.js';
 
@@ -68,9 +69,7 @@ function AttendanceModal({ initial, onClose, onSaved }) {
             </div>
             <div>
               <label className={IL}>Status</label>
-              <select className={IC} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                {['Present', 'Late', 'Absent', 'On Leave'].map((s) => <option key={s}>{s}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={IC} value={form.status} onChange={(v) => set('status', v)} options={['Present', 'Late', 'Absent', 'On Leave']} />
             </div>
             <div>
               <label className={IL}>Check In</label>
@@ -244,9 +243,7 @@ export function AttendancePage() {
             onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
           <ExportButtons title="Attendance" filename="attendance" rows={records} columns={exportColumns} fetchRows={fetchAllForExport} />
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={dept} onChange={(e) => setDept(e.target.value)}>
-            {['All Departments'].map((d) => <option key={d}>{d}</option>)}
-          </select>
+          <SelectDropdown className="w-40 flex-none" value={dept} onChange={setDept} options={['All Departments']} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">

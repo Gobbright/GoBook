@@ -7,6 +7,7 @@ import {
   getDataManagementSummary,
   importDataBackup,
 } from '../../../../../services/dataManagementService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const MONTHS = [
   { value: '', label: 'Full Year' },
@@ -251,13 +252,12 @@ export function DataManagementPage({ tool = 'export' }) {
               className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]"
               placeholder="Year"
             />
-            <select
+            <SelectDropdown
               value={month}
-              onChange={(event) => setMonth(event.target.value)}
-              className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white"
-            >
-              {MONTHS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
+              onChange={setMonth}
+              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white"
+              options={MONTHS}
+            />
           </div>
           <button
             type="button"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { api } from '../../../../../services/api.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
@@ -91,10 +92,7 @@ function WarehouseModal({ mode, initial, onSave, onClose }) {
             </div>
             <div>
               <label className={LABEL}>Status</label>
-              <select className={INPUT} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
+              <SelectDropdown buttonClassName={INPUT} value={form.status} onChange={(v) => set('status', v)} options={['Active', 'Inactive']} />
             </div>
           </div>
           <div className="flex gap-3 mt-5 justify-end">

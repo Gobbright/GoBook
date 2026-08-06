@@ -4,6 +4,7 @@ import {
   ReceiptText, UserRound, X,
 } from 'lucide-react';
 
+import { SelectDropdown } from '../../../components/forms/SelectDropdown.jsx';
 import { FinanceBillNav } from './FinanceBillNav.jsx';
 import { downloadFinanceBillPdf, financeBillHtml } from './financeBillPdf.js';
 import { financeApi } from './financeApi.js';
@@ -331,12 +332,7 @@ export function FinanceManualBillPage() {
               </label>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">
                 <span className="inline-flex items-center gap-1.5"><FileText size={14} /> Type</span>
-                <select value={form.type} onChange={set('type')} className={`${fieldClass} mt-1.5`}>
-                  <option value="Loan">Loan</option>
-                  <option value="Chit">Chit</option>
-                  <option value="Deposit">Deposit</option>
-                  <option value="Other">Other</option>
-                </select>
+                <SelectDropdown value={form.type} onChange={(v) => setForm((current) => ({ ...current, type: v }))} buttonClassName={`${fieldClass} mt-1.5`} options={['Loan', 'Chit', 'Deposit', 'Other']} />
               </label>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -350,12 +346,7 @@ export function FinanceManualBillPage() {
               </label>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">
                 <span className="inline-flex items-center gap-1.5"><ReceiptText size={14} /> Payment mode</span>
-                <select value={form.paymentMode} onChange={set('paymentMode')} className={`${fieldClass} mt-1.5`}>
-                  <option value="Cash">Cash</option>
-                  <option value="UPI">UPI</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Cheque">Cheque</option>
-                </select>
+                <SelectDropdown value={form.paymentMode} onChange={(v) => setForm((current) => ({ ...current, paymentMode: v }))} buttonClassName={`${fieldClass} mt-1.5`} options={['Cash', 'UPI', 'Bank Transfer', 'Cheque']} />
               </label>
             </div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { CustomerPicker } from './CustomerPicker.jsx';
+import { SelectDropdown } from './SelectDropdown.jsx';
 
 const SELECT = 'border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white text-[#374151] cursor-pointer';
 const TEXT = 'border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white text-[#111827] w-32';
@@ -40,17 +41,11 @@ export function SalesFilterBar({ filters, onChange, fields }) {
   return (
     <>
       {has('paymentMethod') && (
-        <select className={SELECT} value={filters.paymentMethod || ''} onChange={(e) => set('paymentMethod')(e.target.value)}>
-          <option value="">All Payment Modes</option>
-          {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
+        <SelectDropdown buttonClassName={SELECT} value={filters.paymentMethod || ''} onChange={set('paymentMethod')} options={[{ value: '', label: 'All Payment Modes' }, ...PAYMENT_METHODS.map((m) => ({ value: m, label: m }))]} />
       )}
 
       {has('paymentStatus') && (
-        <select className={SELECT} value={filters.paymentStatus || ''} onChange={(e) => set('paymentStatus')(e.target.value)}>
-          <option value="">All Payment Status</option>
-          {PAYMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SelectDropdown buttonClassName={SELECT} value={filters.paymentStatus || ''} onChange={set('paymentStatus')} options={[{ value: '', label: 'All Payment Status' }, ...PAYMENT_STATUSES.map((s) => ({ value: s, label: s }))]} />
       )}
 
       {has('customer') && (
@@ -66,19 +61,11 @@ export function SalesFilterBar({ filters, onChange, fields }) {
       )}
 
       {has('gstType') && (
-        <select className={SELECT} value={filters.gstType || ''} onChange={(e) => set('gstType')(e.target.value)}>
-          <option value="">All Bills</option>
-          <option value="with">With GST</option>
-          <option value="without">Without GST</option>
-        </select>
+        <SelectDropdown buttonClassName={SELECT} value={filters.gstType || ''} onChange={set('gstType')} options={[{ value: '', label: 'All Bills' }, { value: 'with', label: 'With GST' }, { value: 'without', label: 'Without GST' }]} />
       )}
 
       {has('supplyType') && (
-        <select className={SELECT} value={filters.supplyType || ''} onChange={(e) => set('supplyType')(e.target.value)}>
-          <option value="">All Supply Types</option>
-          <option value="intrastate">Intrastate</option>
-          <option value="interstate">Interstate</option>
-        </select>
+        <SelectDropdown buttonClassName={SELECT} value={filters.supplyType || ''} onChange={set('supplyType')} options={[{ value: '', label: 'All Supply Types' }, { value: 'intrastate', label: 'Intrastate' }, { value: 'interstate', label: 'Interstate' }]} />
       )}
 
       {has('amountRange') && (
@@ -90,11 +77,7 @@ export function SalesFilterBar({ filters, onChange, fields }) {
       )}
 
       {has('itemType') && (
-        <select className={SELECT} value={filters.itemType || ''} onChange={(e) => set('itemType')(e.target.value)}>
-          <option value="">All Item Types</option>
-          <option value="Product">Product</option>
-          <option value="Service">Service</option>
-        </select>
+        <SelectDropdown buttonClassName={SELECT} value={filters.itemType || ''} onChange={set('itemType')} options={[{ value: '', label: 'All Item Types' }, { value: 'Product', label: 'Product' }, { value: 'Service', label: 'Service' }]} />
       )}
 
       {has('hsn') && (
@@ -110,19 +93,11 @@ export function SalesFilterBar({ filters, onChange, fields }) {
       )}
 
       {has('irnStatus') && (
-        <select className={SELECT} value={filters.irnStatus || ''} onChange={(e) => set('irnStatus')(e.target.value)}>
-          <option value="">All IRN Status</option>
-          <option value="yes">Generated</option>
-          <option value="no">Not Generated</option>
-        </select>
+        <SelectDropdown buttonClassName={SELECT} value={filters.irnStatus || ''} onChange={set('irnStatus')} options={[{ value: '', label: 'All IRN Status' }, { value: 'yes', label: 'Generated' }, { value: 'no', label: 'Not Generated' }]} />
       )}
 
       {has('ewbStatus') && (
-        <select className={SELECT} value={filters.ewbStatus || ''} onChange={(e) => set('ewbStatus')(e.target.value)}>
-          <option value="">All E-Way Bill Status</option>
-          <option value="yes">Generated</option>
-          <option value="no">Not Generated</option>
-        </select>
+        <SelectDropdown buttonClassName={SELECT} value={filters.ewbStatus || ''} onChange={set('ewbStatus')} options={[{ value: '', label: 'All E-Way Bill Status' }, { value: 'yes', label: 'Generated' }, { value: 'no', label: 'Not Generated' }]} />
       )}
     </>
   );

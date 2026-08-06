@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { gstService } from '../../../../../services/gstService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -112,9 +113,7 @@ export function GstReconciliation() {
           <div className="text-[13px] text-[#536173] mt-0.5">Match purchase records with GSTR-2A / GSTR-2B to validate ITC claims</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={period} onChange={(e) => setPeriod(e.target.value)}>
-            {PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <SelectDropdown className="w-36 flex-none" value={period} onChange={setPeriod} options={PERIODS} />
           <button
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]"
             type="button"
@@ -196,17 +195,18 @@ export function GstReconciliation() {
                 onChange={(e) => setSearchQ(e.target.value)}
               />
             </div>
-            <select
-              className="border border-[#dbe4ef] rounded-md px-3 py-1.5 text-[13px] bg-white font-[inherit] outline-none"
+            <SelectDropdown
+              className="w-44 flex-none"
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="all">All Status</option>
-              <option value="matched">Matched</option>
-              <option value="mismatch">Mismatch</option>
-              <option value="not_in_2b">Not in GSTR-2B</option>
-              <option value="not_in_books">Not in Books</option>
-            </select>
+              onChange={setFilterStatus}
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'matched', label: 'Matched' },
+                { value: 'mismatch', label: 'Mismatch' },
+                { value: 'not_in_2b', label: 'Not in GSTR-2B' },
+                { value: 'not_in_books', label: 'Not in Books' },
+              ]}
+            />
           </div>
         </div>
 

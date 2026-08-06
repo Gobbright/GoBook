@@ -121,6 +121,27 @@ function parseSheetNumber(value) {
   return Number(text);
 }
 
+// Per-category item groups and the extra fields each one owns. Used both to
+// validate `itemGroup` and to clear out fields left over from a previously
+// selected group when a product is edited into a different one.
+const GROUP_FIELDS = {
+  General:      [],
+  Textile:      ['size', 'fabric', 'colour', 'type'],
+  Electronics:  ['modelNumber', 'warrantyPeriod', 'serialNumber'],
+  Pharma:       ['batchNumber', 'expiryDate', 'manufacturer', 'prescriptionRequired'],
+  Books:        ['author', 'publisher', 'classGrade', 'edition'],
+  Uniform:      ['size'],
+  Perishable:   ['expiryDate', 'storageType'],
+  RawMaterial:  ['batchLotNo', 'gradeSpec', 'supplier'],
+  FinishedGood: ['gradeSpec', 'warrantyPeriod'],
+  Material:     ['gradeSpec', 'unitWeight'],
+  Equipment:    ['modelNumber', 'serialNumber'],
+  SparePart:    ['partNumber', 'compatibleModel', 'warrantyPeriod'],
+  DonatedGoods: ['donorName', 'condition'],
+};
+const ALL_GROUP_NAMES = Object.keys(GROUP_FIELDS);
+const ALL_GROUP_EXTRA_FIELDS = [...new Set(Object.values(GROUP_FIELDS).flat())];
+
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -154,7 +175,7 @@ function normalizeProductPayload(body = {}) {
   if ('brand' in body) payload.brand = String(body.brand ?? '').trim();
   if ('itemGroup' in body) {
     const grp = String(body.itemGroup ?? '').trim();
-    payload.itemGroup = ['Textile', 'Electronics'].includes(grp) ? grp : 'General';
+    payload.itemGroup = ALL_GROUP_NAMES.includes(grp) ? grp : 'General';
   }
   if ('size' in body) payload.size = String(body.size ?? '').trim();
   if ('fabric' in body) payload.fabric = String(body.fabric ?? '').trim();
@@ -163,6 +184,26 @@ function normalizeProductPayload(body = {}) {
   if ('modelNumber' in body) payload.modelNumber = String(body.modelNumber ?? '').trim();
   if ('warrantyPeriod' in body) payload.warrantyPeriod = String(body.warrantyPeriod ?? '').trim();
   if ('serialNumber' in body) payload.serialNumber = String(body.serialNumber ?? '').trim();
+  if ('batchNumber' in body) payload.batchNumber = String(body.batchNumber ?? '').trim();
+  if ('expiryDate' in body) {
+    const parsed = body.expiryDate ? new Date(body.expiryDate) : null;
+    payload.expiryDate = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+  }
+  if ('manufacturer' in body) payload.manufacturer = String(body.manufacturer ?? '').trim();
+  if ('prescriptionRequired' in body) payload.prescriptionRequired = Boolean(body.prescriptionRequired);
+  if ('author' in body) payload.author = String(body.author ?? '').trim();
+  if ('publisher' in body) payload.publisher = String(body.publisher ?? '').trim();
+  if ('classGrade' in body) payload.classGrade = String(body.classGrade ?? '').trim();
+  if ('edition' in body) payload.edition = String(body.edition ?? '').trim();
+  if ('storageType' in body) payload.storageType = String(body.storageType ?? '').trim();
+  if ('batchLotNo' in body) payload.batchLotNo = String(body.batchLotNo ?? '').trim();
+  if ('gradeSpec' in body) payload.gradeSpec = String(body.gradeSpec ?? '').trim();
+  if ('supplier' in body) payload.supplier = String(body.supplier ?? '').trim();
+  if ('unitWeight' in body) payload.unitWeight = String(body.unitWeight ?? '').trim();
+  if ('partNumber' in body) payload.partNumber = String(body.partNumber ?? '').trim();
+  if ('compatibleModel' in body) payload.compatibleModel = String(body.compatibleModel ?? '').trim();
+  if ('donorName' in body) payload.donorName = String(body.donorName ?? '').trim();
+  if ('condition' in body) payload.condition = String(body.condition ?? '').trim();
   if ('unit' in body) payload.unit = String(body.unit ?? '').trim() || 'Nos';
   if ('barcode' in body) payload.barcode = String(body.barcode ?? '').trim();
   if ('status' in body) payload.status = String(body.status ?? '').trim() || 'Active';
@@ -194,18 +235,13 @@ function normalizeProductPayload(body = {}) {
     payload.variants = [];
   }
 
-  if (payload.itemGroup && payload.itemGroup !== 'Textile') {
-    payload.size = '';
-    payload.fabric = '';
-    payload.colour = '';
-    payload.type = '';
-    payload.variants = [];
-  }
-
-  if (payload.itemGroup && payload.itemGroup !== 'Electronics') {
-    payload.modelNumber = '';
-    payload.warrantyPeriod = '';
-    payload.serialNumber = '';
+  if (payload.itemGroup) {
+    const keepFields = new Set(GROUP_FIELDS[payload.itemGroup] || []);
+    for (const field of ALL_GROUP_EXTRA_FIELDS) {
+      if (keepFields.has(field)) continue;
+      payload[field] = field === 'expiryDate' ? null : field === 'prescriptionRequired' ? false : '';
+    }
+    if (payload.itemGroup !== 'Textile') payload.variants = [];
   }
 
   return payload;

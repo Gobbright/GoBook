@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Copy } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader.jsx';
 import { adminService } from '../../../services/adminService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const initial = { employeeId: '', name: '', email: '', mobileNumber: '', department: '', designation: '', joiningDate: '', password: '', loginAccess: true, status: 'Active', role: 'employee' };
 
@@ -61,25 +62,15 @@ export default function AddEmployee() {
         ))}
         <div className="field">
           <label>Login Access</label>
-          <select value={form.loginAccess ? 'Enable' : 'Disable'} onChange={(e) => set('loginAccess', e.target.value === 'Enable')}>
-            <option>Enable</option>
-            <option>Disable</option>
-          </select>
+          <SelectDropdown value={form.loginAccess ? 'Enable' : 'Disable'} onChange={(v) => set('loginAccess', v === 'Enable')} options={['Enable', 'Disable']} />
         </div>
         <div className="field">
           <label>Employee Status</label>
-          <select value={form.status} onChange={(e) => set('status', e.target.value)}>
-            <option>Active</option>
-            <option>Inactive</option>
-          </select>
+          <SelectDropdown value={form.status} onChange={(v) => set('status', v)} options={['Active', 'Inactive']} />
         </div>
         <div className="field">
           <label>Portal Role</label>
-          <select value={form.role} onChange={(e) => set('role', e.target.value)}>
-            <option value="employee">Employee</option>
-            <option value="hr">HR</option>
-            <option value="admin">Admin</option>
-          </select>
+          <SelectDropdown value={form.role} onChange={(v) => set('role', v)} options={[{ value: 'employee', label: 'Employee' }, { value: 'hr', label: 'HR' }, { value: 'admin', label: 'Admin' }]} />
         </div>
         <div className="field" style={{ justifyContent: 'end' }}>
           <button className="btn primary" disabled={saving}>{saving ? 'Saving...' : 'Save Employee'}</button>

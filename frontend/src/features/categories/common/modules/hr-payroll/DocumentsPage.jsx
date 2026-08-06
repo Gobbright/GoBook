@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../../../../services/api.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const CATEGORIES = ['ID Proof', 'Address Proof', 'Certificates', 'Contracts', 'Other Documents'];
 const FOLDER_COLORS = {
@@ -93,9 +94,7 @@ function UploadModal({ onClose, onSaved }) {
               </div>
               <div>
                 <label className={IL}>Category</label>
-                <select className={IC} value={form.category} onChange={(e) => set('category', e.target.value)}>
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
+                <SelectDropdown buttonClassName={IC} value={form.category} onChange={(v) => set('category', v)} options={CATEGORIES} />
               </div>
               <div>
                 <label className={IL}>Uploaded By</label>
@@ -157,9 +156,7 @@ function EditModal({ doc, onClose, onSaved }) {
             </div>
             <div>
               <label className={IL}>Category</label>
-              <select className={IC} value={form.category} onChange={(e) => set('category', e.target.value)}>
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={IC} value={form.category} onChange={(v) => set('category', v)} options={CATEGORIES} />
             </div>
             <div>
               <label className={IL}>Uploaded By</label>

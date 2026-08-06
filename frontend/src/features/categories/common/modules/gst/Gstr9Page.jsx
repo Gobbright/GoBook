@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { gstService } from '../../../../../services/gstService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 function generateFYOptions(count = 3) {
@@ -106,9 +107,7 @@ export function Gstr9Page() {
           <div className="text-[13px] text-[#536173] mt-0.5">Annual Return — Consolidation of GSTR-1 and GSTR-3B · GSTIN: {gstin || '—'}</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={fy} onChange={(e) => setFy(e.target.value)}>
-            {FY_OPTIONS.map((f) => <option key={f} value={f}>FY {f}</option>)}
-          </select>
+          <SelectDropdown className="w-32 flex-none" value={fy} onChange={setFy} options={FY_OPTIONS.map((f) => ({ value: f, label: `FY ${f}` }))} />
           <button className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button">
             <svg fill="none" height="14" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="14">
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" />

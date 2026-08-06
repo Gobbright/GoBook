@@ -8,6 +8,7 @@ import {
   updateLead,
 } from '../../../../../services/crmService.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 
@@ -171,12 +172,8 @@ export function LeadsPage() {
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Company" value={form.company} onChange={(e) => updateForm('company', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email" type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Phone" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.source} onChange={(e) => updateForm('source', e.target.value)}>
-              {SOURCES.map((s) => <option key={s}>{s}</option>)}
-            </select>
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-              {STATUSES.map((s) => <option key={s}>{s}</option>)}
-            </select>
+            <SelectDropdown value={form.source} onChange={(v) => updateForm('source', v)} options={SOURCES} />
+            <SelectDropdown value={form.status} onChange={(v) => updateForm('status', v)} options={STATUSES} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Owner" value={form.owner} onChange={(e) => updateForm('owner', e.target.value)} />
           </div>
           {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{formError}</p>}

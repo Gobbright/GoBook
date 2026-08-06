@@ -7,6 +7,8 @@ import {
   listModuleRecords,
   updateModuleRecord,
 } from '../../services/moduleRecordsService.js';
+import { AutocompleteInput } from '../forms/AutocompleteInput.jsx';
+import { SelectDropdown } from '../forms/SelectDropdown.jsx';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-4 py-3 border-b border-[#edf2f7] whitespace-nowrap';
 const TD = 'px-4 py-3 border-b border-[#f3f4f6] text-[13px] text-[#111827]';
@@ -25,26 +27,20 @@ function FieldInput({ field, value, onChange, lookupOptions }) {
     className: 'w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white',
   };
   if (field.type === 'select') {
-    return (
-      <select {...common}>
-        <option value="">— Select —</option>
-        {field.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
-    );
+    return <SelectDropdown value={value ?? ''} onChange={onChange} options={field.options} placeholder="— Select —" />;
   }
   if (field.type === 'textarea') {
     return <textarea {...common} rows={2} />;
   }
   if (field.type === 'lookup') {
-    const listId = `lookup-${field.key}`;
     const options = lookupOptions?.[field.lookupModule] ?? [];
     return (
-      <>
-        <input {...common} type="text" list={listId} placeholder={field.placeholder || `Search or type ${field.label.toLowerCase()}...`} autoComplete="off" />
-        <datalist id={listId}>
-          {options.map((opt) => <option key={opt} value={opt} />)}
-        </datalist>
-      </>
+      <AutocompleteInput
+        value={value ?? ''}
+        onChange={onChange}
+        options={options}
+        placeholder={field.placeholder || `Search or type ${field.label.toLowerCase()}...`}
+      />
     );
   }
   return <input {...common} type={field.type || 'text'} />;

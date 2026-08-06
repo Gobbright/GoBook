@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { AutocompleteInput } from '../../../../../components/forms/AutocompleteInput.jsx';
 import { api } from '../../../../../services/api.js';
 
 const AVATAR_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#e11d48', '#65a30d'];
@@ -52,8 +54,7 @@ function EmployeeModal({ initial, depts, onClose, onSaved }) {
             </div>
             <div>
               <label className={IL}>Department</label>
-              <input className={IC} list="dept-list" placeholder="e.g. IT Department" value={form.dept} onChange={(e) => set('dept', e.target.value)} />
-              <datalist id="dept-list">{depts.filter((d) => d !== 'All Departments').map((d) => <option key={d} value={d} />)}</datalist>
+              <AutocompleteInput inputClassName={IC} placeholder="e.g. IT Department" value={form.dept} onChange={(v) => set('dept', v)} options={depts.filter((d) => d !== 'All Departments')} />
             </div>
             <div>
               <label className={IL}>Designation</label>
@@ -69,15 +70,11 @@ function EmployeeModal({ initial, depts, onClose, onSaved }) {
             </div>
             <div>
               <label className={IL}>Gender</label>
-              <select className={IC} value={form.gender} onChange={(e) => set('gender', e.target.value)}>
-                {['Male', 'Female', 'Other'].map((g) => <option key={g}>{g}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={IC} value={form.gender} onChange={(v) => set('gender', v)} options={['Male', 'Female', 'Other']} />
             </div>
             <div>
               <label className={IL}>Status</label>
-              <select className={IC} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                {['Active', 'Inactive'].map((s) => <option key={s}>{s}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={IC} value={form.status} onChange={(v) => set('status', v)} options={['Active', 'Inactive']} />
             </div>
             <div>
               <label className={IL}>Join Date</label>
@@ -256,12 +253,8 @@ export function EmployeesPage() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search employees..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={dept} onChange={(e) => setDept(e.target.value)}>
-            {depts.map((d) => <option key={d}>{d}</option>)}
-          </select>
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={status} onChange={(e) => setStatus(e.target.value)}>
-            {['All Status', 'Active', 'Inactive'].map((s) => <option key={s}>{s}</option>)}
-          </select>
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={dept} onChange={setDept} options={depts} />
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={status} onChange={setStatus} options={['All Status', 'Active', 'Inactive']} />
           <ExportButtons title="Employees" filename="employees" rows={employees} columns={exportColumns} fetchRows={fetchAllForExport} />
         </div>
         <div className="overflow-x-auto">

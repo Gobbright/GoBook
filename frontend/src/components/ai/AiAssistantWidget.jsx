@@ -55,7 +55,7 @@ export function AiAssistantWidget() {
   return (
     <>
       {open && (
-        <div className="fixed left-3 right-3 sm:left-auto sm:right-5 z-50 w-auto sm:w-96 bg-white border border-[#dfe7f1] rounded-xl shadow-xl flex flex-col max-h-[calc(100dvh-132px)] sm:max-h-[70vh] overflow-hidden" style={{ bottom: 108 }}>
+        <div className="fixed left-3 right-3 sm:left-auto sm:right-5 z-50 w-auto sm:w-96 bg-white border border-[#dfe7f1] rounded-xl shadow-xl flex flex-col max-h-[calc(100dvh-132px)] sm:max-h-[70vh] overflow-hidden bottom-[154px] md:bottom-[108px]">
           <div className="flex items-center justify-between px-4 py-3 bg-[#062844] text-white">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center flex-none">
@@ -133,8 +133,7 @@ export function AiAssistantWidget() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="fixed right-4 sm:right-5 z-50 w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#062844] hover:bg-[#0a3a5e] text-white flex items-center justify-center shadow-lg cursor-pointer border-0 transition-transform hover:scale-105"
-        style={{ bottom: 42 }}
+        className="fixed right-4 sm:right-5 z-50 w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#062844] hover:bg-[#0a3a5e] text-white flex items-center justify-center shadow-lg cursor-pointer border-0 transition-transform hover:scale-105 bottom-[88px] md:bottom-[42px]"
         aria-label={open ? 'Close AI assistant' : 'Open AI assistant'}
       >
         {open ? <X size={22} /> : <Bot size={22} />}

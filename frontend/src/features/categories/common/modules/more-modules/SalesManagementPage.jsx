@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const TABS    = ['Quotations', 'Orders', 'Invoices', 'All'];
 const TAB_TYPE = { Quotations: 'quotation', Orders: 'order', Invoices: 'invoice', All: 'all' };
@@ -169,19 +170,18 @@ export function SalesManagementPage() {
             <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>×</button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.type} onChange={(e) => updateForm('type', e.target.value)}>
-              <option value="quotation">Quotation</option>
-              <option value="order">Order</option>
-              <option value="invoice">Invoice</option>
-            </select>
+            <SelectDropdown
+              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none"
+              value={form.type}
+              onChange={(v) => updateForm('type', v)}
+              options={[{ value: 'quotation', label: 'Quotation' }, { value: 'order', label: 'Order' }, { value: 'invoice', label: 'Invoice' }]}
+            />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder={formLabels.numberPlaceholder} value={form.number} onChange={(e) => updateForm('number', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder={formLabels.partyPlaceholder} required value={form.customer} onChange={(e) => updateForm('customer', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder={formLabels.ownerPlaceholder} value={form.person} onChange={(e) => updateForm('person', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" aria-label={formLabels.date} placeholder={formLabels.date} type="date" required value={form.date} onChange={(e) => updateForm('date', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder={`${formLabels.amount} (₹)`} type="number" value={form.amount} onChange={(e) => updateForm('amount', e.target.value)} />
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
-              {STATUSES.filter((s) => s !== 'All Status').map((s) => <option key={s}>{s}</option>)}
-            </select>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={STATUSES.filter((s) => s !== 'All Status')} />
           </div>
           <div className="flex justify-end gap-2">
             <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
@@ -215,9 +215,7 @@ export function SalesManagementPage() {
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
               <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-1.5 text-[13px] w-52 outline-none focus:border-blue-500 font-[inherit]" placeholder="Search by customer, number..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <select className="border border-[#dbe4ef] rounded-md px-3 py-1.5 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={status} onChange={(e) => setStatus(e.target.value)}>
-              {STATUSES.map((s) => <option key={s}>{s}</option>)}
-            </select>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-1.5 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={status} onChange={setStatus} options={STATUSES} />
           </div>
         </div>
 

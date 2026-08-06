@@ -1,8 +1,19 @@
 import { clinicalRoutes } from './modules/clinical/routes.jsx';
 import { laboratoryRoutes } from './modules/laboratory/routes.jsx';
+import { BillsInvoicesPage } from './modules/medical-billing/BillsInvoicesPage.jsx';
+import { EstimatesPage } from './modules/medical-billing/EstimatesPage.jsx';
+import { HospitalPaymentsPage } from './modules/medical-billing/HospitalPaymentsPage.jsx';
 import { medicalBillingRoutes } from './modules/medical-billing/routes.jsx';
+import { NewBillPage } from './modules/medical-billing/NewBillPage.jsx';
+import { OutstandingPage } from './modules/medical-billing/OutstandingPage.jsx';
+import { PackagesPage } from './modules/medical-billing/PackagesPage.jsx';
+import { RefundsPage } from './modules/medical-billing/RefundsPage.jsx';
 import { patientManagementRoutes } from './modules/patient-management/routes.jsx';
+import { PharmacyBillingPage } from './modules/pharmacy/PharmacyBillingPage.jsx';
 import { pharmacyRoutes } from './modules/pharmacy/routes.jsx';
+import { DocumentsPage } from './modules/patient-management/DocumentsPage.jsx';
+import { InsurancePage } from './modules/patient-management/InsurancePage.jsx';
+import { PatientRegistrationPage } from './PatientRegistrationPage.jsx';
 import {
   AppointmentWorkflowPage,
   BedWorkflowPage,
@@ -139,6 +150,16 @@ const emergencyFields = [
   { key: 'notes', label: 'Triage Notes', type: 'textarea', full: true },
 ];
 
+const otFields = [
+  { key: 'patientName', label: 'Patient', required: true, type: 'lookup', lookupModule: 'hospital/patients' },
+  { key: 'doctorName', label: 'Doctor / Surgeon', type: 'lookup', lookupModule: 'hospital/doctors' },
+  { key: 'name', label: 'Procedure / Operation', required: true },
+  { key: 'date', label: 'Date', type: 'date' },
+  { key: 'time', label: 'Time / Slot', type: 'time' },
+  { key: 'status', label: 'Status', type: 'select', options: ['Scheduled', 'Booked', 'In Progress', 'Completed', 'Cancelled'] },
+  { key: 'notes', label: 'Operation Notes', type: 'textarea', full: true },
+];
+
 const bedFields = [
   { key: 'name', label: 'Name / Number', required: true },
   { key: 'wardName', label: 'Ward' },
@@ -167,6 +188,23 @@ const labFields = [
   { key: 'result', label: 'Result', type: 'textarea', full: true },
   { key: 'date', label: 'Date', type: 'date' },
   { key: 'status', label: 'Status', type: 'select', options: ['Booked', 'Collected', 'Processing', 'Reported'] },
+  { key: 'notes', label: 'Notes', type: 'textarea', full: true },
+];
+
+const reportFields = [
+  { key: 'name', label: 'Report Name', required: true },
+  { key: 'period', label: 'Period' },
+  { key: 'departmentName', label: 'Department' },
+  { key: 'status', label: 'Status', type: 'select', options: ['Draft', 'Generated', 'Reviewed'] },
+  { key: 'notes', label: 'Notes', type: 'textarea', full: true },
+];
+
+const billingFields = [
+  { key: 'patientName', label: 'Patient', required: true, type: 'lookup', lookupModule: 'hospital/patients' },
+  { key: 'name', label: 'Bill / Package / Estimate', required: true },
+  { key: 'date', label: 'Date', type: 'date' },
+  { key: 'amount', label: 'Amount', type: 'number' },
+  { key: 'status', label: 'Status', type: 'select', options: ['Draft', 'Pending', 'Paid', 'Refunded', 'Cancelled'] },
   { key: 'notes', label: 'Notes', type: 'textarea', full: true },
 ];
 
@@ -225,17 +263,18 @@ function recordRoute(path, moduleKey, title, group, fields, subtitle = '', optio
 }
 
 const requestedHospitalRoutes = [
-  recordRoute('/hospital/patient-registration', 'hospital/patients', 'Patient Registration', 'Patient Management', patientFields, 'Register patients'),
+  { path: '/hospital/patient-registration', element: <PatientRegistrationPage /> },
   recordRoute('/hospital/allergies', 'hospital/allergies', 'Allergies', 'Patient Management', allergyFields, 'Maintain complete EMR'),
   recordRoute('/hospital/family-details', 'hospital/family-details', 'Family Details', 'Patient Management', familyFields, 'Maintain complete EMR'),
-  recordRoute('/hospital/patient-documents', 'hospital/patient-documents', 'Documents', 'Patient Management', documentFields, 'Upload reports and documents'),
-  recordRoute('/hospital/insurance-details', 'hospital/insurance-details', 'Insurance Details', 'Patient Management', insuranceFields, 'Maintain complete EMR'),
+  { path: '/hospital/patient-documents', element: <DocumentsPage /> },
+  { path: '/hospital/insurance-details', element: <InsurancePage /> },
 
   recordRoute('/hospital/book-appointment', 'hospital/appointments', 'Book Appointment', 'Appointment Management', appointmentFields, 'Online and walk-in appointments', { mode: 'schedule' }),
   recordRoute('/hospital/appointment-calendar', 'hospital/appointments', 'Calendar', 'Appointment Management', appointmentFields, 'Doctor availability', { mode: 'schedule' }),
   recordRoute('/hospital/doctor-schedule', 'hospital/doctor-schedule', 'Doctor Schedule', 'Appointment Management', doctorLinkedFields, 'Doctor availability'),
   recordRoute('/hospital/queue-management', 'hospital/appointments', 'Queue Management', 'Appointment Management', appointmentFields, 'Priority handling', { mode: 'queue' }),
   recordRoute('/hospital/token-system', 'hospital/appointments', 'Token System', 'Appointment Management', appointmentFields, 'Token generation', { mode: 'token' }),
+  recordRoute('/hospital/queue-token', 'hospital/appointments', 'Queue/Token', 'Appointment Management', appointmentFields, 'Queue and token handling', { mode: 'token' }),
   recordRoute('/hospital/follow-up-appointments', 'hospital/appointments', 'Follow-up Appointments', 'Appointment Management', appointmentFields, 'SMS/WhatsApp reminders', { mode: 'schedule' }),
 
   recordRoute('/hospital/op-registration', 'hospital/opd-visits', 'OP Registration', 'OPD', opdFields, 'Consultation workflow', { columns: ['Registered', 'In Consultation', 'Diagnosed', 'Prescribed', 'Procedure Done', 'Follow-up'] }),
@@ -246,7 +285,10 @@ const requestedHospitalRoutes = [
   recordRoute('/hospital/follow-up', 'hospital/opd-visits', 'Follow-up', 'OPD', opdFields, 'Follow-up workflow', { columns: ['Registered', 'In Consultation', 'Diagnosed', 'Prescribed', 'Procedure Done', 'Follow-up'] }),
 
   recordRoute('/hospital/admission', 'hospital/ipd-admissions', 'Admission', 'IPD', ipdFields, 'Admit patients', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
+  recordRoute('/hospital/inpatients', 'hospital/ipd-admissions', 'Inpatients', 'IPD', ipdFields, 'Current admitted patients', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
+  recordRoute('/hospital/ward-room-bed', 'hospital/bed-management', 'Ward/Room/Bed', 'Ward & Bed Management', bedFields, 'Ward, room, and bed availability'),
   recordRoute('/hospital/bed-allocation', 'hospital/ipd-admissions', 'Bed Allocation', 'IPD', ipdFields, 'Track treatment', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
+  recordRoute('/hospital/transfer', 'hospital/ipd-admissions', 'Transfer', 'IPD', ipdFields, 'Ward or bed transfer', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
   recordRoute('/hospital/treatment-plan', 'hospital/ipd-admissions', 'Treatment Plan', 'IPD', ipdFields, 'Track treatment', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
   recordRoute('/hospital/daily-progress', 'hospital/ipd-admissions', 'Daily Progress', 'IPD', ipdFields, 'Track treatment', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
   recordRoute('/hospital/nursing-notes', 'hospital/ipd-admissions', 'Nursing Notes', 'IPD', ipdFields, 'Track treatment', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
@@ -254,8 +296,12 @@ const requestedHospitalRoutes = [
 
   recordRoute('/hospital/emergency-registration', 'hospital/emergency-cases', 'Emergency Registration', 'Emergency', emergencyFields, 'Quick patient intake'),
   recordRoute('/hospital/triage', 'hospital/emergency-cases', 'Triage', 'Emergency', emergencyFields, 'Priority handling'),
+  recordRoute('/hospital/emergency-cases', 'hospital/emergency-cases', 'Emergency Cases', 'Emergency', emergencyFields, 'Emergency workflow'),
   recordRoute('/hospital/casualty', 'hospital/emergency-cases', 'Casualty', 'Emergency', emergencyFields, 'Emergency workflow'),
   recordRoute('/hospital/critical-care', 'hospital/emergency-cases', 'Critical Care', 'Emergency', emergencyFields, 'Emergency workflow'),
+  recordRoute('/hospital/surgery-schedule', 'hospital/ot-workflow', 'Surgery Schedule', 'Emergency & OT', otFields, 'Schedule surgeries and procedures'),
+  recordRoute('/hospital/ot-booking', 'hospital/ot-workflow', 'OT Booking', 'Emergency & OT', otFields, 'Book operation theatre slots'),
+  recordRoute('/hospital/operation-notes', 'hospital/ot-workflow', 'Operation Notes', 'Emergency & OT', otFields, 'Record operation notes'),
 
   recordRoute('/hospital/doctors', 'hospital/doctors', 'Doctor List', 'Doctors', doctorFields, 'Manage doctors'),
   recordRoute('/hospital/specializations', 'hospital/doctors', 'Specializations', 'Doctors', doctorFields, 'Manage doctors'),
@@ -288,6 +334,7 @@ const requestedHospitalRoutes = [
   recordRoute('/hospital/lab-reports', 'hospital/lab-workflow', 'Reports', 'Laboratory', labFields, 'Doctor access'),
 
   recordRoute('/hospital/x-ray', 'hospital/radiology-workflow', 'X-Ray', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
+  recordRoute('/hospital/radiology', 'hospital/radiology-workflow', 'Radiology', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
   recordRoute('/hospital/ct-scan', 'hospital/radiology-workflow', 'CT Scan', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
   recordRoute('/hospital/mri', 'hospital/radiology-workflow', 'MRI', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
   recordRoute('/hospital/ultrasound', 'hospital/radiology-workflow', 'Ultrasound', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
@@ -298,7 +345,27 @@ const requestedHospitalRoutes = [
   recordRoute('/hospital/prescription-orders', 'hospital/pharmacy-dispensing', 'Prescription Orders', 'Pharmacy', pharmacyFields, 'Link prescriptions'),
   recordRoute('/hospital/medicine-returns', 'hospital/pharmacy-dispensing', 'Medicine Returns', 'Pharmacy', pharmacyFields, 'Track issued medicines'),
   recordRoute('/hospital/batch-tracking', 'hospital/pharmacy-dispensing', 'Batch Tracking', 'Pharmacy', pharmacyFields, 'Track issued medicines'),
+  recordRoute('/hospital/batch-expiry', 'hospital/pharmacy-dispensing', 'Batch/Expiry', 'Pharmacy', pharmacyFields, 'Track batches and expiry alerts'),
   recordRoute('/hospital/expiry-alerts', 'hospital/pharmacy-dispensing', 'Expiry Alerts', 'Pharmacy', pharmacyFields, 'Track expiring issued medicines'),
+
+  { path: '/hospital/new-bill', element: <NewBillPage /> },
+  { path: '/hospital/pharmacy-billing', element: <PharmacyBillingPage /> },
+  { path: '/hospital/bills-invoices', element: <BillsInvoicesPage /> },
+  { path: '/hospital/payments', element: <HospitalPaymentsPage /> },
+  { path: '/hospital/outstanding', element: <OutstandingPage /> },
+  { path: '/hospital/refunds', element: <RefundsPage /> },
+  { path: '/hospital/packages', element: <PackagesPage /> },
+  { path: '/hospital/estimates', element: <EstimatesPage /> },
+
+  recordRoute('/hospital/patient-reports', 'hospital/reports', 'Patient Reports', 'Reports', reportFields, 'Patient reports'),
+  recordRoute('/hospital/opd-reports', 'hospital/reports', 'OPD Reports', 'Reports', reportFields, 'OPD reports'),
+  recordRoute('/hospital/ipd-reports', 'hospital/reports', 'IPD Reports', 'Reports', reportFields, 'IPD reports'),
+  recordRoute('/hospital/doctor-reports', 'hospital/reports', 'Doctor Reports', 'Reports', reportFields, 'Doctor reports'),
+  recordRoute('/hospital/diagnostics-reports', 'hospital/reports', 'Diagnostics Reports', 'Reports', reportFields, 'Diagnostics reports'),
+  recordRoute('/hospital/pharmacy-reports', 'hospital/reports', 'Pharmacy Reports', 'Reports', reportFields, 'Pharmacy reports'),
+  recordRoute('/hospital/billing-reports', 'hospital/reports', 'Billing Reports', 'Reports', reportFields, 'Billing reports'),
+  recordRoute('/hospital/bed-occupancy-reports', 'hospital/reports', 'Bed Occupancy Reports', 'Reports', reportFields, 'Bed occupancy reports'),
+  recordRoute('/hospital/occupancy-clinical-reports', 'hospital/reports', 'Occupancy & Clinical Reports', 'Reports', reportFields, 'Occupancy and clinical reports'),
 ];
 
 export const hospitalRoutes = [

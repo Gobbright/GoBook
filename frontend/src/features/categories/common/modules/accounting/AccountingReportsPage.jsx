@@ -13,6 +13,8 @@ import {
   resetAccountingFromInvoices,
 } from '../../../../../services/accountingService.js';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { AutocompleteInput } from '../../../../../components/forms/AutocompleteInput.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-4 py-3 border-b border-[#edf2f7]';
@@ -216,29 +218,26 @@ export function AccountingReportsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <input className={FIELD} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           <input className={FIELD} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          <select className={FIELD} value={voucherType} onChange={(e) => setVoucherType(e.target.value)}>
-            <option>All</option>
-            {voucherTypes.map((type) => <option key={type}>{type}</option>)}
-          </select>
-          <select className={FIELD} value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option>Posted</option>
-            <option>Draft</option>
-            <option>All</option>
-          </select>
+          <SelectDropdown buttonClassName={FIELD} value={voucherType} onChange={setVoucherType} options={['All', ...voucherTypes]} />
+          <SelectDropdown buttonClassName={FIELD} value={status} onChange={setStatus} options={['Posted', 'Draft', 'All']} />
           {activeTab === 'ledger' && (
             <div className="relative min-w-65">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" />
-              <input className={`${FIELD} w-full pl-8`} list="report-ledgers" value={ledgerName} onChange={(e) => setLedgerName(e.target.value)} placeholder="Select ledger" />
-              <datalist id="report-ledgers">
-                {ledgers.map((ledger) => <option key={ledger._id} value={ledger.name} />)}
-              </datalist>
+              <AutocompleteInput
+                icon={<Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173] pointer-events-none" />}
+                value={ledgerName}
+                onChange={setLedgerName}
+                options={ledgers.map((l) => l.name)}
+                placeholder="Select ledger"
+              />
             </div>
           )}
           {(activeTab === 'outstanding' || activeTab === 'bill-wise') && (
-            <select className={FIELD} value={outstandingType} onChange={(e) => setOutstandingType(e.target.value)}>
-              <option value="receivables">Receivables</option>
-              <option value="payables">Payables</option>
-            </select>
+            <SelectDropdown
+              buttonClassName={FIELD}
+              value={outstandingType}
+              onChange={setOutstandingType}
+              options={[{ value: 'receivables', label: 'Receivables' }, { value: 'payables', label: 'Payables' }]}
+            />
           )}
         </div>
       </div>

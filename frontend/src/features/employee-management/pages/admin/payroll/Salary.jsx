@@ -4,6 +4,7 @@ import { DataTable } from '../../../components/common/DataTable.jsx';
 import { PageHeader } from '../../../components/common/PageHeader.jsx';
 import { useLoad } from '../../../hooks/useLoad.js';
 import { payrollService } from '../../../services/payrollService.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -60,7 +61,7 @@ function SalaryEditor({ record, onClose, onSaved }) {
           <div className="field"><label htmlFor="salary-basic">Basic Salary</label><input id="salary-basic" type="number" min="0" step="1" value={form.basic} onChange={(event) => update('basic', event.target.value)} required /></div>
           <div className="field"><label htmlFor="salary-allowances">Allowances</label><input id="salary-allowances" type="number" min="0" step="1" value={form.allowances} onChange={(event) => update('allowances', event.target.value)} required /></div>
           <div className="field"><label htmlFor="salary-deductions">Deductions</label><input id="salary-deductions" type="number" min="0" step="1" value={form.deductions} onChange={(event) => update('deductions', event.target.value)} required /></div>
-          <div className="field"><label htmlFor="salary-status">Status</label><select id="salary-status" value={form.status} onChange={(event) => update('status', event.target.value)}><option value="Pending">Pending</option><option value="Paid">Paid</option></select></div>
+          <div className="field"><label htmlFor="salary-status">Status</label><SelectDropdown value={form.status} onChange={(v) => update('status', v)} options={[{ value: 'Pending', label: 'Pending' }, { value: 'Paid', label: 'Paid' }]} /></div>
           <div className="salary-net field-full"><span>Net Salary</span><strong>{money.format(net)}</strong></div>
           {error && <p className="error field-full">{error}</p>}
           <div className="employee-modal-actions field-full"><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn primary" type="submit" disabled={saving}><Save size={15} />{saving ? 'Saving...' : 'Save Salary'}</button></div>

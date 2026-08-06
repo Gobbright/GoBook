@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { api } from '../../../../../services/api.js';
 
 const AVATAR_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#e11d48', '#65a30d'];
@@ -73,10 +74,12 @@ function LeaveModal({ initial, employees, onClose, onSaved }) {
             {employees.length > 0 && (
               <div className="sm:col-span-2">
                 <label className={IL}>Select Employee</label>
-                <select className={IC} value={selectedEmployee?.employeeId ?? ''} onChange={(e) => handleEmployeeSelect(e.target.value)}>
-                  <option value="">Manual entry</option>
-                  {employees.map((emp) => <option key={emp._id} value={emp.employeeId}>{emp.name} ({emp.employeeId})</option>)}
-                </select>
+                <SelectDropdown
+                  buttonClassName={IC}
+                  value={selectedEmployee?.employeeId ?? ''}
+                  onChange={handleEmployeeSelect}
+                  options={[{ value: '', label: 'Manual entry' }, ...employees.map((emp) => ({ value: emp.employeeId, label: `${emp.name} (${emp.employeeId})` }))]}
+                />
               </div>
             )}
             <div>
@@ -89,15 +92,11 @@ function LeaveModal({ initial, employees, onClose, onSaved }) {
             </div>
             <div>
               <label className={IL}>Leave Type</label>
-              <select className={IC} value={form.type} onChange={(e) => set('type', e.target.value)}>
-                {LEAVE_TYPES.map((t) => <option key={t}>{t}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={IC} value={form.type} onChange={(v) => set('type', v)} options={LEAVE_TYPES} />
             </div>
             <div>
               <label className={IL}>Status</label>
-              <select className={IC} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                {['Pending', 'Approved', 'Rejected'].map((s) => <option key={s}>{s}</option>)}
-              </select>
+              <SelectDropdown buttonClassName={IC} value={form.status} onChange={(v) => set('status', v)} options={['Pending', 'Approved', 'Rejected']} />
             </div>
             <div>
               <label className={IL}>From Date *</label>
@@ -252,9 +251,7 @@ export function LeaveManagementPage() {
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl">
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7] flex-wrap">
-          <select className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={status} onChange={(e) => setStatus(e.target.value)}>
-            {['All Status', 'Pending', 'Approved', 'Rejected'].map((s) => <option key={s}>{s}</option>)}
-          </select>
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={status} onChange={setStatus} options={['All Status', 'Pending', 'Approved', 'Rejected']} />
           <ExportButtons title="Leave Register" filename="leave-register" rows={leaves} columns={exportColumns} fetchRows={fetchAllForExport} />
         </div>
         <div className="overflow-x-auto">

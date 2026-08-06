@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 
 import { api } from '../../../../../services/api.js';
+import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
@@ -348,13 +349,12 @@ export function BarcodePage() {
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
-          <select
-            className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer"
+          <SelectDropdown
+            buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer"
             value={category}
-            onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-          >
-            {categories.map((c) => <option key={c}>{c}</option>)}
-          </select>
+            onChange={(v) => { setCategory(v); setPage(1); }}
+            options={categories}
+          />
         </div>
 
         {error && (

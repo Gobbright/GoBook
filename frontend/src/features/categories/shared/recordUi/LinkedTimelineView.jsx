@@ -6,6 +6,7 @@ import { FormModal } from './FormModal.jsx';
 import { PageHeader } from './PageHeader.jsx';
 import { RowActions } from './RowActions.jsx';
 import { fmtDate } from './dateUtils.js';
+import { AutocompleteInput } from '../../../../components/forms/AutocompleteInput.jsx';
 
 // Shared "pick an entity, browse its history chronologically" layout — used by
 // modules that revolve around one linked record (a patient, a student, ...)
@@ -46,8 +47,6 @@ export function LinkedTimelineView({
     await remove(id);
   }
 
-  const inputId = `timeline-${moduleKey.replace(/\W+/g, '-')}-options`;
-
   return (
     <div className="p-4 md:p-7">
       <PageHeader title={title} group={group} subtitle={subtitle} actionLabel={`Add ${title}`} onAction={() => setModal({ mode: 'add', record: selected ? { data: { [linkField]: selected } } : null })} />
@@ -66,16 +65,13 @@ export function LinkedTimelineView({
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl p-4 mb-5 flex items-center gap-3">
         <label className="text-[13px] font-medium text-[#374151]">{linkLabel}:</label>
-        <input
-          className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] w-64"
-          list={inputId}
+        <AutocompleteInput
+          className="w-64"
           placeholder={`All ${linkLabel.toLowerCase()}s`}
           value={selected}
-          onChange={(e) => setSelected(e.target.value)}
+          onChange={setSelected}
+          options={linkOptions}
         />
-        <datalist id={inputId}>
-          {linkOptions.map((n) => <option key={n} value={n} />)}
-        </datalist>
         {selected && (
           <button type="button" onClick={() => setSelected('')} className="text-[12px] text-blue-600 bg-transparent border-0 cursor-pointer font-[inherit] hover:underline">Clear</button>
         )}

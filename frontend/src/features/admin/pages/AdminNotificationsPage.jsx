@@ -85,10 +85,10 @@ export function AdminNotificationsPage() {
                 <ArrowLeft size={20} />
               </button>
               <div>
-                <h1 className="m-0 text-lg md:text-2xl font-extrabold flex items-center gap-2">
+                <h1 data-admin-hide className="m-0 text-lg md:text-2xl font-extrabold flex items-center gap-2">
                   <Bell size={24} /> Notifications
                 </h1>
-                <p className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p data-admin-hide className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
                   {notifications.length} total | {unreadCount} unread
                 </p>
               </div>

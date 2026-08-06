@@ -96,8 +96,8 @@ export function AdminSectionPage({ group }) {
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-4 md:py-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
             <div>
-              <h1 className="m-0 text-lg md:text-2xl font-extrabold text-slate-900 dark:text-slate-100">{config.title}</h1>
-              <p className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{config.subtitle}</p>
+              <h1 data-admin-hide className="m-0 text-lg md:text-2xl font-extrabold text-slate-900 dark:text-slate-100">{config.title}</h1>
+              <p data-admin-hide className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{config.subtitle}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button className="px-3 md:px-4 py-2 bg-slate-900 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-slate-800 transition border-0 cursor-pointer text-xs md:text-sm">
