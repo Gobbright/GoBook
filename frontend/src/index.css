@@ -4582,3 +4582,513 @@ body:has(.app-form-modal)::before {
 .pdf-render .invoice-pages-stack {
   zoom: 1 !important;
 }
+
+/* ---- Hospital invoice preview ---- */
+
+.hospital-invoice-print {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.hospital-invoice-page {
+  box-sizing: border-box;
+  width: 210mm;
+  height: 297mm;
+  margin: 0 auto;
+  padding: 10mm;
+  background: #fff;
+  border: 1px solid #d7e0eb;
+  color: #0f172a;
+  font-family: "Inter", "Roboto", "Segoe UI", Arial, sans-serif;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.hospital-invoice-top {
+  display: grid;
+  grid-template-columns: 40% 35% 25%;
+  gap: 0;
+  align-items: center;
+  height: 39mm;
+}
+
+.hospital-brand {
+  display: flex;
+  gap: 4mm;
+  align-items: center;
+  min-width: 0;
+  padding-right: 4mm;
+}
+
+.hospital-brand-logo {
+  width: 18mm;
+  height: 18mm;
+  object-fit: contain;
+  flex: none;
+}
+
+.hospital-brand-logo-fallback {
+  position: relative;
+  width: 18mm;
+  height: 18mm;
+  flex: none;
+  border-radius: 22px;
+  background: #60bff5;
+}
+
+.hospital-brand-logo-fallback::before,
+.hospital-brand-logo-fallback::after {
+  content: "";
+  position: absolute;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.hospital-brand-logo-fallback::before {
+  left: 31px;
+  top: 12px;
+  width: 14px;
+  height: 52px;
+}
+
+.hospital-brand-logo-fallback::after {
+  left: 12px;
+  top: 31px;
+  width: 52px;
+  height: 14px;
+}
+
+.hospital-brand-name {
+  color: #0b326a;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.hospital-brand-type {
+  margin-top: 1.5mm;
+  color: #0b326a;
+  font-size: 15px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.hospital-brand-rule {
+  width: 70mm;
+  max-width: 100%;
+  height: 1px;
+  margin-top: 2mm;
+  background: #7f8fa8;
+}
+
+.hospital-brand-tag {
+  margin-top: 2mm;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.hospital-contact {
+  display: grid;
+  gap: 2mm;
+  color: #111827;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 4mm;
+}
+
+.hospital-contact-line {
+  display: flex;
+  gap: 2.5mm;
+  align-items: flex-start;
+}
+
+.hospital-contact-line svg {
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  color: #0b4ea2;
+  flex: none;
+}
+
+.hospital-invoice-title-box {
+  border-left: 1px solid #9db0c9;
+  padding-left: 5mm;
+  text-align: right;
+}
+
+.hospital-invoice-title {
+  color: #0b326a;
+  font-size: 31px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.hospital-copy-label {
+  margin-top: 1mm;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.hospital-invoice-number {
+  margin-top: 3mm;
+  padding: 2mm 3mm;
+  border-radius: 4px;
+  background: #0b4ea2;
+  color: #fff;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.hospital-meta-line {
+  display: grid;
+  grid-template-columns: 25mm 3mm 1fr;
+  gap: 1mm;
+  margin-top: 1.6mm;
+  color: #111827;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hospital-blue-rule {
+  height: 0.8mm;
+  margin: 4mm 0;
+  background: #0b4ea2;
+}
+
+.hospital-detail-grid {
+  display: grid;
+  grid-template-columns: 40% 32% 28%;
+  gap: 0;
+  height: 46mm;
+  margin-bottom: 4mm;
+}
+
+.hospital-detail-panel {
+  min-height: 0;
+  padding: 0 4mm;
+  border-right: 1px solid #9db0c9;
+}
+
+.hospital-detail-panel:last-child {
+  border-right: 0;
+}
+
+.hospital-section-pill {
+  display: inline-flex;
+  margin-bottom: 3mm;
+  padding: 1.2mm 3mm;
+  border-radius: 4px;
+  background: #0b4ea2;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hospital-detail-row {
+  display: grid;
+  grid-template-columns: 4mm 24mm 2mm 1fr;
+  gap: 1.8mm;
+  align-items: start;
+  margin-bottom: 2.1mm;
+  color: #111827;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.hospital-detail-row svg {
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  color: #0b4ea2;
+}
+
+.hospital-detail-row strong {
+  font-weight: 750;
+}
+
+.hospital-paid {
+  color: #16a34a;
+  font-weight: 900;
+}
+
+.hospital-invoice-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  color: #111827;
+  table-layout: fixed;
+  font-size: 11px;
+}
+
+.hospital-invoice-table th {
+  background: #0b326a;
+  color: #fff;
+  padding: 2.6mm 3mm;
+  border-right: 1px solid #6680a6;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hospital-invoice-table th:last-child,
+.hospital-invoice-table td:last-child {
+  border-right: 0;
+}
+
+.hospital-invoice-table td {
+  height: 10.5mm;
+  padding: 2.2mm 3mm;
+  border-top: 1px solid #d7e0eb;
+  border-right: 1px solid #d7e0eb;
+  text-align: center;
+  vertical-align: top;
+}
+
+.hospital-invoice-table .item-cell {
+  text-align: left;
+}
+
+.hospital-invoice-table .item-title {
+  font-weight: 900;
+}
+
+.hospital-invoice-table .item-sub {
+  margin-top: 0.8mm;
+  color: #334155;
+  font-size: 9.5px;
+  font-weight: 650;
+}
+
+.hospital-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6mm;
+  height: 62mm;
+  margin-top: 4mm;
+}
+
+.hospital-summary-card {
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.hospital-summary-title {
+  padding: 3.2mm 5mm;
+  color: #0b4ea2;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hospital-summary-body {
+  display: grid;
+  gap: 2.4mm;
+  padding: 0 5mm 3.5mm;
+  color: #111827;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.hospital-summary-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hospital-summary-line strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.hospital-green {
+  color: #16a34a;
+}
+
+.hospital-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3mm 5mm;
+  border-top: 1px solid #7b8da7;
+  color: #0b4ea2;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hospital-total-row strong {
+  font-size: 21px;
+  line-height: 1;
+}
+
+.hospital-words {
+  padding: 0 5mm 4mm;
+  color: #0b326a;
+  font-size: 10.5px;
+  font-weight: 900;
+}
+
+.hospital-breakup-title {
+  padding: 2.8mm 5mm;
+  border-top: 1px solid #d7e0eb;
+  border-bottom: 1px solid #d7e0eb;
+  color: #0b4ea2;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hospital-stamp {
+  width: 29mm;
+  margin: 2mm 5mm 2mm auto;
+  padding: 2mm 3mm;
+  border: 1px solid #16a34a;
+  border-radius: 3px;
+  color: #16a34a;
+  text-align: center;
+}
+
+.hospital-stamp strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.hospital-stamp span {
+  font-family: Georgia, serif;
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 700;
+}
+
+.hospital-bottom-grid {
+  display: grid;
+  grid-template-columns: 42% 20% 38%;
+  gap: 0;
+  height: 34mm;
+  margin-top: 4mm;
+}
+
+.hospital-notes,
+.hospital-qr,
+.hospital-signature {
+  min-height: 0;
+  height: 34mm;
+  border: 1px solid #cbd5e1;
+  padding: 3mm 4mm;
+}
+
+.hospital-notes ol {
+  margin: 0;
+  padding-left: 23mm;
+  color: #111827;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.hospital-note-label {
+  float: left;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 1.2mm 2.5mm;
+  border-radius: 4px;
+  background: #0b4ea2;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hospital-qr {
+  border-left: 0;
+  border-right: 0;
+  text-align: center;
+}
+
+.hospital-qr-title {
+  color: #0b326a;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.hospital-qr-box {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(7, 1fr);
+  gap: 2px;
+  width: 21mm;
+  height: 21mm;
+  margin: 2mm auto 0;
+  padding: 1.5mm;
+  border: 1px solid #cbd5e1;
+}
+
+.hospital-qr-box span {
+  background: #fff;
+}
+
+.hospital-qr-box span.is-dark {
+  background: #0f172a;
+}
+
+.hospital-signature {
+  border-left: 0;
+  text-align: center;
+  color: #0b2548;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.hospital-sign-line {
+  width: 48mm;
+  max-width: 100%;
+  margin: 14mm auto 1.5mm;
+  border-top: 1px solid #9db0c9;
+  padding-top: 6px;
+}
+
+.hospital-footer-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  height: 7mm;
+  margin-top: 4mm;
+  padding: 1.8mm 4mm;
+  border-radius: 3px;
+  background: #0b326a;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+@media print {
+  #document-preview-print.hospital-invoice-print {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    overflow: visible !important;
+  }
+
+  .hospital-invoice-page {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+}

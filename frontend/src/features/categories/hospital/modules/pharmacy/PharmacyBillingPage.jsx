@@ -1,8 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Barcode, CreditCard, FileText, Pause, Pill, Printer, Search, Trash2, UserRound, Wallet, X } from 'lucide-react';
+import {
+  Barcode,
+  CalendarDays,
+  CheckCircle,
+  CreditCard,
+  FileText,
+  Globe2,
+  IdCard,
+  List,
+  Mail,
+  MapPin,
+  Pause,
+  Phone,
+  Pill,
+  Plus,
+  Printer,
+  Search,
+  Settings,
+  Trash2,
+  UserRound,
+  Wallet,
+  X,
+} from 'lucide-react';
 
-import { api } from '../../../../../services/api.js';
+import { useKeyboardMode } from '../../../../../app/KeyboardModeContext.jsx';
+import { api, SERVER_ORIGIN } from '../../../../../services/api.js';
 import { useModuleRecords } from '../../../shared/recordUi/useModuleRecords.js';
+import { getInvoicePrintTemplate, setInvoicePrintTemplate } from '../../../retail/modules/sales/shared/invoiceTemplatePreference.js';
 
 const INPUT = 'border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none focus:border-blue-500 font-[inherit] bg-white';
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Card'];
@@ -13,6 +37,30 @@ const SAMPLE_PRESCRIPTION = [
 
 function money(value) {
   return `Rs. ${Number(value || 0).toLocaleString('en-IN')}`;
+}
+
+function amount(value) {
+  return Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function amountWords(value) {
+  const number = Math.round(Number(value || 0));
+  if (!number) return 'Rupees Zero Only';
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const underHundred = (n) => (n < 20 ? ones[n] : `${tens[Math.floor(n / 10)]}${n % 10 ? ` ${ones[n % 10]}` : ''}`);
+  const underThousand = (n) => `${n >= 100 ? `${ones[Math.floor(n / 100)]} Hundred${n % 100 ? ' ' : ''}` : ''}${n % 100 ? underHundred(n % 100) : ''}`;
+  const parts = [];
+  let rest = number;
+  [['Crore', 10000000], ['Lakh', 100000], ['Thousand', 1000]].forEach(([label, divisor]) => {
+    const count = Math.floor(rest / divisor);
+    if (count) {
+      parts.push(`${underThousand(count)} ${label}`);
+      rest %= divisor;
+    }
+  });
+  if (rest) parts.push(underThousand(rest));
+  return `Rupees ${parts.join(' ')} Only`;
 }
 
 function nextBillNo(records) {
@@ -33,13 +81,29 @@ function normalizeMedicine(product = {}) {
     name: product.description || product.name || product.productName || 'Unnamed Medicine',
     code: product.code || '',
     barcode: product.barcode || '',
-    batch: product.batchNo || product.batch || 'MAIN',
+    batch: product.batchNumber || product.batchNo || product.batch || 'MAIN',
     expiry: product.expiryDate || product.expiry || '',
     stock: Number(product.stock || 0),
     rate: Number(product.rate || product.sellingPrice || product.price || 0),
     gstRate: Number(product.gstRate || product.taxRate || 0),
     raw: product,
   };
+}
+
+function productRows(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  if (Array.isArray(response?.items)) return response.items;
+  if (Array.isArray(response?.records)) return response.records;
+  return [];
+}
+
+function businessAddress(settings = {}) {
+  return [
+    settings.address,
+    [settings.city, settings.state, settings.pincode].filter(Boolean).join(', '),
+  ].filter(Boolean).join(', ');
 }
 
 function expiryLabel(value) {
@@ -76,7 +140,9 @@ function Button({ children, onClick, tone = 'white', disabled = false, className
 }
 
 export function PharmacyBillingPage() {
+  const { keyboardMode } = useKeyboardMode();
   const patients = useModuleRecords('hospital/patients');
+  const prescriptions = useModuleRecords('hospital/prescription');
   const pharmacyBills = useModuleRecords('hospital/pharmacy-billing');
   const payments = useModuleRecords('hospital/payments');
   const [patientSearch, setPatientSearch] = useState('');
@@ -85,14 +151,18 @@ export function PharmacyBillingPage() {
   const [walkIn, setWalkIn] = useState(false);
   const [prescription, setPrescription] = useState('');
   const [medicineSearch, setMedicineSearch] = useState('');
+  const [showMedicineMenu, setShowMedicineMenu] = useState(false);
   const [medicines, setMedicines] = useState([]);
   const [medicineLoading, setMedicineLoading] = useState(false);
+  const [medicineError, setMedicineError] = useState('');
   const [items, setItems] = useState([]);
   const [discount, setDiscount] = useState(10);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [heldBills, setHeldBills] = useState([]);
   const [message, setMessage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [bizSettings, setBizSettings] = useState({});
+  const [printTemplate, setPrintTemplate] = useState(() => getInvoicePrintTemplate());
 
   const billNo = useMemo(() => nextBillNo(pharmacyBills.records), [pharmacyBills.records]);
   const nextReceiptNo = useMemo(() => {
@@ -111,6 +181,13 @@ export function PharmacyBillingPage() {
     return source.slice(0, 6);
   }, [patients.records, patientSearch]);
   const selectedPatient = patients.records.find((record) => record._id === selectedPatientId) || null;
+  const prescriptionOptions = useMemo(() => prescriptions.records
+    .filter((record) => record.data?.status === 'Finalized' || record.data?.pharmacyStatus === 'Ready for Pharmacy')
+    .map((record) => ({
+      id: record.data?.prescriptionNo || record.data?.rxNo || record._id,
+      label: `${record.data?.prescriptionNo || record.data?.rxNo || 'RX'} - ${record.data?.patientName || 'Patient'} - ${record.data?.doctorName || 'Doctor'}`,
+      data: record.data || {},
+    })), [prescriptions.records]);
   const medicineOptions = useMemo(() => {
     const q = medicineSearch.trim().toLowerCase();
     if (!q) return medicines.slice(0, 8);
@@ -121,14 +198,79 @@ export function PharmacyBillingPage() {
   const total = Math.max(0, subtotal - Number(discount || 0) + gst);
   const hasInvalidStock = items.some((item) => Number(item.qty || 0) > Number(item.stock || 0));
   const hasExpiredItem = items.some((item) => isExpired(item.expiry));
+  const fKeyActions = [
+    { key: 'F1', label: 'New', icon: Plus, action: () => window.location.assign('/hospital/pharmacy-billing') },
+    { key: 'F2', label: 'Pay', icon: CreditCard, action: () => { if (items.length && !hasInvalidStock && !hasExpiredItem) payBill(); } },
+    { key: 'F3', label: 'Preview', icon: FileText, action: () => { if (items.length) setPreviewOpen(true); } },
+    { key: 'F4', label: 'Print', icon: Printer, action: () => { if (items.length) window.print(); } },
+    { key: 'F5', label: 'Patient', icon: UserRound, action: () => document.querySelector('[data-fkey="pharmacy-patient"]')?.focus() },
+    { key: 'F6', label: 'Medicine', icon: Pill, action: () => document.querySelector('[data-fkey="pharmacy-medicine"]')?.focus() },
+    { key: 'F7', label: 'Rx', icon: FileText, action: () => document.querySelector('[data-fkey="pharmacy-prescription"]')?.focus() },
+    { key: 'F8', label: 'Hold', icon: Pause, action: holdBill },
+    { key: 'F10', label: 'Settings', icon: Settings, action: () => window.location.assign('/business-settings') },
+  ];
+
+  useEffect(() => {
+    api.getSettings().then(setBizSettings).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setInvoicePrintTemplate(printTemplate);
+  }, [printTemplate]);
 
   useEffect(() => {
     setMedicineLoading(true);
-    api.invListProducts({ page: 1, limit: 100 })
-      .then((res) => setMedicines((res.data || []).map(normalizeMedicine)))
-      .catch(() => setMedicines([]))
+    setMedicineError('');
+    api.invListProducts({ page: 1, limit: 500, itemType: 'Product' })
+      .then((res) => setMedicines(productRows(res).map(normalizeMedicine)))
+      .catch((err) => {
+        setMedicines([]);
+        setMedicineError(err.message || 'Failed to load inventory products.');
+      })
       .finally(() => setMedicineLoading(false));
   }, []);
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (!keyboardMode) return;
+      const mod = event.ctrlKey || event.metaKey;
+
+      if (mod && event.key === 'Enter') {
+        event.preventDefault();
+        if (items.length && !hasInvalidStock && !hasExpiredItem) payBill();
+        return;
+      }
+
+      if (mod && event.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        if (items.length) window.print();
+        return;
+      }
+
+      if (event.altKey && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        document.querySelector('[data-fkey="pharmacy-medicine"]')?.focus();
+        return;
+      }
+
+      if (event.altKey && event.key.toLowerCase() === 'v') {
+        event.preventDefault();
+        window.location.assign('/hospital/bills-invoices');
+        return;
+      }
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+        const action = fKeyActions.find((item) => item.key === event.key);
+        if (action) {
+          event.preventDefault();
+          action.action();
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
 
   function selectPatient(patient) {
     setSelectedPatientId(patient._id);
@@ -162,6 +304,7 @@ export function PharmacyBillingPage() {
       return [...current, { ...medicine, qty: Math.min(medicine.stock, qty) }];
     });
     setMedicineSearch('');
+    setShowMedicineMenu(false);
   }
 
   function updateQty(index, value) {
@@ -212,11 +355,18 @@ export function PharmacyBillingPage() {
   }
 
   function loadPrescription() {
-    SAMPLE_PRESCRIPTION.forEach((line) => {
-      const found = medicines.find((medicine) => medicine.name.toLowerCase().includes(line.medicine.toLowerCase().split(' ')[0]));
-      if (found) addMedicine(found, line.qty);
+    const selectedRx = prescriptionOptions.find((item) => item.id === prescription);
+    const source = selectedRx?.data?.medicinesList || selectedRx?.data?.prescribedMedicines || SAMPLE_PRESCRIPTION;
+    source.forEach((line) => {
+      const medicineName = line.medicine || line.name || '';
+      const found = medicines.find((medicine) => medicine.name.toLowerCase().includes(medicineName.toLowerCase().split(' ')[0]));
+      if (found) addMedicine(found, Number(line.qty || 1));
     });
-    setMessage('Prescription medicines loaded where matching stock was found.');
+    if (selectedRx && !selectedPatientId && !walkIn) {
+      const patient = patients.records.find((record) => record.data?.patientId === selectedRx.data.patientId || record.data?.name === selectedRx.data.patientName);
+      if (patient) selectPatient(patient);
+    }
+    setMessage('Prescription medicines loaded where matching inventory stock was found. Stock will deduct only after payment.');
   }
 
   function findMedicineBySearch() {
@@ -265,6 +415,7 @@ export function PharmacyBillingPage() {
       gst,
       total,
       paymentMethod,
+      businessSnapshot: bizSettings,
       status: 'Paid',
       date: new Date().toISOString().slice(0, 10),
       workflow: 'Patient/Walk-in -> Prescription/Medicine Search -> Batch -> Qty -> Stock Validation -> Payment -> Invoice -> Dispense -> Inventory Deduction',
@@ -320,6 +471,30 @@ export function PharmacyBillingPage() {
           <div className="text-[13px] font-extrabold text-[#071936]">Bill #{billNo}</div>
         </div>
 
+        <div className="hidden md:flex items-stretch bg-white border-b border-[#e5edf7] overflow-x-auto">
+          {fKeyActions.map(({ key, label, icon: Icon, action }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={action}
+              className="flex min-w-[92px] items-center justify-center gap-2 border-0 border-r border-[#e5edf7] bg-white px-3 py-2 text-[12px] font-bold text-[#0d1c34] cursor-pointer last:border-r-0 hover:bg-blue-50"
+            >
+              <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-black text-blue-700">{key}</span>
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => window.location.assign('/hospital/bills-invoices')}
+            className="flex min-w-[104px] items-center justify-center gap-2 border-0 bg-white px-3 py-2 text-[12px] font-bold text-[#0d1c34] cursor-pointer hover:bg-blue-50"
+          >
+            <span className="rounded bg-black/5 px-1.5 py-0.5 text-[10px] font-black">Alt+V</span>
+            <List size={14} />
+            List
+          </button>
+        </div>
+
         {message && <div className="mx-4 mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[13px] font-semibold text-green-700">{message}</div>}
 
         <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_330px]">
@@ -330,6 +505,7 @@ export function PharmacyBillingPage() {
                 <div className="flex items-center gap-2 rounded-md border border-[#dbe4ef] bg-white px-3">
                   <UserRound size={15} className="text-[#64748b]" />
                   <input
+                    data-fkey="pharmacy-patient"
                     className="h-10 min-w-0 flex-1 border-0 bg-transparent text-[13px] font-[inherit] outline-none"
                     value={patientSearch}
                     onFocus={() => setShowPatientMenu(true)}
@@ -360,10 +536,10 @@ export function PharmacyBillingPage() {
             <div className="mb-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_170px]">
               <div>
                 <label className="mb-1 block text-[12px] font-extrabold uppercase text-[#536173]">Prescription</label>
-                <select className={INPUT} value={prescription} onChange={(event) => setPrescription(event.target.value)}>
+                <select data-fkey="pharmacy-prescription" className={INPUT} value={prescription} onChange={(event) => setPrescription(event.target.value)}>
                   <option value="">Select Prescription</option>
-                  <option value="RX-2026-00456">RX-2026-00456 - Dr. Kumar</option>
-                  <option value="RX-2026-00431">RX-2026-00431 - Follow-up</option>
+                  {prescriptionOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                  {prescriptionOptions.length === 0 && <option value="RX-2026-00456">RX-2026-00456 - Sample</option>}
                 </select>
               </div>
               <div className="flex items-end">
@@ -378,20 +554,36 @@ export function PharmacyBillingPage() {
               onSubmit={(event) => {
                 event.preventDefault();
                 addMedicine(findMedicineBySearch());
+                setShowMedicineMenu(false);
               }}
             >
               <label className="mb-1 block text-[12px] font-extrabold uppercase text-[#536173]">Medicine Search / Barcode</label>
               <div className="flex items-center gap-2 rounded-md border border-[#dbe4ef] bg-white px-3">
                 <Search size={15} className="text-[#64748b]" />
-                <input className="h-11 min-w-0 flex-1 border-0 bg-transparent text-[13px] font-[inherit] outline-none" value={medicineSearch} onChange={(event) => setMedicineSearch(event.target.value)} placeholder="Search Medicine / Scan Barcode" />
+                <input
+                  data-fkey="pharmacy-medicine"
+                  className="h-11 min-w-0 flex-1 border-0 bg-transparent text-[13px] font-[inherit] outline-none"
+                  value={medicineSearch}
+                  onFocus={() => setShowMedicineMenu(true)}
+                  onChange={(event) => {
+                    setMedicineSearch(event.target.value);
+                    setShowMedicineMenu(true);
+                  }}
+                  placeholder="Search Medicine / Scan Barcode"
+                />
                 <Barcode size={16} className="text-blue-600" />
               </div>
-              {medicineSearch.trim() && (
+              <div className={`mt-1 text-[12px] font-semibold ${medicineError ? 'text-red-600' : 'text-[#64748b]'}`}>
+                {medicineError || (medicineLoading ? 'Loading inventory products...' : `${medicines.length} inventory products available`)}
+              </div>
+              {showMedicineMenu && (
                 <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-[#dbe4ef] bg-white p-1 shadow-lg">
                   {medicineLoading ? (
                     <div className="px-3 py-2 text-[13px] text-[#64748b]">Loading medicines...</div>
+                  ) : medicineError ? (
+                    <div className="px-3 py-2 text-[13px] text-red-600">{medicineError}</div>
                   ) : medicineOptions.length === 0 ? (
-                    <div className="px-3 py-2 text-[13px] text-[#64748b]">No matching medicine found.</div>
+                    <div className="px-3 py-2 text-[13px] text-[#64748b]">No inventory medicine found. Add medicines in Pharmacy - Medicine Dispensing / common Inventory first.</div>
                   ) : medicineOptions.map((medicine) => (
                     <button key={medicine.id} type="button" onClick={() => addMedicine(medicine)} className="flex w-full items-center justify-between gap-3 rounded px-3 py-2 text-left text-[13px] hover:bg-blue-50">
                       <span><strong>{medicine.name}</strong><span className="ml-2 text-[#64748b]">{medicine.code || medicine.barcode || '-'}</span></span>
@@ -495,45 +687,304 @@ export function PharmacyBillingPage() {
 
       {previewOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-3xl rounded-lg bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#edf2f7] px-5 py-3">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#edf2f7] bg-white px-5 py-3">
               <div>
                 <h2 className="m-0 text-[16px] font-extrabold text-[#071936]">Pharmacy Invoice Preview</h2>
                 <p className="m-0 mt-0.5 text-[12px] font-semibold text-[#64748b]">Bill #{billNo}</p>
               </div>
-              <button type="button" onClick={() => setPreviewOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[#334155] cursor-pointer"><X size={16} /></button>
+              <div className="flex items-center gap-2">
+                <select className={INPUT} value={printTemplate} onChange={(event) => setPrintTemplate(event.target.value)}>
+                  <option value="modern">Modern</option>
+                  <option value="classic">Classic</option>
+                </select>
+                <Button onClick={() => window.print()}><Printer size={14} />Print</Button>
+                <button type="button" onClick={() => setPreviewOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[#334155] cursor-pointer"><X size={16} /></button>
+              </div>
             </div>
             <div className="p-5">
-              <div className="mb-4 flex justify-between gap-4 text-[13px]">
-                <div>
-                  <strong>{walkIn ? 'Walk-in Customer' : selectedPatient?.data?.name || 'Patient not selected'}</strong>
-                  <div className="text-[#64748b]">{selectedPatient?.data?.patientId || ''} {phoneOf(selectedPatient?.data) || ''}</div>
-                </div>
-                <div className="text-right">
-                  <strong>{paymentMethod}</strong>
-                  <div className="text-[#64748b]">{new Date().toLocaleDateString('en-IN')}</div>
-                </div>
+              {printTemplate === 'classic' ? (
+              <div id="document-preview-print" className="invoice-pages-stack invoice-classic-stack">
+                <section className="invoice-page invoice-classic-page">
+                  <div className="invoice-classic-outer">
+                    <div className="invoice-classic-title-row">
+                      <span />
+                      <strong>Pharmacy Invoice</strong>
+                      <em>Original for Recipient</em>
+                    </div>
+
+                    <div className="invoice-classic-top-grid">
+                      <div className="invoice-classic-business">
+                        {bizSettings.logoUrl && (
+                          <img src={`${SERVER_ORIGIN}${bizSettings.logoUrl}`} alt="logo" className="invoice-classic-logo" />
+                        )}
+                        <div>
+                          <h2>{bizSettings.businessName || '-'}</h2>
+                          <p>{businessAddress(bizSettings) || '-'}</p>
+                          {bizSettings.phone && <p>{bizSettings.phone}</p>}
+                          {bizSettings.businessEmail && <p>{bizSettings.businessEmail}</p>}
+                          {bizSettings.gstin && <h3>GSTIN: {bizSettings.gstin}</h3>}
+                        </div>
+                      </div>
+
+                      <div className="invoice-classic-meta-grid">
+                        <div>
+                          <div className="invoice-classic-field"><span>Invoice No.</span><b>:</b><strong className="invoice-classic-emphasis">{billNo}</strong></div>
+                          <div className="invoice-classic-field"><span>Sale Type</span><b>:</b><strong>{walkIn ? 'Walk-in' : 'Patient'}</strong></div>
+                          <div className="invoice-classic-field"><span>Items</span><b>:</b><strong>{items.length}</strong></div>
+                          <div className="invoice-classic-field"><span>Pay Status</span><b>:</b><strong>Paid</strong></div>
+                        </div>
+                        <div>
+                          <div className="invoice-classic-field"><span>Invoice Date</span><b>:</b><strong className="invoice-classic-emphasis">{new Date().toLocaleDateString('en-IN')}</strong></div>
+                          <div className="invoice-classic-field"><span>Pay. Mode</span><b>:</b><strong>{paymentMethod}</strong></div>
+                          <div className="invoice-classic-field"><span>Receipt No.</span><b>:</b><strong>{nextReceiptNo}</strong></div>
+                          <div className="invoice-classic-field"><span>Prescription</span><b>:</b><strong>{prescription || '-'}</strong></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="invoice-classic-party-grid">
+                      <div className="invoice-classic-customer">
+                        <div className="invoice-classic-section-caption">Customer</div>
+                        <h2>{walkIn ? 'Walk-in Customer' : selectedPatient?.data?.name || '-'}</h2>
+                        <p>Patient ID : {walkIn ? '-' : selectedPatient?.data?.patientId || '-'}</p>
+                        <p>Mobile : {walkIn ? '-' : phoneOf(selectedPatient?.data) || '-'}</p>
+                        <p>Billing Mode : {walkIn ? 'Counter pharmacy sale' : 'Patient linked pharmacy sale'}</p>
+                      </div>
+                      <div className="invoice-classic-ledger">
+                        <div className="invoice-classic-ledger-heading">Pharmacy Details:</div>
+                        <p>Prescription : {prescription || 'Manual sale'}</p>
+                        <div className="invoice-classic-ledger-row"><span>Total Qty</span><b>=</b><strong>{items.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</strong></div>
+                        <div className="invoice-classic-ledger-row"><span>Stock Check</span><b>=</b><strong>{hasInvalidStock ? 'Needs Review' : 'Passed'}</strong></div>
+                        <div className="invoice-classic-ledger-row invoice-classic-ledger-total"><span>Balance Due</span><b>=</b><strong>{amount(0)}</strong></div>
+                      </div>
+                    </div>
+
+                    <table className="invoice-classic-table invoice-classic-table-no-gst">
+                      <thead>
+                        <tr>
+                          <th className="classic-col-sno">S/N</th>
+                          <th className="classic-col-desc">Description Of Goods / Service</th>
+                          <th className="classic-col-qty">Billed<br />Quantity</th>
+                          <th className="classic-col-uqc">Batch</th>
+                          <th className="classic-col-price">Price</th>
+                          <th className="classic-col-amount">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item, index) => (
+                          <tr key={`classic-pharmacy-${item.id}-${index}`}>
+                            <td className="classic-col-sno">{index + 1})</td>
+                            <td className="classic-col-desc">
+                              <div className="invoice-classic-item-title">{item.name || '-'}</div>
+                              <div className="invoice-classic-item-sub">{item.code || item.barcode || ''} {item.expiry ? `| Exp ${expiryLabel(item.expiry)}` : ''}</div>
+                            </td>
+                            <td className="classic-col-qty">{item.qty || 0}</td>
+                            <td className="classic-col-uqc">{item.batch || '-'}</td>
+                            <td className="classic-col-price">{amount(item.rate)}</td>
+                            <td className="classic-col-amount">{amount(itemAmount(item))}</td>
+                          </tr>
+                        ))}
+                        <tr className="invoice-classic-subtotal-row"><td className="classic-col-sno" /><td className="classic-col-desc" /><td className="classic-col-qty">{items.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</td><td className="classic-col-uqc" /><td className="classic-col-price" /><td className="classic-col-amount">{amount(subtotal)}</td></tr>
+                        <tr className="invoice-classic-total-line"><td colSpan={5}>Discount</td><td className="classic-col-amount">-{amount(discount)}</td></tr>
+                        <tr className="invoice-classic-total-line"><td colSpan={5}>GST</td><td className="classic-col-amount">{amount(gst)}</td></tr>
+                        <tr className="invoice-classic-grand-total"><td colSpan={5}>Grand Total</td><td className="classic-col-amount">{amount(total)}</td></tr>
+                      </tbody>
+                    </table>
+
+                    <div className="invoice-classic-summary">
+                      <div className="invoice-classic-tax-summary">
+                        <h3>Amount in Words</h3>
+                        <p>{amountWords(total)}</p>
+                      </div>
+                      <table className="invoice-classic-payment-summary">
+                        <tbody>
+                          <tr><td>Payment Mode</td><td>{paymentMethod}</td></tr>
+                          <tr><td>Amount Paid</td><td>{amount(total)}</td></tr>
+                          <tr className="invoice-classic-payment-grand"><td>Grand Total</td><td>{amount(total)}</td></tr>
+                          <tr className="invoice-classic-payment-due"><td>Balance Due</td><td>{amount(0)}</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="invoice-classic-bottom">
+                      <div className="invoice-classic-terms"><h3>Terms & Notes</h3><ul><li>Medicines are dispensed against the listed batches.</li><li>Verify batch and expiry before handover.</li></ul></div>
+                      <div className="invoice-classic-declaration"><h3>Declaration</h3><p>This invoice is generated from existing pharmacy bill data.</p></div>
+                      <div className="invoice-classic-sign"><strong>For {bizSettings.businessName || '-'}</strong><b>Pharmacist / Authorised Signatory</b></div>
+                    </div>
+
+                    <div className="invoice-classic-footer">
+                      <span>{bizSettings.phone || '-'}</span>
+                      <strong>Generated by GoBook</strong>
+                      <strong>{bizSettings.website || bizSettings.businessWebsite || ''}</strong>
+                    </div>
+
+                    <div className="mt-4 flex justify-end gap-2 print:hidden">
+                      <Button tone="green" onClick={payBill} disabled={hasInvalidStock || hasExpiredItem}>Pay {money(total)}</Button>
+                    </div>
+                  </div>
+                </section>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px] border-collapse text-[12px]">
-                  <thead><tr className="bg-[#f8fafc] text-left"><th className="px-3 py-2">Medicine</th><th className="px-3 py-2">Batch</th><th className="px-3 py-2">Expiry</th><th className="px-3 py-2 text-right">Qty</th><th className="px-3 py-2 text-right">Rate</th><th className="px-3 py-2 text-right">Amount</th></tr></thead>
-                  <tbody>
-                    {items.map((item, index) => (
-                      <tr key={`preview-${item.id}-${index}`}><td className="border-b border-[#f1f5f9] px-3 py-2 font-semibold">{item.name}</td><td className="border-b border-[#f1f5f9] px-3 py-2">{item.batch}</td><td className="border-b border-[#f1f5f9] px-3 py-2">{expiryLabel(item.expiry)}</td><td className="border-b border-[#f1f5f9] px-3 py-2 text-right">{item.qty}</td><td className="border-b border-[#f1f5f9] px-3 py-2 text-right">{money(item.rate)}</td><td className="border-b border-[#f1f5f9] px-3 py-2 text-right font-bold">{money(itemAmount(item))}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
+              ) : (
+              <div id="document-preview-print" className="hospital-invoice-print">
+                <section className="hospital-invoice-page">
+                  <div className="hospital-invoice-top">
+                    <div className="hospital-brand">
+                      {bizSettings.logoUrl ? (
+                        <img src={`${SERVER_ORIGIN}${bizSettings.logoUrl}`} alt="logo" className="hospital-brand-logo" />
+                      ) : <div className="hospital-brand-logo" />}
+                      <div className="min-w-0">
+                        <div className="hospital-brand-name">{bizSettings.businessName || ''}</div>
+                        <div className="hospital-brand-type">{bizSettings.businessType || ''}</div>
+                        <div className="hospital-brand-rule" />
+                        <div className="hospital-brand-tag">{bizSettings.tagline || ''}</div>
+                      </div>
+                    </div>
+
+                    <div className="hospital-contact">
+                      <div className="hospital-contact-line"><Phone />{bizSettings.phone || '-'}</div>
+                      <div className="hospital-contact-line"><Mail />{bizSettings.businessEmail || '-'}</div>
+                      <div className="hospital-contact-line"><Globe2 />{bizSettings.website || bizSettings.businessWebsite || '-'}</div>
+                      <div className="hospital-contact-line"><MapPin /><span>{businessAddress(bizSettings) || '-'}</span></div>
+                    </div>
+
+                    <div className="hospital-invoice-title-box">
+                      <div className="hospital-invoice-title">INVOICE</div>
+                      <div className="hospital-copy-label">Original for Recipient</div>
+                      <div className="hospital-invoice-number">{billNo}</div>
+                      <div className="hospital-meta-line"><span>Invoice Date</span><span>:</span><strong>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></div>
+                      <div className="hospital-meta-line"><span>Invoice Time</span><span>:</span><strong>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</strong></div>
+                    </div>
+                  </div>
+
+                  <div className="hospital-blue-rule" />
+
+                  <div className="hospital-detail-grid">
+                    <div className="hospital-detail-panel">
+                      <div className="hospital-section-pill">Customer Details</div>
+                      <div className="hospital-detail-row"><UserRound /><span>Name</span><span>:</span><strong>{walkIn ? 'Walk-in Customer' : selectedPatient?.data?.name || 'Patient not selected'}</strong></div>
+                      <div className="hospital-detail-row"><IdCard /><span>Patient ID</span><span>:</span><strong>{walkIn ? '-' : selectedPatient?.data?.patientId || '-'}</strong></div>
+                      <div className="hospital-detail-row"><Phone /><span>Mobile</span><span>:</span><strong>{walkIn ? '-' : phoneOf(selectedPatient?.data) || '-'}</strong></div>
+                      <div className="hospital-detail-row"><Pill /><span>Sale Type</span><span>:</span><strong>{walkIn ? 'Walk-in' : 'Patient'}</strong></div>
+                    </div>
+
+                    <div className="hospital-detail-panel">
+                      <div className="hospital-section-pill">Prescription Details</div>
+                      <div className="hospital-detail-row"><FileText /><span>Prescription</span><span>:</span><strong>{prescription || 'Manual Sale'}</strong></div>
+                      <div className="hospital-detail-row"><Pill /><span>Total Items</span><span>:</span><strong>{items.length}</strong></div>
+                      <div className="hospital-detail-row"><Pill /><span>Total Qty</span><span>:</span><strong>{items.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</strong></div>
+                      <div className="hospital-detail-row"><CheckCircle /><span>Stock Check</span><span>:</span><strong>{hasInvalidStock ? 'Needs Review' : 'Passed'}</strong></div>
+                      <div className="hospital-detail-row"><CalendarDays /><span>Expiry Check</span><span>:</span><strong>{hasExpiredItem ? 'Expired Found' : 'Passed'}</strong></div>
+                    </div>
+
+                    <div className="hospital-detail-panel">
+                      <div className="hospital-section-pill">Payment Details</div>
+                      <div className="hospital-detail-row"><CreditCard /><span>Payment Mode</span><span>:</span><strong>{paymentMethod}</strong></div>
+                      <div className="hospital-detail-row"><IdCard /><span>Reference No</span><span>:</span><strong>-</strong></div>
+                      <div className="hospital-detail-row"><FileText /><span>Invoice No</span><span>:</span><strong>{billNo}</strong></div>
+                      <div className="hospital-detail-row"><CalendarDays /><span>Due Date</span><span>:</span><strong>-</strong></div>
+                      <div className="hospital-detail-row"><CheckCircle /><span>Status</span><span>:</span><strong className="hospital-paid">PAID</strong></div>
+                    </div>
+                  </div>
+
+                  <table className="hospital-invoice-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '6%' }}>#</th>
+                        <th style={{ width: '32%' }}>Service / Item</th>
+                        <th>Batch</th>
+                        <th>Expiry</th>
+                        <th style={{ width: '10%' }}>Qty</th>
+                        <th style={{ width: '14%' }}>Rate (Rs.)</th>
+                        <th style={{ width: '16%' }}>Amount (Rs.)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, index) => (
+                        <tr key={`preview-${item.id}-${index}`}>
+                          <td>{index + 1}</td>
+                          <td className="item-cell">
+                            <div className="item-title">{item.name}</div>
+                            <div className="item-sub">{item.code || item.barcode || `${item.gstRate || 0}% GST`}</div>
+                          </td>
+                          <td><strong>{item.batch || '-'}</strong></td>
+                          <td>{expiryLabel(item.expiry)}</td>
+                          <td>{item.qty}</td>
+                          <td>{amount(item.rate)}</td>
+                          <td><strong>{amount(itemAmount(item))}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="hospital-summary-grid">
+                    <div className="hospital-summary-card">
+                      <div className="hospital-summary-title">Amount Summary</div>
+                      <div className="hospital-summary-body">
+                        <div className="hospital-summary-line"><span>Subtotal</span><strong>{amount(subtotal)}</strong></div>
+                        <div className="hospital-summary-line hospital-green"><span>Discount</span><strong>- {amount(discount)}</strong></div>
+                        <div className="hospital-summary-line"><span>Taxable Amount</span><strong>{amount(Math.max(0, subtotal - Number(discount || 0)))}</strong></div>
+                        <div className="hospital-summary-line"><span>SGST</span><strong>{amount(gst / 2)}</strong></div>
+                        <div className="hospital-summary-line"><span>CGST</span><strong>{amount(gst / 2)}</strong></div>
+                      </div>
+                      <div className="hospital-total-row"><span>Total Amount</span><strong>&#8377; {amount(total)}</strong></div>
+                      <div className="hospital-words">
+                        <div>Amount in Words:</div>
+                        <div>{amountWords(total)}</div>
+                      </div>
+                    </div>
+
+                    <div className="hospital-summary-card">
+                      <div className="hospital-summary-title">Payment Summary</div>
+                      <div className="hospital-summary-body">
+                        <div className="hospital-summary-line"><span>Total Amount</span><strong>&#8377; {amount(total)}</strong></div>
+                        <div className="hospital-summary-line hospital-green"><span>Amount Paid</span><strong>&#8377; {amount(total)}</strong></div>
+                        <div className="hospital-summary-line hospital-green"><span>Balance Amount</span><strong>&#8377; {amount(0)}</strong></div>
+                      </div>
+                      <div className="hospital-breakup-title">Payment Breakup</div>
+                      <div className="hospital-summary-body" style={{ paddingTop: 14 }}>
+                        <div className="hospital-summary-line"><span>{paymentMethod}</span><strong>&#8377; {amount(total)}</strong></div>
+                        <div className="hospital-summary-line"><span>Total Paid</span><strong>&#8377; {amount(total)}</strong></div>
+                      </div>
+                      <div className="hospital-stamp"><strong>PAID</strong><span>Thank You!</span></div>
+                    </div>
+                  </div>
+
+                  <div className="hospital-bottom-grid">
+                    <div className="hospital-notes">
+                      <div className="hospital-note-label"><FileText size={13} />Notes</div>
+                      <ol>
+                        <li>Please keep this invoice for your records.</li>
+                        <li>Medicines once sold will not be taken back.</li>
+                        <li>Report any discrepancy within 7 days.</li>
+                        <li>Verify batch and expiry before handover.</li>
+                      </ol>
+                    </div>
+                    <div className="hospital-qr">
+                      <div className="hospital-qr-title">Scan to Download Invoice</div>
+                      <div className="hospital-qr-box">
+                        {Array.from({ length: 49 }).map((_, index) => (
+                          <span key={index} className={[0, 1, 2, 4, 5, 6, 7, 9, 13, 14, 16, 18, 20, 21, 22, 24, 25, 28, 30, 31, 33, 35, 36, 40, 42, 43, 44, 46, 47, 48].includes(index) ? 'is-dark' : ''} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="hospital-signature">
+                      <div>For {(bizSettings.businessName || '').toUpperCase()}</div>
+                      <div className="hospital-sign-line">Pharmacist / Authorised Signatory</div>
+                    </div>
+                  </div>
+
+                  <div className="hospital-footer-strip">
+                    <span>24x7 Helpline : {bizSettings.phone || '-'}</span>
+                    <span>We wish you good health!</span>
+                  </div>
+
+                  <div className="mt-4 flex justify-end gap-2 print:hidden">
+                    <Button tone="green" onClick={payBill} disabled={hasInvalidStock || hasExpiredItem}>Pay {money(total)}</Button>
+                  </div>
+                </section>
               </div>
-              <div className="ml-auto mt-4 w-full max-w-xs rounded-md bg-[#f8fbff] p-3 text-[13px]">
-                <div className="flex justify-between py-1"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
-                <div className="flex justify-between py-1"><span>Discount</span><strong>- {money(discount)}</strong></div>
-                <div className="flex justify-between py-1"><span>GST</span><strong>{money(gst)}</strong></div>
-                <div className="mt-2 flex justify-between border-t border-[#dbe4ef] pt-2 text-[17px] font-extrabold text-blue-700"><span>Total</span><strong>{money(total)}</strong></div>
-              </div>
-              <div className="mt-4 flex justify-end gap-2">
-                <Button onClick={() => window.print()}><Printer size={14} />Print</Button>
-                <Button tone="green" onClick={payBill} disabled={hasInvalidStock || hasExpiredItem}>Pay {money(total)}</Button>
-              </div>
+              )}
             </div>
           </div>
         </div>

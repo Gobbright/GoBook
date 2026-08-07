@@ -3,7 +3,7 @@ import { AppointmentsPage } from './AppointmentsPage.jsx';
 import { AdmissionsPage } from './AdmissionsPage.jsx';
 import { DischargePage } from './DischargePage.jsx';
 import { MedicalHistoryPage } from './MedicalHistoryPage.jsx';
-import { FollowUpPage } from './FollowUpPage.jsx';
+import { FollowUpPlanPage } from '../clinical/FollowUpPlanPage.jsx';
 
 export const patientManagementRoutes = [
   { path: '/hospital/patients', element: <PatientsPage /> },
@@ -11,5 +11,5 @@ export const patientManagementRoutes = [
   { path: '/hospital/admissions', element: <AdmissionsPage /> },
   { path: '/hospital/discharge', element: <DischargePage /> },
   { path: '/hospital/medical-history', element: <MedicalHistoryPage /> },
-  { path: '/hospital/follow-up', element: <FollowUpPage /> },
+  { path: '/hospital/follow-up', element: <FollowUpPlanPage /> },
 ];

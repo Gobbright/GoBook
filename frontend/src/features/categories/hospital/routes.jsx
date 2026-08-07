@@ -1,4 +1,15 @@
 import { clinicalRoutes } from './modules/clinical/routes.jsx';
+import { ConsultationPage } from './modules/clinical/ConsultationPage.jsx';
+import { DiagnosisPage } from './modules/clinical/DiagnosisPage.jsx';
+import { PrescriptionPage } from './modules/clinical/PrescriptionPage.jsx';
+import { ProceduresPage } from './modules/clinical/ProceduresPage.jsx';
+import { FollowUpPlanPage } from './modules/clinical/FollowUpPlanPage.jsx';
+import { AdmissionPage } from './modules/clinical/AdmissionPage.jsx';
+import { InpatientsPage } from './modules/clinical/InpatientsPage.jsx';
+import { WardRoomsPage } from './modules/clinical/WardRoomsPage.jsx';
+import { BedAllocationPage } from './modules/clinical/BedAllocationPage.jsx';
+import { TransferPage } from './modules/clinical/TransferPage.jsx';
+import { DischargeWorkflowPage } from './modules/clinical/DischargeWorkflowPage.jsx';
 import { laboratoryRoutes } from './modules/laboratory/routes.jsx';
 import { BillsInvoicesPage } from './modules/medical-billing/BillsInvoicesPage.jsx';
 import { EstimatesPage } from './modules/medical-billing/EstimatesPage.jsx';
@@ -11,6 +22,10 @@ import { RefundsPage } from './modules/medical-billing/RefundsPage.jsx';
 import { patientManagementRoutes } from './modules/patient-management/routes.jsx';
 import { PharmacyBillingPage } from './modules/pharmacy/PharmacyBillingPage.jsx';
 import { pharmacyRoutes } from './modules/pharmacy/routes.jsx';
+import { AppointmentCalendarPage } from './AppointmentCalendarPage.jsx';
+import { BookAppointmentPage } from './BookAppointmentPage.jsx';
+import { DoctorSchedulePage } from './DoctorSchedulePage.jsx';
+import { QueueTokenPage } from './QueueTokenPage.jsx';
 import { DocumentsPage } from './modules/patient-management/DocumentsPage.jsx';
 import { InsurancePage } from './modules/patient-management/InsurancePage.jsx';
 import { PatientRegistrationPage } from './PatientRegistrationPage.jsx';
@@ -269,30 +284,30 @@ const requestedHospitalRoutes = [
   { path: '/hospital/patient-documents', element: <DocumentsPage /> },
   { path: '/hospital/insurance-details', element: <InsurancePage /> },
 
-  recordRoute('/hospital/book-appointment', 'hospital/appointments', 'Book Appointment', 'Appointment Management', appointmentFields, 'Online and walk-in appointments', { mode: 'schedule' }),
-  recordRoute('/hospital/appointment-calendar', 'hospital/appointments', 'Calendar', 'Appointment Management', appointmentFields, 'Doctor availability', { mode: 'schedule' }),
-  recordRoute('/hospital/doctor-schedule', 'hospital/doctor-schedule', 'Doctor Schedule', 'Appointment Management', doctorLinkedFields, 'Doctor availability'),
-  recordRoute('/hospital/queue-management', 'hospital/appointments', 'Queue Management', 'Appointment Management', appointmentFields, 'Priority handling', { mode: 'queue' }),
-  recordRoute('/hospital/token-system', 'hospital/appointments', 'Token System', 'Appointment Management', appointmentFields, 'Token generation', { mode: 'token' }),
-  recordRoute('/hospital/queue-token', 'hospital/appointments', 'Queue/Token', 'Appointment Management', appointmentFields, 'Queue and token handling', { mode: 'token' }),
+  { path: '/hospital/book-appointment', element: <BookAppointmentPage /> },
+  { path: '/hospital/appointment-calendar', element: <AppointmentCalendarPage /> },
+  { path: '/hospital/doctor-schedule', element: <DoctorSchedulePage /> },
+  { path: '/hospital/queue-management', element: <QueueTokenPage /> },
+  { path: '/hospital/token-system', element: <QueueTokenPage /> },
+  { path: '/hospital/queue-token', element: <QueueTokenPage /> },
   recordRoute('/hospital/follow-up-appointments', 'hospital/appointments', 'Follow-up Appointments', 'Appointment Management', appointmentFields, 'SMS/WhatsApp reminders', { mode: 'schedule' }),
 
   recordRoute('/hospital/op-registration', 'hospital/opd-visits', 'OP Registration', 'OPD', opdFields, 'Consultation workflow', { columns: ['Registered', 'In Consultation', 'Diagnosed', 'Prescribed', 'Procedure Done', 'Follow-up'] }),
-  recordRoute('/hospital/consultation', 'hospital/opd-visits', 'Consultation', 'OPD', opdFields, 'Consultation workflow', { columns: ['Registered', 'In Consultation', 'Diagnosed', 'Prescribed', 'Procedure Done', 'Follow-up'] }),
-  recordRoute('/hospital/diagnosis', 'hospital/opd-visits', 'Diagnosis', 'OPD', opdFields, 'Clinical notes', { columns: ['Registered', 'In Consultation', 'Diagnosed', 'Prescribed', 'Procedure Done', 'Follow-up'] }),
-  recordRoute('/hospital/prescription', 'hospital/opd-visits', 'Prescription', 'OPD', opdFields, 'Digital prescriptions', { columns: ['Registered', 'In Consultation', 'Diagnosed', 'Prescribed', 'Procedure Done', 'Follow-up'] }),
-  recordRoute('/hospital/procedures', 'hospital/opd-visits', 'Procedures', 'OPD', opdFields, 'Consultation workflow', { columns: ['Registered', 'In Consultation', 'Diagnosed', 'Prescribed', 'Procedure Done', 'Follow-up'] }),
-  recordRoute('/hospital/follow-up', 'hospital/opd-visits', 'Follow-up', 'OPD', opdFields, 'Follow-up workflow', { columns: ['Registered', 'In Consultation', 'Diagnosed', 'Prescribed', 'Procedure Done', 'Follow-up'] }),
+  { path: '/hospital/consultation', element: <ConsultationPage /> },
+  { path: '/hospital/diagnosis', element: <DiagnosisPage /> },
+  { path: '/hospital/prescription', element: <PrescriptionPage /> },
+  { path: '/hospital/procedures', element: <ProceduresPage /> },
+  { path: '/hospital/follow-up', element: <FollowUpPlanPage /> },
 
-  recordRoute('/hospital/admission', 'hospital/ipd-admissions', 'Admission', 'IPD', ipdFields, 'Admit patients', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
-  recordRoute('/hospital/inpatients', 'hospital/ipd-admissions', 'Inpatients', 'IPD', ipdFields, 'Current admitted patients', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
-  recordRoute('/hospital/ward-room-bed', 'hospital/bed-management', 'Ward/Room/Bed', 'Ward & Bed Management', bedFields, 'Ward, room, and bed availability'),
-  recordRoute('/hospital/bed-allocation', 'hospital/ipd-admissions', 'Bed Allocation', 'IPD', ipdFields, 'Track treatment', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
-  recordRoute('/hospital/transfer', 'hospital/ipd-admissions', 'Transfer', 'IPD', ipdFields, 'Ward or bed transfer', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
+  { path: '/hospital/admission', element: <AdmissionPage /> },
+  { path: '/hospital/inpatients', element: <InpatientsPage /> },
+  { path: '/hospital/ward-room-bed', element: <WardRoomsPage /> },
+  { path: '/hospital/bed-allocation', element: <BedAllocationPage /> },
+  { path: '/hospital/transfer', element: <TransferPage /> },
   recordRoute('/hospital/treatment-plan', 'hospital/ipd-admissions', 'Treatment Plan', 'IPD', ipdFields, 'Track treatment', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
   recordRoute('/hospital/daily-progress', 'hospital/ipd-admissions', 'Daily Progress', 'IPD', ipdFields, 'Track treatment', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
   recordRoute('/hospital/nursing-notes', 'hospital/ipd-admissions', 'Nursing Notes', 'IPD', ipdFields, 'Track treatment', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
-  recordRoute('/hospital/discharge-summary', 'hospital/ipd-admissions', 'Discharge Summary', 'IPD', ipdFields, 'Generate discharge summary', { columns: ['Admitted', 'Bed Allocated', 'Treatment Planned', 'In Progress', 'Nursing Review', 'Ready for Discharge', 'Discharged'] }),
+  { path: '/hospital/discharge-summary', element: <DischargeWorkflowPage /> },
 
   recordRoute('/hospital/emergency-registration', 'hospital/emergency-cases', 'Emergency Registration', 'Emergency', emergencyFields, 'Quick patient intake'),
   recordRoute('/hospital/triage', 'hospital/emergency-cases', 'Triage', 'Emergency', emergencyFields, 'Priority handling'),
