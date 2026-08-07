@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { safeNavigate } from '../../../routes/navigation.js';
-import { LogOut, BarChart3, Users, Building2, CreditCard, ChevronDown, Bell, Settings } from 'lucide-react';
+import { LogOut, BarChart3, Building2, CreditCard, ChevronDown, Bell, Settings, HardDrive } from 'lucide-react';
 
 const MENU_SECTIONS = [
   { title: 'Overview', items: [{ label: 'Dashboard', icon: BarChart3, path: '/admin' }] },
@@ -9,7 +9,6 @@ const MENU_SECTIONS = [
     title: 'Management',
     items: [
       { label: 'Users & Businesses', icon: Building2, path: '/admin/users' },
-      { label: 'Customers & Vendors', icon: Users, path: '/admin/customers' },
       { label: 'Subscription', icon: CreditCard, path: '/admin/subscription/plans' },
     ],
   },
@@ -22,6 +21,12 @@ const MENU_SECTIONS = [
       { label: 'Settings', icon: Settings, path: '/admin/settings/subscription-plans' },
     ],
   },
+  {
+    title: 'Storage Management',
+    items: [
+      { label: 'Storage', icon: HardDrive, path: '/admin/storage/overview' },
+    ],
+  },
 ];
 
 const USER_MANAGEMENT_LINKS = [
@@ -29,18 +34,9 @@ const USER_MANAGEMENT_LINKS = [
   ['Active Users', '/admin/users/active'],
   ['Trial Users', '/admin/users/trial'],
   ['Expired Users', '/admin/users/expired'],
-  ['Blocked Users', '/admin/users/blocked'],
-  ['Deleted Users', '/admin/users/deleted'],
-];
-const USER_DETAILS_LINKS = [
-  ['Business Details', '/admin/user-details/business'],
-  ['Owner Details', '/admin/user-details/owner'],
-  ['Category', '/admin/user-details/category'],
-  ['Subscription Plan', '/admin/user-details/subscription'],
-  ['Registration Date', '/admin/user-details/registration'],
-  ['Expiry Date', '/admin/user-details/expiry'],
+  ['Business, Owner & Login', '/admin/user-details/business'],
+  ['Subscription & Expiry', '/admin/user-details/subscription'],
   ['Payment History', '/admin/user-details/payments'],
-  ['Login History', '/admin/user-details/login'],
 ];
 const SUBSCRIPTION_LINKS = [
   ['Plans', '/admin/subscription/plans'],
@@ -70,15 +66,22 @@ const SETTINGS_LINKS = [
   ['Auto Block After Expiry', '/admin/settings/auto-block-after-expiry'],
   ['Payment Settings', '/admin/settings/payment-settings'],
 ];
+const STORAGE_LINKS = [
+  ['Overview', '/admin/storage/overview'],
+  ['Files (GridFS)', '/admin/storage/files'],
+  ['All User Size', '/admin/storage/users'],
+  ['DB Collections', '/admin/storage/collections'],
+  ['Daily Reports', '/admin/storage/daily-reports'],
+];
 
 function getDropdownForPath(path = window.location.pathname) {
-  if (path === '/admin/users' || path.startsWith('/admin/users/')) return 'users';
-  if (path === '/admin/customers' || path.startsWith('/admin/user-details/')) return 'userDetails';
+  if (path === '/admin/users' || path.startsWith('/admin/users/') || path.startsWith('/admin/user-details/')) return 'users';
   if (path.startsWith('/admin/subscription/')) return 'subscription';
   if (path === '/admin/payments' || path.startsWith('/admin/payments/')) return 'payments';
   if (path === '/admin/notifications' || path.startsWith('/admin/notifications/')) return 'notifications';
   if (path.startsWith('/admin/reports/')) return 'reports';
   if (path.startsWith('/admin/settings/')) return 'settings';
+  if (path.startsWith('/admin/storage/')) return 'storage';
   return '';
 }
 
@@ -152,11 +155,11 @@ export function Sidebar({ open, onClose, onLogout, counts = {} }) {
                   return (
                     <li key={item.path || item.key}>
                       {item.label === 'Users & Businesses' ? <CollapsibleNav icon={Icon} title="User Management" open={openDropdown === 'users'} onToggle={() => toggleDropdown('users')} links={USER_MANAGEMENT_LINKS} onClose={onClose} navigate={navigate} count={counts.newUsers} />
-                        : item.label === 'Customers & Vendors' ? <CollapsibleNav icon={Icon} title="User Details" open={openDropdown === 'userDetails'} onToggle={() => toggleDropdown('userDetails')} links={USER_DETAILS_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Subscription' ? <CollapsibleNav icon={Icon} title="Subscription" open={openDropdown === 'subscription'} onToggle={() => toggleDropdown('subscription')} links={SUBSCRIPTION_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Payments' ? <CollapsibleNav icon={Icon} title="Payments" open={openDropdown === 'payments'} onToggle={() => toggleDropdown('payments')} links={PAYMENT_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Reports' ? <CollapsibleNav icon={Icon} title="Reports" open={openDropdown === 'reports'} onToggle={() => toggleDropdown('reports')} links={REPORT_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Settings' ? <CollapsibleNav icon={Icon} title="Settings" open={openDropdown === 'settings'} onToggle={() => toggleDropdown('settings')} links={SETTINGS_LINKS} onClose={onClose} navigate={navigate} />
+                        : item.label === 'Storage' ? <CollapsibleNav icon={Icon} title="Storage" open={openDropdown === 'storage'} onToggle={() => toggleDropdown('storage')} links={STORAGE_LINKS} onClose={onClose} navigate={navigate} />
                         : <button onClick={() => { safeNavigate(navigate, item.path); onClose?.(); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer"><Icon size={16} className="flex-shrink-0" /><span className="min-w-0 flex-1">{item.label}</span>{item.label === 'Notifications' ? <CountBadge count={counts.unreadNotifications} /> : null}</button>}
                     </li>
                   );

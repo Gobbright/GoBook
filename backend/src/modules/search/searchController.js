@@ -13,13 +13,14 @@ export async function globalSearch(req, res, next) {
     if (!q) return res.json({ customers: [], products: [], invoices: [] });
 
     const re = new RegExp(escapeRegex(q), 'i');
+    const userId = req.user.id;
 
     const [customers, products, invoices] = await Promise.all([
-      Customer.find({ $or: [{ name: re }, { phone: re }, { gstin: re }] })
+      Customer.find({ userId, $or: [{ name: re }, { phone: re }, { gstin: re }] })
         .sort({ name: 1 }).limit(5).lean(),
-      Product.find({ $or: [{ description: re }, { code: re }, { hsn: re }] })
+      Product.find({ userId, $or: [{ description: re }, { code: re }, { hsn: re }] })
         .sort({ description: 1 }).limit(5).lean(),
-      Invoice.find({ $or: [{ number: re }, { 'customer.name': re }] })
+      Invoice.find({ userId, $or: [{ number: re }, { 'customer.name': re }] })
         .sort({ createdAt: -1 }).limit(5).lean(),
     ]);
 

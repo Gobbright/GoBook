@@ -11,7 +11,9 @@ import { BusinessSettings } from '../../models/BusinessSettings.js';
 import { PendingSignup } from '../../models/PendingSignup.js';
 import { PendingGoogleLogin } from '../../models/PendingGoogleLogin.js';
 import { httpError } from '../../utils/httpError.js';
-import { sendMail } from '../../utils/mailer.js';
+import { buildBrandedEmail, sendMail } from '../../utils/mailer.js';
+import { createRegistrationOrder } from '../../services/registrationPayments.js';
+import { getActivePlan, PLAN_TIERS } from '../../services/subscriptionPlans.js';
 
 const SALT_ROUNDS = 10;
 const RESET_OTP_EXPIRES_MINUTES = 10;
@@ -22,12 +24,11 @@ const SIGNUP_OTP_EXPIRES_MINUTES = 10;
 const SIGNUP_OTP_MAX_ATTEMPTS = 5;
 const GOOGLE_OTP_EXPIRES_MINUTES = 10;
 const GOOGLE_OTP_MAX_ATTEMPTS = 5;
-const SUBSCRIPTION_AMOUNTS = { starter: 499, professional: 999, enterprise: 1999 };
-const SUBSCRIPTION_PLANS = Object.keys(SUBSCRIPTION_AMOUNTS);
+const SUBSCRIPTION_PLANS = PLAN_TIERS;
 
 const googleClient = env.googleClientId ? new OAuth2Client(env.googleClientId) : null;
 
-function signToken(user) {
+export function signToken(user) {
   return jwt.sign(
     {
       sub: user._id.toString(),
@@ -41,7 +42,7 @@ function signToken(user) {
   );
 }
 
-function toSafeUser(user) {
+export function toSafeUser(user) {
   return {
     id: user._id,
     name: user.name,
@@ -53,6 +54,9 @@ function toSafeUser(user) {
     businessName: user.businessName,
     category: user.category || 'retail',
     subscriptionPlan: user.subscriptionPlan || '',
+    subscriptionAmount: user.subscriptionAmount || 0,
+    subscriptionStatus: user.subscriptionStatus || '',
+    subscriptionExpiresAt: user.subscriptionExpiresAt || null,
     onboardingCompleted: Boolean(user.onboardingCompleted),
     emailVerified: Boolean(user.emailVerified || user.googleId),
     needsEmailVerification: Boolean(!user.googleId && !user.emailVerified),
@@ -150,49 +154,53 @@ function createResetOtp() {
 }
 
 function getResetOtpEmailHtml({ name, otp }) {
-  return `
-    <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
-      <h2 style="margin: 0 0 12px;">Reset your GoBook password</h2>
-      <p style="margin: 0 0 12px;">Hi ${name || 'there'},</p>
-      <p style="margin: 0 0 16px;">Use this OTP on the GoBook reset password page. It expires in ${RESET_OTP_EXPIRES_MINUTES} minutes.</p>
-      <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 0 0 16px;">${otp}</p>
-      <p style="margin: 0; color: #536173;">If you did not request this, you can ignore this email.</p>
-    </div>
-  `;
+  return buildBrandedEmail({
+    title: 'Reset your GoBooks password',
+    preheader: `Your GoBooks password reset OTP expires in ${RESET_OTP_EXPIRES_MINUTES} minutes.`,
+    greeting: `Hi ${name || 'there'},`,
+    intro: `Use this OTP on the GoBooks reset password page. It expires in ${RESET_OTP_EXPIRES_MINUTES} minutes.`,
+    otp,
+    notice: 'If you did not request this, you can ignore this email. Your password will not change.',
+    footerText: 'For your security, GoBooks never asks you to share your password or OTP with anyone.',
+    badge: 'Secure account recovery',
+  });
 }
 function getEmailVerificationHtml({ name, otp }) {
-  return `
-    <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
-      <h2 style="margin: 0 0 12px;">Verify your GoBook email</h2>
-      <p style="margin: 0 0 12px;">Hi ${name || 'there'},</p>
-      <p style="margin: 0 0 16px;">Use this OTP to verify your email address. It expires in ${EMAIL_VERIFY_OTP_EXPIRES_MINUTES} minutes.</p>
-      <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 0 0 16px;">${otp}</p>
-      <p style="margin: 0; color: #536173;">If you did not create a GoBook account, you can ignore this email.</p>
-    </div>
-  `;
+  return buildBrandedEmail({
+    title: 'Verify your GoBooks email',
+    preheader: `Your GoBooks email verification OTP expires in ${EMAIL_VERIFY_OTP_EXPIRES_MINUTES} minutes.`,
+    greeting: `Hi ${name || 'there'},`,
+    intro: `Use this OTP to verify your email address. It expires in ${EMAIL_VERIFY_OTP_EXPIRES_MINUTES} minutes.`,
+    otp,
+    notice: 'If you did not create a GoBooks account, you can ignore this email.',
+    footerText: 'This verification keeps your GoBooks account and business data protected.',
+    badge: 'Email verification',
+  });
 }
 
 function getGoogleOtpEmailHtml({ name, otp }) {
-  return `
-    <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
-      <h2 style="margin: 0 0 12px;">Your GoBook Google login OTP</h2>
-      <p style="margin: 0 0 12px;">Hi ${name || 'there'},</p>
-      <p style="margin: 0 0 16px;">Use this OTP to continue with Google email login. It expires in ${GOOGLE_OTP_EXPIRES_MINUTES} minutes.</p>
-      <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 0 0 16px;">${otp}</p>
-      <p style="margin: 0; color: #536173;">If you did not request this, you can ignore this email.</p>
-    </div>
-  `;
+  return buildBrandedEmail({
+    title: 'Your GoBooks Google login OTP',
+    preheader: `Your GoBooks Google login OTP expires in ${GOOGLE_OTP_EXPIRES_MINUTES} minutes.`,
+    greeting: `Hi ${name || 'there'},`,
+    intro: `Use this OTP to continue with Google email login. It expires in ${GOOGLE_OTP_EXPIRES_MINUTES} minutes.`,
+    otp,
+    notice: 'If you did not request this login, you can safely ignore this email.',
+    footerText: 'GoBooks uses OTP verification to protect new Google sign-ins.',
+    badge: 'Protected login',
+  });
 }
 function getSignupOtpEmailHtml({ name, otp }) {
-  return `
-    <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
-      <h2 style="margin: 0 0 12px;">Verify your GoBook signup</h2>
-      <p style="margin: 0 0 12px;">Hi ${name || 'there'},</p>
-      <p style="margin: 0 0 16px;">Use this OTP to finish creating your GoBook account. It expires in ${SIGNUP_OTP_EXPIRES_MINUTES} minutes.</p>
-      <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 0 0 16px;">${otp}</p>
-      <p style="margin: 0; color: #536173;">Your account will be created only after this OTP is verified.</p>
-    </div>
-  `;
+  return buildBrandedEmail({
+    title: 'Verify your GoBooks signup',
+    preheader: `Your GoBooks signup OTP expires in ${SIGNUP_OTP_EXPIRES_MINUTES} minutes.`,
+    greeting: `Hi ${name || 'there'},`,
+    intro: `Use this OTP to finish creating your GoBooks account. It expires in ${SIGNUP_OTP_EXPIRES_MINUTES} minutes.`,
+    otp,
+    notice: 'Your account will be created only after this OTP is verified.',
+    footerText: 'Welcome to GoBooks. We are keeping your signup flow secure from the first step.',
+    badge: 'Secure signup',
+  });
 }
 async function sendEmailVerificationOtp(user) {
   const otp = createResetOtp();
@@ -203,7 +211,7 @@ async function sendEmailVerificationOtp(user) {
 
   await sendMail({
     to: user.email,
-    subject: 'Verify your GoBook email',
+    subject: 'Verify your GoBooks email',
     html: getEmailVerificationHtml({ name: user.name, otp }),
   });
 }
@@ -236,7 +244,7 @@ function getSignupPayload(req) {
     phone,
     gstin,
     subscriptionPlan,
-    subscriptionAmount: SUBSCRIPTION_AMOUNTS[subscriptionPlan] || 0,
+    subscriptionAmount: 0,
   };
 }
 
@@ -247,6 +255,10 @@ async function validateSignupPayload(payload) {
   if (!payload.phone) throw httpError(400, 'Phone number is required');
   if (!CATEGORIES.includes(payload.category)) throw httpError(400, 'Select a valid business category');
   if (!SUBSCRIPTION_PLANS.includes(payload.subscriptionPlan)) throw httpError(400, 'Select a valid plan');
+
+  const plan = await getActivePlan(payload.category, payload.subscriptionPlan);
+  if (!plan) throw httpError(400, 'The selected plan is not available');
+  payload.subscriptionAmount = plan.amount;
 
   await ensureEmailAvailable(payload.email);
 }
@@ -263,18 +275,21 @@ export async function startRegistration(req, res, next) {
       {
         $set: {
           ...payload,
+          googleId: '',
+          authProvider: 'email',
           password: await bcrypt.hash(payload.password, SALT_ROUNDS),
           otpHash,
           otpExpiresAt,
           otpAttempts: 0,
         },
+        $unset: { googleProfile: 1 },
       },
       { upsert: true, setDefaultsOnInsert: true },
     );
 
     await sendMail({
       to: payload.email,
-      subject: 'Your GoBook signup OTP',
+      subject: 'Your GoBooks signup OTP',
       html: getSignupOtpEmailHtml({ name: payload.name, otp }),
     });
 
@@ -317,35 +332,14 @@ export async function verifyRegistrationOtp(req, res, next) {
       return next(httpError(400, 'Invalid or expired OTP'));
     }
 
-    const business = await createBusinessForNewUser(pending.businessName, pending.name, pending.category);
-    const user = await AppUser.create({
-      name: pending.name,
-      email: pending.email,
-      password: pending.password,
-      businessId: business._id,
-      businessName: pending.businessName,
-      category: pending.category,
-      phone: pending.phone,
-      role: 'Super Admin',
-      lastLogin: new Date().toISOString(),
-      subscriptionPlan: pending.subscriptionPlan,
-      subscriptionAmount: pending.subscriptionAmount,
-      onboardingCompleted: true,
-      emailVerified: true,
+    pending.otpAttempts = 0;
+    pending.otpVerifiedAt = new Date();
+    const checkout = await createRegistrationOrder(pending);
+    res.json({
+      paymentRequired: true,
+      message: 'Email verified. Complete payment to create your account.',
+      checkout,
     });
-
-    await BusinessSettings.create({
-      userId: user._id,
-      businessName: pending.businessName,
-      businessEmail: pending.email,
-      phone: pending.phone,
-      gstin: pending.gstin,
-    });
-
-    await PendingSignup.deleteOne({ _id: pending._id });
-
-    const token = signToken(user);
-    res.status(201).json({ token, user: toSafeUser(user) });
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, 'Email already registered. Use another email address.'));
     next(err);
@@ -414,7 +408,7 @@ export async function startGoogleOtpLogin(req, res, next) {
 
     await sendMail({
       to: email,
-      subject: 'Your GoBook Google login OTP',
+      subject: 'Your GoBooks Google login OTP',
       html: getGoogleOtpEmailHtml({ name: existing?.name || googleProfile.name || email.split('@')[0], otp }),
     });
 
@@ -478,6 +472,7 @@ export async function completeGoogleOnboarding(req, res, next) {
   try {
     const user = await AppUser.findById(req.user.id);
     if (!user) return next(httpError(404, 'User not found'));
+    if (user.onboardingCompleted || user.businessId) return next(httpError(409, 'Onboarding is already completed'));
     const businessName = String(req.body.businessName ?? '').trim();
     const category = String(req.body.category ?? '').trim();
     const phone = String(req.body.phone ?? '').trim();
@@ -490,30 +485,33 @@ export async function completeGoogleOnboarding(req, res, next) {
     if (!phone) return next(httpError(400, 'Phone number is required'));
     if (!SUBSCRIPTION_PLANS.includes(subscriptionPlan)) return next(httpError(400, 'Select a valid plan'));
     validatePassword(password);
+    const selectedPlan = await getActivePlan(category, subscriptionPlan);
+    if (!selectedPlan) return next(httpError(400, 'The selected plan is not available'));
 
-    let business;
-    if (user.businessId) {
-      business = await Business.findByIdAndUpdate(user.businessId, { name: businessName, category }, { new: true });
-    }
-    if (!business) business = await createBusinessForNewUser(businessName, user.name, category);
-
-    user.businessId = business._id;
-    user.businessName = business.name;
-    user.category = category;
-    user.phone = phone;
-    user.subscriptionPlan = subscriptionPlan;
-    user.password = await bcrypt.hash(password, SALT_ROUNDS);
-    user.onboardingCompleted = true;
-    await user.save();
-
-    await BusinessSettings.findOneAndUpdate(
-      { userId: user._id },
-      { $set: { businessName: business.name, businessEmail: user.email, phone, gstin } },
-      { upsert: true, setDefaultsOnInsert: true },
+    const { otpHash, otpExpiresAt } = await createPendingSignupOtp();
+    const pending = await PendingSignup.findOneAndUpdate(
+      { email: user.email },
+      {
+        $set: {
+          name: user.name, email: user.email,
+          googleId: user.googleId, authProvider: 'google', googleProfile: user.googleProfile,
+          password: await bcrypt.hash(password, SALT_ROUNDS),
+          businessName, category, phone, gstin, subscriptionPlan,
+          subscriptionAmount: selectedPlan.amount,
+          otpHash, otpExpiresAt, otpAttempts: 0,
+          otpVerifiedAt: new Date(), razorpayOrderId: '',
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
     );
-
-    const token = signToken(user);
-    res.json({ token, user: toSafeUser(user) });
+    const checkout = await createRegistrationOrder(pending);
+    await BusinessSettings.deleteMany({ userId: user._id });
+    await AppUser.deleteOne({ _id: user._id, onboardingCompleted: false });
+    res.json({
+      paymentRequired: true,
+      message: 'Complete payment to create your Google-linked account.',
+      checkout,
+    });
   } catch (err) {
     next(err);
   }
@@ -599,7 +597,7 @@ export async function forgotPassword(req, res, next) {
 
     await sendMail({
       to: user.email,
-      subject: 'Your GoBook password reset OTP',
+      subject: 'Your GoBooks password reset OTP',
       html: getResetOtpEmailHtml({ name: user.name, otp }),
     });
 

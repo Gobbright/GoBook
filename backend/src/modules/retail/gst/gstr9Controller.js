@@ -31,7 +31,7 @@ export async function getGstr9(req, res, next) {
 
     const [{ gstr1Docs, gstr3bDocs: generated3b }, saved3bDocs] = await Promise.all([
       buildGstr9FromSales({ userId: req.user.id, fy, gstin }),
-      Gstr3b.find({ gstin, period: { $in: periods } }).lean(),
+      Gstr3b.find({ userId: req.user.id, gstin, period: { $in: periods } }).lean(),
     ]);
 
     const gstr3bDocs = generated3b.map((generated) => {

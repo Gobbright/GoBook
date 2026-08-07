@@ -2,7 +2,7 @@ import { Invoice } from '../../../../models/Invoice.js';
 import { Payment } from '../../../../models/Payment.js';
 import { BusinessSettings } from '../../../../models/BusinessSettings.js';
 import { httpError } from '../../../../utils/httpError.js';
-import { sendMail } from '../../../../utils/mailer.js';
+import { GOBOOK_LOGO_CID, sendMail } from '../../../../utils/mailer.js';
 import { buildSalesAggregationPipeline, isBillableDocType, unwrapFacetResult } from '../shared/salesFilters.js';
 import { postInventoryForDocument, reverseInventoryForDocument } from '../../../../services/inventoryMovements.js';
 import {
@@ -272,7 +272,8 @@ export async function sendInvoiceEmail(req, res, next) {
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td style="padding:28px 36px 22px">
-            <div style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px">${biz.businessName || 'GoBook Enterprises'}</div>
+            <img src="cid:${GOBOOK_LOGO_CID}" width="132" alt="GoBooks" style="display:block;width:132px;max-width:132px;height:auto;border:0;background:#ffffff;border-radius:8px;padding:8px 10px;margin:0 0 14px;">
+            <div style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px">${biz.businessName || 'GoBooks Enterprises'}</div>
             ${biz.gstin ? `<div style="font-size:12px;color:#93c5fd;margin-top:4px">GSTIN: ${biz.gstin}</div>` : ''}
             ${(biz.address || biz.city || biz.state) ? `<div style="font-size:12px;color:#bfdbfe;margin-top:2px">${[biz.address, [biz.city, biz.state, biz.pincode].filter(Boolean).join(', ')].filter(Boolean).join(', ')}</div>` : ''}
           </td>
@@ -375,7 +376,7 @@ export async function sendInvoiceEmail(req, res, next) {
         ${biz.businessEmail ? biz.businessEmail : ''}${biz.phone ? (biz.businessEmail ? '&nbsp;&nbsp;|&nbsp;&nbsp;' : '') + biz.phone : ''}
       </div>
       <div style="font-size:11px;color:#94a3b8">This is a computer-generated ${docLabel.toLowerCase()}. Please retain this for your records.</div>
-      <div style="font-size:10px;color:#cbd5e1;margin-top:4px">Powered by GoBook</div>
+      <div style="font-size:10px;color:#cbd5e1;margin-top:4px">Powered by GoBooks</div>
     </td>
   </tr>
 
@@ -391,7 +392,7 @@ export async function sendInvoiceEmail(req, res, next) {
       ? [{ filename: `${docLabel}-${invoice.number}.pdf`, content: Buffer.from(pdfBase64, 'base64'), contentType: 'application/pdf' }]
       : [];
 
-    await sendMail({ to: toEmail, subject: `${docLabel} #${invoice.number} from ${biz.businessName || 'GoBook Enterprises'}`, html, attachments });
+    await sendMail({ to: toEmail, subject: `${docLabel} #${invoice.number} from ${biz.businessName || 'GoBooks Enterprises'}`, html, attachments });
     res.json({ message: 'Email sent successfully' });
   } catch (err) {
     next(err);

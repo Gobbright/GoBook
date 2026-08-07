@@ -44,8 +44,8 @@ export async function getGstDashboard(req, res, next) {
     const gstin = await getActiveGstin(req.user.id);
 
     const [savedGstr1, savedGstr3b] = await Promise.all([
-      Gstr1.find({ gstin, period: { $in: calendarPeriods } }).lean(),
-      Gstr3b.find({ gstin, period: { $in: [...new Set([...trendPeriods, ...calendarPeriods, currentPeriod])] } }).lean(),
+      Gstr1.find({ userId: req.user.id, gstin, period: { $in: calendarPeriods } }).lean(),
+      Gstr3b.find({ userId: req.user.id, gstin, period: { $in: [...new Set([...trendPeriods, ...calendarPeriods, currentPeriod])] } }).lean(),
     ]);
 
     const generatedTrend = await Promise.all(trendPeriods.map((period) => buildGstr3bFromSales({ userId: req.user.id, period, gstin })));

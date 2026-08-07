@@ -65,11 +65,11 @@ function toDateInputValue(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
-export function DataTable({ section, onChanged }) {
+export function DataTable({ section, onChanged, rowActions }) {
   const sourceKey = getSourceKey(section);
   const allFields = section.fields || [];
   const isUsersTable = sourceKey === 'users';
-  const viewFields = isUsersTable ? Array.from(new Set(['id', ...allFields, 'role', 'authProvider', 'updatedAt', 'lastLogin', 'password'])) : allFields;
+  const viewFields = section.viewFields || (isUsersTable ? Array.from(new Set(['id', ...allFields, 'role', 'authProvider', 'updatedAt', 'lastLogin', 'password'])) : allFields);
   const editFields = isUsersTable ? Array.from(new Set(['name', 'email', 'password', 'phone', 'businessName', 'category', 'role', 'subscriptionPlan', 'subscriptionAmount', 'status', ...allFields.filter((field) => !['id', 'createdAt', 'updatedAt', 'lastLogin', 'authProvider'].includes(field))])) : allFields;
   const [statusFilter, setStatusFilter] = useState('all');
   const [query, setQuery] = useState('');
@@ -262,12 +262,13 @@ export function DataTable({ section, onChanged }) {
                   <button onClick={() => openView(row)} className="flex-1 p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="View">
                     <Eye size={14} className="mx-auto" />
                   </button>
-                  <button onClick={() => openEdit(row)} className="flex-1 p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Edit">
+                  {rowActions?.(row, 'mobile')}
+                  {!section.readOnly && <button onClick={() => openEdit(row)} className="flex-1 p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Edit">
                     <Edit3 size={14} className="mx-auto" />
-                  </button>
-                  <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="flex-1 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Delete">
+                  </button>}
+                  {!section.readOnly && <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="flex-1 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer text-[12px] font-bold" title="Delete">
                     <Trash2 size={14} className="mx-auto" />
-                  </button>
+                  </button>}
                 </div>
               </div>
             )
@@ -282,7 +283,7 @@ export function DataTable({ section, onChanged }) {
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
                 {allFields.map((field) => <th key={field} className="px-3 py-3 text-left text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide break-words">{titleize(field)}</th>)}
-                <th className="w-28 px-3 py-3 text-right text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Actions</th>
+                <th className={`${rowActions ? 'w-48' : 'w-28'} px-3 py-3 text-right text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide`}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -292,10 +293,11 @@ export function DataTable({ section, onChanged }) {
                 rows.map((row, index) => (
                     <tr key={row.id || index} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
                       {allFields.map((field) => <td key={field} className="px-3 py-3 text-[12px] text-slate-700 dark:text-slate-300 break-words align-top" title={String(row[field] ?? '')}>{field.toLowerCase().includes('date') ? formatDate(row[field]) : formatValue(row[field])}</td>)}
-                      <td className="w-28 px-3 py-3 text-right align-top bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800">
+                      <td className={`${rowActions ? 'w-48' : 'w-28'} px-3 py-3 text-right align-top bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800`}>
                         <button onClick={() => openView(row)} className="p-1.5 text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="View"><Eye size={16} /></button>
-                        <button onClick={() => openEdit(row)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Edit"><Edit3 size={16} /></button>
-                        <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Delete"><Trash2 size={16} /></button>
+                        {rowActions?.(row, 'desktop')}
+                        {!section.readOnly && <button onClick={() => openEdit(row)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Edit"><Edit3 size={16} /></button>}
+                        {!section.readOnly && <button onClick={() => { setActionError(''); setDeleteRow(row); }} className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="Delete"><Trash2 size={16} /></button>}
                       </td>
                     </tr>
                   )

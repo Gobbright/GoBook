@@ -10,6 +10,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { apiRouter } from './routes/index.js';
 import { startScheduledJobs } from './jobs/scheduler.js';
+import { ensureDefaultSubscriptionPlans } from './services/subscriptionPlans.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,7 +46,12 @@ const corsOrigin = env.nodeEnv === 'production'
   : /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 app.use(cors({ origin: corsOrigin, credentials: true }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buffer) => {
+    if (req.originalUrl === '/api/subscriptions/razorpay/webhook') req.rawBody = Buffer.from(buffer);
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 
@@ -79,6 +85,7 @@ server.on('error', (err) => {
 async function connectDatabaseWithRetry() {
   try {
     await connectDatabase();
+    await ensureDefaultSubscriptionPlans();
     console.log('Database connected - ready to serve requests');
     startScheduledJobs();
   } catch (error) {

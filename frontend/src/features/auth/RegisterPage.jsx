@@ -1,25 +1,20 @@
 import { redirectTo } from '../../routes/navigation.js';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, Building2, Car, CheckCircle2, CreditCard, Eye, EyeOff,
+  ArrowLeft, ArrowRight, Building2, Car, Check, CheckCircle2, ChevronDown, ChevronUp, CreditCard, Eye, EyeOff,
   Factory, GraduationCap, HardHat, Hospital, Lock, Mail, Phone, RefreshCw,
   Rocket, ShieldCheck, Store, User, Users, Wallet,
 } from 'lucide-react';
 
 import { CATEGORIES } from '../../constants/categories.js';
 import { sendRegisterOtp, verifyRegisterOtp } from '../../services/authService.js';
+import { fetchSubscriptionPlans, openRazorpayCheckout, verifyRegistrationPayment } from '../../services/subscriptionService.js';
 import { AuthLayout } from './AuthLayout.jsx';
 import { CHECKBOX_TEXT, ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
 
 const CATEGORY_ICONS = {
   Store, GraduationCap, Hospital, Building2, Factory, HardHat, Users, Car, Wallet,
 };
-
-const PLANS = [
-  { value: 'starter', label: 'Starter', amount: 499, price: 'Rs. 499', note: 'Basic billing and records' },
-  { value: 'professional', label: 'Professional', amount: 999, price: 'Rs. 999', note: 'Full business modules' },
-  { value: 'enterprise', label: 'Enterprise', amount: 1999, price: 'Rs. 1,999', note: 'Advanced controls' },
-];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_REGEX = /^[A-Za-z][A-Za-z .'-]{1,}$/;
@@ -175,17 +170,29 @@ function AccountStep({ form, errors, set, showPassword, setShowPassword, onBack,
   );
 }
 
-function PlanStep({ form, errors, setPlan, error, submitting, onBack, onSubmit }) {
+function PlanStep({ form, plans, plansLoading, errors, setPlan, error, submitting, onBack, onSubmit }) {
+  const [expanded, setExpanded] = useState({});
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3" noValidate>
       <BackButton onClick={onBack} />
-      <div className="mb-1"><h2 className={`text-[19px] font-bold m-0 mb-1 ${HEADING}`}>Choose Plan</h2><p className={`text-[13px] m-0 ${SUBTEXT}`}>Same plan and price flow as Google signup</p></div>
-      {PLANS.map((plan) => (
-        <button key={plan.value} type="button" onClick={() => setPlan(plan)} className={`min-h-[74px] rounded-xl border px-3 text-left cursor-pointer flex items-center justify-between gap-3 ${form.subscriptionPlan === plan.value ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'}`}>
-          <span><span className={`block text-[13px] font-extrabold leading-tight ${HEADING}`}>{plan.label}</span><span className={`block text-[11px] mt-0.5 leading-tight ${MUTED}`}>{plan.note}</span></span>
-          <span className="text-right shrink-0"><span className={`block text-[17px] font-black leading-none ${HEADING}`}>{plan.price}</span><span className="block text-[10px] font-bold text-slate-400 mt-1">/ month</span></span>
-        </button>
-      ))}
+      <div className="mb-1"><h2 className={`text-[19px] font-bold m-0 mb-1 ${HEADING}`}>Choose Package</h2><p className={`text-[13px] m-0 ${SUBTEXT}`}>Secure annual pricing for your category</p></div>
+      {plansLoading && <div className={'rounded-xl border p-5 text-center text-sm text-slate-500'}>Loading packages...</div>}
+      {plans.map((plan) => {
+        const showAll = Boolean(expanded[plan.tier]);
+        const visibleFeatures = showAll ? plan.features : plan.features.slice(0, 4);
+        return <article key={plan.tier} className={`rounded-2xl border p-4 ${form.subscriptionPlan === plan.tier ? 'border-indigo-500 ring-2 ring-indigo-200 shadow-md' : 'border-slate-200 dark:border-slate-700'}`}>
+          <button type="button" onClick={() => setPlan(plan)} className="w-full border-0 bg-transparent p-0 text-left cursor-pointer">
+            <span className="flex items-start justify-between gap-3">
+              <b className={HEADING}>{plan.name}</b>
+              <span className="text-right"><b className={`block text-[20px] ${HEADING}`}>₹{Number(plan.amount).toLocaleString('en-IN')}</b><small className={MUTED}>per year</small></span>
+            </span>
+            <span className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {visibleFeatures.map((feature) => <span key={feature} className={`flex gap-1.5 text-[11px] ${SUBTEXT}`}><Check size={13} className="shrink-0 text-emerald-600" />{feature}</span>)}
+            </span>
+          </button>
+          {plan.features.length > 4 && <button type="button" onClick={() => setExpanded((state) => ({ ...state, [plan.tier]: !showAll }))} className="mt-3 inline-flex items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-bold text-indigo-600 cursor-pointer">{showAll ? 'Show less' : `View all ${plan.features.length} features`}{showAll ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</button>}
+        </article>;
+      })}
       <FieldError message={errors.subscriptionPlan} />
       {error && <div className={`rounded-xl px-4 py-2.5 ${ERROR_BOX}`}><span className={`text-[12.5px] ${ERROR_TEXT}`}>{error}</span></div>}
       <PrimaryButton type="submit" disabled={submitting}><Mail size={18} />{submitting ? 'Sending OTP...' : 'Send OTP'}</PrimaryButton>
@@ -206,7 +213,7 @@ function OtpStep({ email, otp, setOtp, error, message, submitting, resending, on
       <input value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} className={`${INPUT} pl-3 text-center tracking-[8px] text-[20px] font-extrabold`} placeholder="000000" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required />
       {error && <div className={`rounded-xl px-3 py-2 ${ERROR_BOX}`}><span className={`text-[12px] ${ERROR_TEXT}`}>{error}</span></div>}
       {message && <div className="rounded-xl px-3 py-2 bg-emerald-50 text-emerald-700 text-[12px] border border-emerald-100">{message}</div>}
-      <PrimaryButton type="submit" disabled={submitting || otp.length !== 6}><CheckCircle2 size={17} />{submitting ? 'Verifying...' : 'Verify and Create Account'}</PrimaryButton>
+      <PrimaryButton type="submit" disabled={submitting || otp.length !== 6}><CreditCard size={17} />{submitting ? 'Opening secure payment...' : 'Verify & Pay Securely'}</PrimaryButton>
       <button type="button" onClick={onResend} disabled={resending} className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[12px] cursor-pointer disabled:opacity-60"><RefreshCw size={14} />{resending ? 'Sending...' : 'Resend OTP'}</button>
     </form>
   );
@@ -226,6 +233,8 @@ export function RegisterPage() {
   const [otp, setOtp] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(false);
 
   const signupPayload = useMemo(() => ({
     name: form.name,
@@ -236,13 +245,32 @@ export function RegisterPage() {
     phone: form.phone,
     gstin: form.gstin.trim().toUpperCase(),
     subscriptionPlan: form.subscriptionPlan,
-    subscriptionAmount: form.subscriptionAmount,
   }), [form]);
+
+  useEffect(() => {
+    if (!form.category) return;
+    let active = true;
+    setPlansLoading(true);
+    fetchSubscriptionPlans(form.category)
+      .then((data) => {
+        if (!active) return;
+        setPlans(data.plans || []);
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Unable to load packages');
+      })
+      .finally(() => {
+        if (active) setPlansLoading(false);
+      });
+    return () => { active = false; };
+  }, [form.category]);
 
   function set(field) {
     return (e) => {
       const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-      setForm((f) => ({ ...f, [field]: value }));
+      setForm((f) => field === 'category'
+        ? { ...f, category: value, subscriptionPlan: '', subscriptionAmount: 0 }
+        : { ...f, [field]: value });
       setErrors((prev) => {
         if (!prev[field]) return prev;
         const next = { ...prev };
@@ -268,7 +296,7 @@ export function RegisterPage() {
   }
 
   function choosePlan(plan) {
-    setForm((current) => ({ ...current, subscriptionPlan: plan.value, subscriptionAmount: plan.amount }));
+    setForm((current) => ({ ...current, subscriptionPlan: plan.tier, subscriptionAmount: plan.amount }));
     setErrors((current) => {
       if (!current.subscriptionPlan) return current;
       const next = { ...current };
@@ -304,10 +332,13 @@ export function RegisterPage() {
     setMessage('');
     setSubmitting(true);
     try {
-      await verifyRegisterOtp({ email: form.email, otp });
+      const verification = await verifyRegisterOtp({ email: form.email, otp });
+      if (!verification.paymentRequired || !verification.checkout) throw new Error('Payment order was not created');
+      const payment = await openRazorpayCheckout(verification.checkout);
+      await verifyRegistrationPayment(payment);
       redirectTo('/dashboard');
     } catch (err) {
-      setError(err.message || 'Invalid OTP');
+      setError(err.message || 'Unable to verify OTP or payment');
     } finally {
       setSubmitting(false);
     }
@@ -336,7 +367,7 @@ export function RegisterPage() {
       {step === 1 && <CompanyDetailsStep form={form} errors={errors} set={set} onNext={() => goNext(validateCompanyStep)} onBack={goBack} />}
       {step === 2 && <CategoryStep form={form} errors={errors} setCategory={(value) => set('category')({ target: { type: 'text', value } })} onNext={() => goNext(validateCategoryStep)} onBack={goBack} />}
       {step === 3 && <AccountStep form={form} errors={errors} set={set} showPassword={showPassword} setShowPassword={setShowPassword} onBack={goBack} onNext={() => goNext(validateAccountStep)} />}
-      {step === 4 && <PlanStep form={form} errors={errors} setPlan={choosePlan} error={error} submitting={submitting} onBack={goBack} onSubmit={handleSendOtp} />}
+      {step === 4 && <PlanStep form={form} plans={plans} plansLoading={plansLoading} errors={errors} setPlan={choosePlan} error={error} submitting={submitting} onBack={goBack} onSubmit={handleSendOtp} />}
       {step === 5 && <OtpStep email={form.email} otp={otp} setOtp={setOtp} error={error} message={message} submitting={submitting} resending={resending} onBack={goBack} onSubmit={handleVerifyOtp} onResend={handleResendOtp} />}
     </AuthLayout>
   );

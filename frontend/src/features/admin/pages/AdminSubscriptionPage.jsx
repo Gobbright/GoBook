@@ -6,6 +6,7 @@ import { Search } from 'lucide-react';
 import { AdminLayout } from '../AdminLayout.jsx';
 import { fetchAdminSection, isAdminAuthenticated } from '../adminService.js';
 import { DataTable } from '../components/DataTable.jsx';
+import { AdminPlanManager } from './AdminPlanManager.jsx';
 
 const SUBSCRIPTION_VIEWS = {
   plans: { title: 'Plans', source: 'users', fields: ['name', 'email', 'businessName', 'subscriptionPlan', 'subscriptionAmount', 'status'] },
@@ -43,6 +44,10 @@ export function AdminSubscriptionPage({ type = 'plans' }) {
       safeNavigate(navigate, '/admin-login');
       return;
     }
+    if (type === 'plans') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -73,6 +78,20 @@ export function AdminSubscriptionPage({ type = 'plans' }) {
     fields: view.fields,
     rows,
   };
+
+  if (type === 'plans') {
+    return (
+      <AdminLayout>
+        <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+          <header className="border-b border-slate-200 bg-white px-6 py-5 dark:border-slate-800 dark:bg-slate-900">
+            <p className="m-0 text-xs font-black uppercase tracking-wide text-indigo-600">Subscription</p>
+            <h1 className="mb-0 mt-1 text-2xl font-extrabold">Plan Pricing</h1>
+          </header>
+          <AdminPlanManager />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>

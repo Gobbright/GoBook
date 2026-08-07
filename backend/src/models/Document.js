@@ -10,6 +10,7 @@ const documentSchema = new Schema({
   uploadedOn: { type: String, default: '' },
   size:       { type: String, default: '' },
   filePath:   { type: String, default: '' },
+  gridFsFileId: { type: Schema.Types.ObjectId, index: true },
   mimeType:   { type: String, default: 'application/pdf' },
 }, { timestamps: true });
 

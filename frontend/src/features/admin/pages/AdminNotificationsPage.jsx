@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { safeNavigate } from '../../../routes/navigation.js';
 import { ArrowLeft, Trash2, Eye, EyeOff, Bell, AlertCircle, AlertTriangle, CreditCard, MailCheck, Megaphone, UserPlus, RefreshCw } from 'lucide-react';
 import { AdminLayout } from '../AdminLayout.jsx';
-import { fetchAdminNotifications } from '../adminService.js';
+import { archiveAdminNotification, fetchAdminNotifications, markAllAdminNotificationsRead, updateAdminNotification } from '../adminService.js';
 
 export function AdminNotificationsPage() {
   const navigate = useNavigate();
@@ -59,14 +59,22 @@ export function AdminNotificationsPage() {
     return colors[type] || 'border-l-slate-500 bg-slate-50 dark:bg-slate-950/20';
   }
 
-  function toggleRead(id) {
+  async function toggleRead(id) {
+    const item = notifications.find((notification) => notification.id === id);
+    await updateAdminNotification(id, !item?.read);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
     );
   }
 
-  function deleteNotification(id) {
+  async function deleteNotification(id) {
+    await archiveAdminNotification(id);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }
+
+  async function markAllRead() {
+    await markAllAdminNotificationsRead();
+    setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -93,7 +101,14 @@ export function AdminNotificationsPage() {
                 </p>
               </div>
             </div>
-            <button
+            <div className="flex gap-2"><button
+              type="button"
+              onClick={markAllRead}
+              disabled={loading || unreadCount === 0}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              <MailCheck size={14} /> Mark all read
+            </button><button
               type="button"
               onClick={loadNotifications}
               disabled={loading}
@@ -102,7 +117,7 @@ export function AdminNotificationsPage() {
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               Refresh
-            </button>
+            </button></div>
           </div>
         </header>
 

@@ -71,7 +71,7 @@ export async function getReport(req, res, next) {
       }
 
       case 'itc': {
-        const savedRecords = await Gstr3b.find({ gstin, period: { $in: TREND_PERIODS } }).lean();
+        const savedRecords = await Gstr3b.find({ userId: req.user.id, gstin, period: { $in: TREND_PERIODS } }).lean();
         const generatedRecords = await Promise.all(TREND_PERIODS.map((p) => buildGstr3bFromSales({ userId: req.user.id, period: p, gstin })));
         const data = TREND_PERIODS.map((p, index) => {
           const saved = savedRecords.find((record) => record.period === p);

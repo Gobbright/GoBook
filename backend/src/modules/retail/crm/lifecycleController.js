@@ -10,11 +10,11 @@ const STAGE_DEFS = [
 ];
 
 // GET /api/crm/lifecycle
-export async function getLifecycle(_req, res, next) {
+export async function getLifecycle(req, res, next) {
   try {
     const [customers, invoices] = await Promise.all([
-      Customer.find().lean(),
-      Invoice.find({ documentType: 'invoice', status: { $ne: 'cancelled' } })
+      Customer.find({ userId: req.user.id }).lean(),
+      Invoice.find({ userId: req.user.id, documentType: 'invoice', status: { $ne: 'cancelled' } })
         .select('customer.name totals status createdAt')
         .lean(),
     ]);

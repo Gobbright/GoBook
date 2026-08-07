@@ -5,7 +5,7 @@ import { httpError } from '../../../utils/httpError.js';
 export async function listCampaigns(req, res, next) {
   try {
     const { search, status } = req.query;
-    const filter = {};
+    const filter = { userId: req.user.id };
     if (status && status !== 'All') filter.status = status;
     if (search) filter.name = new RegExp(search, 'i');
 
@@ -29,7 +29,7 @@ export async function listCampaigns(req, res, next) {
 // POST /api/more-modules/whatsapp-campaigns
 export async function createCampaign(req, res, next) {
   try {
-    const campaign = await WhatsAppCampaign.create(req.body);
+    const campaign = await WhatsAppCampaign.create({ ...req.body, userId: req.user.id });
     res.status(201).json(campaign);
   } catch (err) {
     next(err);
@@ -39,8 +39,10 @@ export async function createCampaign(req, res, next) {
 // PUT /api/more-modules/whatsapp-campaigns/:id
 export async function updateCampaign(req, res, next) {
   try {
-    const campaign = await WhatsAppCampaign.findByIdAndUpdate(
-      req.params.id, { $set: req.body }, { new: true, runValidators: true },
+    const campaign = await WhatsAppCampaign.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      { $set: { ...req.body, userId: req.user.id } },
+      { new: true, runValidators: true },
     ).lean();
     if (!campaign) return next(httpError(404, 'Campaign not found'));
     res.json(campaign);
@@ -52,7 +54,7 @@ export async function updateCampaign(req, res, next) {
 // DELETE /api/more-modules/whatsapp-campaigns/:id
 export async function deleteCampaign(req, res, next) {
   try {
-    const campaign = await WhatsAppCampaign.findByIdAndDelete(req.params.id).lean();
+    const campaign = await WhatsAppCampaign.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
     if (!campaign) return next(httpError(404, 'Campaign not found'));
     res.json({ message: 'Campaign deleted' });
   } catch (err) {

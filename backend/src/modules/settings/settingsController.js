@@ -1,24 +1,16 @@
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { BusinessSettings } from '../../models/BusinessSettings.js';
 import { runAppointmentReminders } from '../../jobs/appointmentReminders.js';
 import { httpError } from '../../utils/httpError.js';
+import { deleteStoredFile, hasExpectedFileSignature, storeBuffer } from '../../services/gridfsStorage.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LOGO_DIR = path.join(__dirname, '../../../uploads/logos');
-if (!fs.existsSync(LOGO_DIR)) fs.mkdirSync(LOGO_DIR, { recursive: true });
-
-const logoStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, LOGO_DIR),
-  filename:    (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `logo-${Date.now()}${ext}`);
-  },
-});
 export const logoUpload = multer({
-  storage: logoStorage,
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = /^image\/(jpeg|png|gif|webp)$/i.test(file.mimetype);
+    callback(allowed ? null : httpError(400, 'Only JPG, PNG, GIF, or WebP logos are allowed'), allowed);
+  },
 });
 
 // GET /api/settings
@@ -96,15 +88,20 @@ export async function sendTestEmail(req, res, next) {
 export async function uploadLogo(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    if (!hasExpectedFileSignature(req.file.buffer, req.file.mimetype)) return next(httpError(400, 'Logo content does not match its declared image type'));
     const userId = req.user.id;
     let settings = await BusinessSettings.findOne({ userId });
     if (!settings) settings = await BusinessSettings.create({ userId });
-    if (settings.logoUrl) {
-      const oldPath = path.join(__dirname, '../../../../', settings.logoUrl.replace(/^\//, ''));
-      fs.unlink(oldPath, () => {});
-    }
-    const logoUrl = `/uploads/logos/${req.file.filename}`;
+    const stored = await storeBuffer({
+      buffer: req.file.buffer,
+      filename: req.file.originalname,
+      contentType: req.file.mimetype,
+      metadata: { kind: 'business-logo', userId, businessId: req.user.businessId },
+    });
+    if (settings.logoFileId) await deleteStoredFile(settings.logoFileId).catch(() => {});
+    const logoUrl = `/api/files/logos/${stored.id}`;
     settings.logoUrl = logoUrl;
+    settings.logoFileId = stored.id;
     await settings.save();
     res.json({ logoUrl });
   } catch (err) {
@@ -117,10 +114,10 @@ export async function removeLogo(req, res, next) {
   try {
     const userId = req.user.id;
     const settings = await BusinessSettings.findOne({ userId });
-    if (settings?.logoUrl) {
-      const filePath = path.join(__dirname, '../../../../', settings.logoUrl.replace(/^\//, ''));
-      fs.unlink(filePath, () => {});
+    if (settings?.logoUrl || settings?.logoFileId) {
+      if (settings.logoFileId) await deleteStoredFile(settings.logoFileId).catch(() => {});
       settings.logoUrl = '';
+      settings.logoFileId = undefined;
       await settings.save();
     }
     res.json({ logoUrl: '' });

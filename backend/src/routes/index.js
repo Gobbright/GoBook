@@ -23,10 +23,14 @@ import { moreModulesRouter } from '../modules/retail/more-modules/routes.js';
 import { salesRouter } from '../modules/retail/sales/routes.js';
 import { searchRouter } from '../modules/search/routes.js';
 import { settingsRouter } from '../modules/settings/routes.js';
+import { subscriptionRouter } from '../modules/subscriptions/routes.js';
+import { publicFilesRouter } from '../modules/files/routes.js';
 
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/subscriptions', subscriptionRouter);
+apiRouter.use('/files', publicFilesRouter);
 apiRouter.use('/employee', employeePortalRouter);
 apiRouter.use('/admin', adminRouter);
 

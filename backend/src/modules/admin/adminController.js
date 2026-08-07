@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 
 import { AccountingPosting } from '../../models/AccountingPosting.js';
 import { AdminRecord } from '../../models/AdminRecord.js';
+import { AdminNotification } from '../../models/AdminNotification.js';
 import { AccountingVoucher } from '../../models/AccountingVoucher.js';
 import { AppUser } from '../../models/AppUser.js';
 import { Attendance } from '../../models/Attendance.js';
@@ -24,6 +25,8 @@ import { Lead } from '../../models/Lead.js';
 import { Leave } from '../../models/Leave.js';
 import { LedgerAccount } from '../../models/LedgerAccount.js';
 import { Payment } from '../../models/Payment.js';
+import { SubscriptionPayment } from '../../models/SubscriptionPayment.js';
+import { SubscriptionPlan } from '../../models/SubscriptionPlan.js';
 import { Payroll } from '../../models/Payroll.js';
 import { Product } from '../../models/Product.js';
 import { SalesRecord } from '../../models/SalesRecord.js';
@@ -35,12 +38,15 @@ import { WhatsAppCampaign } from '../../models/WhatsAppCampaign.js';
 import { env } from '../../config/env.js';
 import { httpError } from '../../utils/httpError.js';
 import { signAdminToken } from './adminAuth.js';
+import { ensureDefaultSubscriptionPlans, planPublicView } from '../../services/subscriptionPlans.js';
+import { createAdminNotification } from '../../services/adminNotifications.js';
+import { sendSubscriptionInvoice } from '../../services/subscriptionInvoice.js';
 
 const SALT_ROUNDS = 12;
 
 const COLLECTIONS = [
   { key: 'businesses', label: 'Businesses', model: Business, fields: ['name', 'category', 'createdAt'] },
-  { key: 'users', label: 'Users', model: AppUser, fields: ['name', 'email', 'phone', 'role', 'status', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'authProvider', 'createdAt', 'lastLogin'] },
+  { key: 'users', label: 'Users', model: AppUser, fields: ['name', 'email', 'phone', 'role', 'status', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'subscriptionStartDate', 'subscriptionExpiresAt', 'authProvider', 'createdAt', 'lastLogin'] },
   { key: 'businessSettings', label: 'Business Settings', model: BusinessSettings, fields: ['businessName', 'businessEmail', 'phone', 'gstin', 'city', 'state'] },
   { key: 'branches', label: 'Branches', model: Branch, fields: ['name', 'code', 'city', 'state', 'status'] },
   { key: 'customers', label: 'Customers', model: Customer, fields: ['name', 'email', 'phone', 'gstin', 'city'] },
@@ -191,7 +197,7 @@ async function getAdminPanelStats() {
     deletedUsers,
     todayRegistrations,
     allUsers,
-    payments,
+    subscriptionPayments,
   ] = await Promise.all([
     AppUser.countDocuments(),
     AppUser.countDocuments({ status: /^active$/i }),
@@ -200,7 +206,7 @@ async function getAdminPanelStats() {
     AppUser.countDocuments({ status: /^deleted$/i }),
     AppUser.countDocuments({ createdAt: { $gte: today } }),
     AppUser.find({}).select('name email businessName category subscriptionPlan subscriptionAmount status createdAt lastLogin phone').lean(),
-    Payment.find({}).select('amount status date createdAt customerName mode').lean(),
+    SubscriptionPayment.find({}).select('amount status paidAt createdAt customerName method businessName category tier razorpayPaymentId').lean(),
   ]);
 
   const subscriptionCounts = allUsers.reduce((acc, user) => {
@@ -209,10 +215,10 @@ async function getAdminPanelStats() {
     return acc;
   }, {});
 
-  const totalRevenue = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-  const successfulPayments = payments.filter((payment) => /^success|paid|completed$/i.test(String(payment.status || ''))).length;
-  const failedPayments = payments.filter((payment) => /^fail|failed|cancelled$/i.test(String(payment.status || ''))).length;
-  const pendingPayments = payments.filter((payment) => /^pending|processing$/i.test(String(payment.status || ''))).length;
+  const totalRevenue = subscriptionPayments.filter((payment) => payment.status === 'successful').reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+  const successfulPayments = subscriptionPayments.filter((payment) => payment.status === 'successful').length;
+  const failedPayments = subscriptionPayments.filter((payment) => payment.status === 'failed').length;
+  const pendingPayments = subscriptionPayments.filter((payment) => /^pending|processing$/i.test(String(payment.status || ''))).length;
 
   return {
     totalUsers,
@@ -227,14 +233,14 @@ async function getAdminPanelStats() {
     activeSubscriptions: totalUsers - (subscriptionCounts.noPlan || 0),
     expiredSubscriptions: 0,
     renewalRequests: 0,
-    renewalHistory: payments.length,
-    allPayments: payments.length,
+    renewalHistory: subscriptionPayments.length,
+    allPayments: subscriptionPayments.length,
     pendingPayments,
     successfulPayments,
     failedPayments,
     subscriptionCounts,
     users: allUsers.slice(0, 20),
-    payments: payments.slice(0, 20),
+    payments: subscriptionPayments.slice(0, 20),
   };
 }
 async function summarizeCollection(item, section) {
@@ -317,6 +323,96 @@ export async function getAdminStats(_req, res, next) {
   }
 }
 
+export async function getSubscriptionPlans(_req, res, next) {
+  try {
+    await ensureDefaultSubscriptionPlans();
+    const plans = await SubscriptionPlan.find({}).sort({ category: 1, sortOrder: 1 }).lean();
+    res.json({ plans: plans.map(planPublicView) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateSubscriptionPlan(req, res, next) {
+  try {
+    const amount = Number(req.body.amount);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 10000000) {
+      return next(httpError(400, 'Amount must be a whole rupee value between 1 and 1,00,00,000'));
+    }
+    const update = { amount };
+    if (req.body.enabled !== undefined) update.enabled = Boolean(req.body.enabled);
+    if (Array.isArray(req.body.features)) {
+      const features = req.body.features.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 30);
+      if (features.length < 4) return next(httpError(400, 'Every package must have at least 4 features'));
+      update.features = features;
+    }
+    const plan = await SubscriptionPlan.findByIdAndUpdate(req.params.id, { $set: update }, { new: true, runValidators: true }).lean();
+    if (!plan) return next(httpError(404, 'Subscription plan not found'));
+    res.json({ plan: planPublicView(plan) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+function subscriptionPaymentView(payment) {
+  return {
+    id: payment._id,
+    customerName: payment.customerName,
+    email: payment.email,
+    businessName: payment.businessName,
+    category: payment.category,
+    tier: payment.tier,
+    amount: payment.amount,
+    currency: payment.currency,
+    status: payment.status,
+    mode: payment.method || '',
+    orderId: payment.razorpayOrderId,
+    paymentId: payment.razorpayPaymentId || '',
+    paidAt: payment.paidAt || null,
+    invoiceNumber: payment.invoiceNumber || '',
+    invoiceEmailStatus: payment.invoiceEmailStatus || '',
+    invoiceEmailSentAt: payment.invoiceEmailSentAt || null,
+    invoicePdfFileId: payment.invoicePdfFileId || null,
+    createdAt: payment.createdAt,
+  };
+}
+
+export async function getSubscriptionPayments(req, res, next) {
+  try {
+    const status = String(req.query.status || '').trim();
+    const query = status === 'pending'
+      ? { status: { $in: ['pending', 'processing'] } }
+      : status && status !== 'all'
+        ? { status: status === 'success' ? 'successful' : status }
+        : {};
+    const payments = await SubscriptionPayment.find(query).sort({ createdAt: -1, _id: -1 }).limit(2000).lean();
+    res.json({
+      key: 'subscriptionPayments',
+      label: 'Razorpay Subscription Payments',
+      count: payments.length,
+      fields: ['customerName', 'email', 'businessName', 'category', 'tier', 'amount', 'status', 'mode', 'orderId', 'paymentId', 'invoiceNumber', 'invoiceEmailStatus', 'invoiceEmailSentAt', 'paidAt', 'createdAt'],
+      rows: payments.map(subscriptionPaymentView),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function sendSubscriptionPaymentInvoice(req, res, next) {
+  try {
+    const payment = await SubscriptionPayment.findById(req.params.id).select('status invoiceEmailStatus');
+    if (!payment) return next(httpError(404, 'Subscription payment not found'));
+    if (payment.status !== 'successful') return next(httpError(400, 'Invoice can be sent only after a successful payment'));
+    const result = await sendSubscriptionInvoice(payment._id, { force: true });
+    if (result.skipped) return next(httpError(409, 'Invoice email is already being processed'));
+    if (!result.sent) return next(httpError(502, 'Invoice email could not be sent. It is saved for automatic retry.'));
+    const updated = await SubscriptionPayment.findById(payment._id).lean();
+    res.json({ message: 'Invoice sent successfully', payment: subscriptionPaymentView(updated) });
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 
 
@@ -339,7 +435,7 @@ function addDays(date, days) {
   return next;
 }
 
-export async function getAdminNotifications(_req, res, next) {
+async function getLegacyAdminNotifications(_req, res, next) {
   try {
     const today = startOfToday();
     const tomorrow = addDays(today, 1);
@@ -349,7 +445,7 @@ export async function getAdminNotifications(_req, res, next) {
       AppUser.find({ createdAt: { $gte: today } }).sort({ createdAt: -1, _id: -1 }).limit(25).select('name email businessName createdAt').lean(),
       AppUser.find({ status: /^expired$/i }).sort({ updatedAt: -1, _id: -1 }).limit(10).select('name email businessName updatedAt createdAt').lean(),
       AdminRecord.find({ group: 'Notifications' }).sort({ createdAt: -1, _id: -1 }).limit(10).lean(),
-      Payment.find({ createdAt: { $gte: today } }).sort({ createdAt: -1, _id: -1 }).limit(10).select('customerName amount method createdAt').lean(),
+      SubscriptionPayment.find({ createdAt: { $gte: today }, status: 'successful' }).sort({ createdAt: -1, _id: -1 }).limit(10).select('customerName businessName amount method createdAt').lean(),
     ]);
 
     const notifications = [
@@ -387,7 +483,7 @@ export async function getAdminNotifications(_req, res, next) {
         { recordId: record._id }
       )),
       ...recentPayments.map((payment) => {
-        const displayName = payment.customerName || 'Customer';
+        const displayName = payment.businessName || payment.customerName || 'Customer';
         return buildNotification(
           `payment-${payment._id}`,
           'payment',
@@ -411,6 +507,109 @@ export async function getAdminNotifications(_req, res, next) {
     });
   } catch (err) {
     next(err);
+  }
+}
+
+async function syncStoredAdminNotifications() {
+  const today = startOfToday();
+  const [newUsers, expiredUsers, payments] = await Promise.all([
+    AppUser.find({ createdAt: { $gte: today } }).select('name email businessName businessId createdAt').lean(),
+    AppUser.find({ status: /^expired$/i }).select('name email businessName businessId subscriptionExpiresAt updatedAt').limit(2000).lean(),
+    SubscriptionPayment.find({ status: 'successful' }).select('customerName businessName amount userId businessId paidAt createdAt').sort({ createdAt: -1 }).limit(2000).lean(),
+  ]);
+  await Promise.all([
+    ...newUsers.map((user) => createAdminNotification({
+      dedupeKey: `new-user:${user._id}`, type: 'new_user', title: 'New user registration',
+      message: `${user.businessName || user.name || user.email} registered today`, relatedUser: user.businessName || user.name,
+      userId: user._id, businessId: user.businessId,
+    })),
+    ...expiredUsers.map((user) => createAdminNotification({
+      dedupeKey: `expired:${user._id}:${new Date(user.subscriptionExpiresAt || user.updatedAt).toISOString().slice(0, 10)}`,
+      type: 'subscription_expired', title: 'Subscription expired',
+      message: `${user.businessName || user.name || user.email} is expired`, relatedUser: user.businessName || user.name,
+      userId: user._id, businessId: user.businessId,
+    })),
+    ...payments.map((payment) => createAdminNotification({
+      dedupeKey: `payment:${payment._id}`, type: 'payment', title: 'Payment received',
+      message: `${payment.businessName || payment.customerName} paid INR ${Number(payment.amount || 0).toLocaleString('en-IN')}`,
+      relatedUser: payment.businessName || payment.customerName, userId: payment.userId, businessId: payment.businessId, paymentId: payment._id,
+    })),
+  ]);
+}
+
+function notificationView(item) {
+  return {
+    id: item._id,
+    type: item.type,
+    title: item.title,
+    message: item.message,
+    relatedUser: item.relatedUser || '',
+    read: Boolean(item.read),
+    userId: item.userId || null,
+    businessId: item.businessId || null,
+    paymentId: item.paymentId || null,
+    metadata: item.metadata || {},
+    createdAt: item.createdAt,
+  };
+}
+
+export async function getAdminNotifications(req, res, next) {
+  try {
+    await syncStoredAdminNotifications();
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 500, 1), 2000);
+    const query = { archived: false };
+    if (req.query.type && req.query.type !== 'all') query.type = String(req.query.type);
+    const [items, count, unreadCount, grouped, newUserCount, expiringCount] = await Promise.all([
+      AdminNotification.find(query).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      AdminNotification.countDocuments(query),
+      AdminNotification.countDocuments({ ...query, read: false }),
+      AdminNotification.aggregate([{ $match: query }, { $group: { _id: '$type', count: { $sum: 1 }, unread: { $sum: { $cond: ['$read', 0, 1] } } } }]),
+      AdminNotification.countDocuments({ archived: false, type: 'new_user', createdAt: { $gte: startOfToday() } }),
+      AdminNotification.countDocuments({ archived: false, type: { $in: ['expiry_30day', 'expiry_7day', 'expiry_1day', 'subscription_expired'] }, read: false }),
+    ]);
+    res.json({
+      count,
+      unreadCount,
+      newUserCount,
+      expiringCount,
+      generatedAt: new Date().toISOString(),
+      page,
+      pages: Math.max(1, Math.ceil(count / limit)),
+      countsByType: Object.fromEntries(grouped.map((row) => [row._id, { count: row.count, unread: row.unread }])),
+      notifications: items.map(notificationView),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateAdminNotification(req, res, next) {
+  try {
+    const notification = await AdminNotification.findByIdAndUpdate(req.params.id, { $set: { read: Boolean(req.body.read) } }, { new: true, runValidators: true }).lean();
+    if (!notification) return next(httpError(404, 'Notification not found'));
+    res.json({ notification: notificationView(notification) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function markAllAdminNotificationsRead(_req, res, next) {
+  try {
+    const result = await AdminNotification.updateMany({ archived: false, read: false }, { $set: { read: true } });
+    res.json({ updated: result.modifiedCount });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function archiveAdminNotification(req, res, next) {
+  try {
+    const notification = await AdminNotification.findByIdAndUpdate(req.params.id, { $set: { archived: true, read: true } }, { new: true }).lean();
+    if (!notification) return next(httpError(404, 'Notification not found'));
+    res.json({ archived: true, id: notification._id });
+  } catch (error) {
+    next(error);
   }
 }
 export async function getAdminRecords(req, res, next) {
