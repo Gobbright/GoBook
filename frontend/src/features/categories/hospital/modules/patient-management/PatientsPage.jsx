@@ -70,6 +70,55 @@ function ActionButton({ children, onClick, tone = 'blue' }) {
   );
 }
 
+function DiagnosticsHistory({ active = 'Laboratory' }) {
+  const rows = [
+    { date: '07 Aug 2026', items: [
+      { type: 'Laboratory', name: 'CBC', status: 'COMPLETED', note: 'WBC High', warning: true },
+      { type: 'Radiology', name: 'Chest X-Ray', status: 'FINAL' },
+    ] },
+    { date: '20 Jun 2026', items: [
+      { type: 'Laboratory', name: 'Blood Sugar', status: 'COMPLETED' },
+    ] },
+  ];
+  return (
+    <div>
+      <div className="mb-3">
+        <div className="text-[12px] font-extrabold uppercase text-[#536173]">Diagnostics</div>
+        <div className="mt-2 flex gap-2">
+          {['Laboratory', 'Radiology'].map((tab) => (
+            <span key={tab} className={`rounded-md border px-2.5 py-1 text-[12px] font-semibold ${active === tab ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-[#dbe4ef] bg-white text-[#536173]'}`}>{tab}</span>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-4">
+        {rows.map((group) => {
+          const filteredItems = group.items.filter((item) => item.type === active);
+          if (!filteredItems.length) return null;
+          return (
+            <div key={group.date} className="rounded-md border border-[#dbe4ef] bg-white p-3">
+              <div className="mb-3 text-[12px] font-extrabold text-[#536173]">{group.date}</div>
+              <div className="space-y-3">
+                {filteredItems.map((item) => (
+                  <div key={item.name} className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[13px] font-extrabold text-[#071936]">{item.name}</div>
+                      {item.note && <div className="mt-1 text-[12px] font-semibold text-amber-700">Warning: {item.note}</div>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-[11px] font-extrabold text-green-700">{item.status}</span>
+                      <button type="button" className="rounded-md border border-[#dbe4ef] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#374151]">View Report</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MoreMenu({ record, onEdit, onNavigate }) {
   const [open, setOpen] = useState(false);
   const data = record.data || {};
@@ -125,6 +174,9 @@ function ProfileTabContent({ tab, patient }) {
         ))}
       </div>
     );
+  }
+  if (tab === 'Laboratory' || tab === 'Radiology') {
+    return <DiagnosticsHistory active={tab} />;
   }
   return <div className="text-[12.5px] text-[#536173]">{tab} records for this patient will appear here as the hospital workflow grows.</div>;
 }

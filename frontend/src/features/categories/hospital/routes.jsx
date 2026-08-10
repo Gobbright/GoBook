@@ -6,11 +6,17 @@ import { ProceduresPage } from './modules/clinical/ProceduresPage.jsx';
 import { FollowUpPlanPage } from './modules/clinical/FollowUpPlanPage.jsx';
 import { AdmissionPage } from './modules/clinical/AdmissionPage.jsx';
 import { InpatientsPage } from './modules/clinical/InpatientsPage.jsx';
+import { NursesPage } from './modules/clinical/NursesPage.jsx';
+import { PatientAssignmentPage } from './modules/clinical/PatientAssignmentPage.jsx';
+import { ShiftAllocationPage } from './modules/clinical/ShiftAllocationPage.jsx';
 import { WardRoomsPage } from './modules/clinical/WardRoomsPage.jsx';
 import { BedAllocationPage } from './modules/clinical/BedAllocationPage.jsx';
 import { TransferPage } from './modules/clinical/TransferPage.jsx';
 import { DischargeWorkflowPage } from './modules/clinical/DischargeWorkflowPage.jsx';
 import { laboratoryRoutes } from './modules/laboratory/routes.jsx';
+import { LaboratoryPage } from './modules/laboratory/LaboratoryPage.jsx';
+import { RadiologyPage } from './modules/laboratory/RadiologyPage.jsx';
+import { ScanReportsPage } from './modules/laboratory/ScanReportsPage.jsx';
 import { BillsInvoicesPage } from './modules/medical-billing/BillsInvoicesPage.jsx';
 import { EstimatesPage } from './modules/medical-billing/EstimatesPage.jsx';
 import { HospitalPaymentsPage } from './modules/medical-billing/HospitalPaymentsPage.jsx';
@@ -21,6 +27,7 @@ import { PackagesPage } from './modules/medical-billing/PackagesPage.jsx';
 import { RefundsPage } from './modules/medical-billing/RefundsPage.jsx';
 import { patientManagementRoutes } from './modules/patient-management/routes.jsx';
 import { PharmacyBillingPage } from './modules/pharmacy/PharmacyBillingPage.jsx';
+import { PrescriptionsQueuePage } from './modules/pharmacy/PrescriptionsQueuePage.jsx';
 import { pharmacyRoutes } from './modules/pharmacy/routes.jsx';
 import { AppointmentCalendarPage } from './AppointmentCalendarPage.jsx';
 import { BookAppointmentPage } from './BookAppointmentPage.jsx';
@@ -320,19 +327,13 @@ const requestedHospitalRoutes = [
 
   recordRoute('/hospital/doctors', 'hospital/doctors', 'Doctor List', 'Doctors', doctorFields, 'Manage doctors'),
   recordRoute('/hospital/specializations', 'hospital/doctors', 'Specializations', 'Doctors', doctorFields, 'Manage doctors'),
-  recordRoute('/hospital/doctor-availability', 'hospital/doctors', 'Availability', 'Doctors', doctorFields, 'Schedule management'),
-  recordRoute('/hospital/doctor-schedule-management', 'hospital/doctors', 'Schedule', 'Doctors', doctorFields, 'Schedule management'),
+  { path: '/hospital/doctor-availability', element: <DoctorSchedulePage /> },
+  { path: '/hospital/doctor-schedule-management', element: <DoctorSchedulePage /> },
   recordRoute('/hospital/consultation-fees', 'hospital/doctors', 'Consultation Fees', 'Doctors', doctorFields, 'Consultation tracking'),
 
-  recordRoute('/hospital/nurse-list', 'hospital/nurses', 'Nurse List', 'Nursing', [
-    { key: 'name', label: 'Nurse Name', required: true },
-    { key: 'departmentName', label: 'Department', type: 'lookup', lookupModule: 'hospital/departments' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'shift', label: 'Shift' },
-    { key: 'status', label: 'Status', type: 'select', options: ['Active', 'On Leave', 'Inactive'] },
-  ], 'Shift management'),
-  recordRoute('/hospital/shift-allocation', 'hospital/nursing-care', 'Shift Allocation', 'Nursing', nursingFields, 'Shift management'),
-  recordRoute('/hospital/patient-assignment', 'hospital/nursing-care', 'Patient Assignment', 'Nursing', nursingFields, 'Patient care records'),
+  { path: '/hospital/nurse-list', element: <NursesPage /> },
+  { path: '/hospital/shift-allocation', element: <ShiftAllocationPage /> },
+  { path: '/hospital/patient-assignment', element: <PatientAssignmentPage /> },
   recordRoute('/hospital/nursing-care-notes', 'hospital/nursing-care', 'Nursing Notes', 'Nursing', nursingFields, 'Patient care records'),
 
   recordRoute('/hospital/wards', 'hospital/bed-management', 'Wards', 'Ward & Bed Management', bedFields, 'Live availability'),
@@ -342,22 +343,23 @@ const requestedHospitalRoutes = [
   recordRoute('/hospital/nicu', 'hospital/bed-management', 'NICU', 'Ward & Bed Management', bedFields, 'Bed allocation'),
   recordRoute('/hospital/occupancy', 'hospital/bed-management', 'Occupancy', 'Ward & Bed Management', bedFields, 'Live availability'),
 
-  recordRoute('/hospital/test-categories', 'hospital/lab-workflow', 'Test Categories', 'Laboratory', labFields, 'Lab workflow'),
+  { path: '/hospital/laboratory', element: <LaboratoryPage /> },
+  { path: '/hospital/test-categories', element: <LaboratoryPage /> },
   recordRoute('/hospital/test-booking', 'hospital/lab-workflow', 'Test Booking', 'Laboratory', labFields, 'Lab workflow'),
   recordRoute('/hospital/sample-collection', 'hospital/lab-workflow', 'Sample Collection', 'Laboratory', labFields, 'Lab workflow'),
   recordRoute('/hospital/test-results', 'hospital/lab-workflow', 'Test Results', 'Laboratory', labFields, 'Report generation'),
   recordRoute('/hospital/lab-reports', 'hospital/lab-workflow', 'Reports', 'Laboratory', labFields, 'Doctor access'),
 
   recordRoute('/hospital/x-ray', 'hospital/radiology-workflow', 'X-Ray', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
-  recordRoute('/hospital/radiology', 'hospital/radiology-workflow', 'Radiology', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
+  { path: '/hospital/radiology', element: <RadiologyPage /> },
   recordRoute('/hospital/ct-scan', 'hospital/radiology-workflow', 'CT Scan', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
   recordRoute('/hospital/mri', 'hospital/radiology-workflow', 'MRI', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
   recordRoute('/hospital/ultrasound', 'hospital/radiology-workflow', 'Ultrasound', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
   recordRoute('/hospital/ecg', 'hospital/radiology-workflow', 'ECG', 'Radiology', radiologyFields, 'Scan scheduling', { radiology: true }),
-  recordRoute('/hospital/radiology-reports', 'hospital/radiology-workflow', 'Reports', 'Radiology', radiologyFields, 'Digital reports', { radiology: true }),
+  { path: '/hospital/radiology-reports', element: <ScanReportsPage /> },
 
   recordRoute('/hospital/medicine-dispensing', 'hospital/pharmacy-dispensing', 'Medicine Dispensing', 'Pharmacy', pharmacyFields, 'Dispense medicines'),
-  recordRoute('/hospital/prescription-orders', 'hospital/pharmacy-dispensing', 'Prescription Orders', 'Pharmacy', pharmacyFields, 'Link prescriptions'),
+  { path: '/hospital/prescription-orders', element: <PrescriptionsQueuePage /> },
   recordRoute('/hospital/medicine-returns', 'hospital/pharmacy-dispensing', 'Medicine Returns', 'Pharmacy', pharmacyFields, 'Track issued medicines'),
   recordRoute('/hospital/batch-tracking', 'hospital/pharmacy-dispensing', 'Batch Tracking', 'Pharmacy', pharmacyFields, 'Track issued medicines'),
   recordRoute('/hospital/batch-expiry', 'hospital/pharmacy-dispensing', 'Batch/Expiry', 'Pharmacy', pharmacyFields, 'Track batches and expiry alerts'),
