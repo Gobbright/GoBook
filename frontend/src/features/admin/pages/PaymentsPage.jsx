@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { safeNavigate } from '../../../routes/navigation.js';
-import { Search } from 'lucide-react';
+import { Download, Mail, RefreshCw, Search } from 'lucide-react';
 
 import { AdminLayout } from '../AdminLayout.jsx';
 import { DataTable } from '../components/DataTable.jsx';
-import { fetchAdminSection, isAdminAuthenticated } from '../adminService.js';
+import { downloadAdminStorageFile, fetchSubscriptionPayments, isAdminAuthenticated, sendSubscriptionPaymentInvoice } from '../adminService.js';
 
 const PAYMENT_VIEWS = {
   all: { title: 'All Payments', subtitle: 'All payment transactions from DB', status: 'all' },
@@ -26,6 +26,8 @@ export function PaymentsPage({ type = 'all' }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [invoiceActionId, setInvoiceActionId] = useState('');
+  const [invoiceMessage, setInvoiceMessage] = useState('');
 
   async function loadData() {
     if (!isAdminAuthenticated()) {
@@ -36,7 +38,7 @@ export function PaymentsPage({ type = 'all' }) {
     setLoading(true);
     setError('');
     try {
-      const result = await fetchAdminSection('payments');
+      const result = await fetchSubscriptionPayments(view.status);
       setSection(result);
     } catch (err) {
       setError(err.message || 'Failed to load payments from DB');
@@ -49,21 +51,63 @@ export function PaymentsPage({ type = 'all' }) {
     loadData();
   }, [type]);
 
+  async function sendInvoice(row) {
+    if (normalize(row.status) !== 'successful' || !row.id) return;
+    try {
+      setInvoiceActionId(row.id);
+      setError('');
+      setInvoiceMessage('');
+      const result = await sendSubscriptionPaymentInvoice(row.id);
+      setInvoiceMessage(result.message || 'Invoice sent successfully');
+      await loadData();
+    } catch (invoiceError) {
+      setError(invoiceError.message || 'Unable to send invoice');
+    } finally {
+      setInvoiceActionId('');
+    }
+  }
+
+  function paymentActions(row, mode) {
+    const successful = normalize(row.status) === 'successful';
+    const sending = invoiceActionId === row.id;
+    const compact = mode === 'mobile' ? 'flex-1 justify-center' : '';
+    return <>
+      <button
+        type="button"
+        onClick={() => sendInvoice(row)}
+        disabled={!successful || sending}
+        className={`${compact} inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-950/30`}
+        title={successful ? (row.invoiceEmailStatus === 'sent' ? 'Resend invoice email' : 'Send invoice email') : 'Available after successful payment'}
+      >
+        {sending ? <RefreshCw size={13} className="animate-spin" /> : <Mail size={13} />}
+        {row.invoiceEmailStatus === 'sent' ? 'Resend' : 'Send Invoice'}
+      </button>
+      {row.invoicePdfFileId ? <button
+        type="button"
+        onClick={() => downloadAdminStorageFile(row.invoicePdfFileId)}
+        className={`${compact} ml-1 inline-flex items-center gap-1 rounded-md border border-blue-200 px-2 py-1.5 text-[11px] font-bold text-blue-700 transition hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/30`}
+        title="Download invoice PDF"
+      >
+        <Download size={13} /> PDF
+      </button> : null}
+    </>;
+  }
+
   const rows = useMemo(() => {
     const allRows = section?.rows || [];
-    const filtered = view.status === 'all' ? allRows : allRows.filter((row) => normalize(row.status) === view.status);
-    const byStatus = filtered.length > 0 ? filtered : allRows.slice(0, 1);
+    const byStatus = allRows;
     const term = query.trim().toLowerCase();
     if (!term) return byStatus;
     return byStatus.filter((row) => Object.values(row).some((value) => normalize(value).includes(term)));
-  }, [query, section, view.status]);
+  }, [query, section]);
 
   const tableSection = {
     key: `payments-${type}`,
-    sourceKey: 'payments',
     label: view.title,
     count: rows.length,
-    fields: ['customerName', 'amount', 'mode', 'status', 'date'],
+    readOnly: true,
+    fields: ['customerName', 'email', 'businessName', 'category', 'tier', 'amount', 'status', 'invoiceNumber', 'invoiceEmailStatus', 'paidAt'],
+    viewFields: ['customerName', 'email', 'businessName', 'category', 'tier', 'amount', 'status', 'mode', 'orderId', 'paymentId', 'invoiceNumber', 'invoiceEmailStatus', 'invoiceEmailSentAt', 'paidAt', 'createdAt'],
     rows,
   };
 
@@ -90,7 +134,8 @@ export function PaymentsPage({ type = 'all' }) {
 
           {loading && <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-8 text-center text-slate-500 dark:text-slate-400 font-medium">Loading payments...</div>}
           {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm font-bold text-red-700">{error}</div>}
-          {!loading && !error && <DataTable section={tableSection} onChanged={loadData} />}
+          {invoiceMessage && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">{invoiceMessage}</div>}
+          {!loading && <DataTable section={tableSection} rowActions={paymentActions} />}
         </main>
       </div>
     </AdminLayout>

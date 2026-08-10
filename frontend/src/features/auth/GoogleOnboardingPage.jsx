@@ -4,10 +4,11 @@ import { ArrowLeft, ArrowRight, Building2, CheckCircle2, Eye, EyeOff, Lock, Mail
 
 import { CATEGORIES } from '../../constants/categories.js';
 import { completeGoogleOnboarding, getCurrentUser, logout } from '../../services/authService.js';
+import { fetchSubscriptionPlans, openRazorpayCheckout, verifyRegistrationPayment } from '../../services/subscriptionService.js';
 import { AuthLayout } from './AuthLayout.jsx';
 import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
 
-const PLANS = [
+const FALLBACK_PLANS = [
   { value: 'starter', label: 'Starter', amount: 499, price: '₹ 499', note: 'Basic billing and records' },
   { value: 'professional', label: 'Professional', amount: 999, price: '₹ 999', note: 'Full business modules' },
   { value: 'enterprise', label: 'Enterprise', amount: 1999, price: '₹ 1,999', note: 'Advanced controls' },
@@ -65,10 +66,24 @@ export function GoogleOnboardingPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(null);
 
   useEffect(() => {
     if (user && !user.needsOnboarding) redirectTo('/dashboard');
   }, [user]);
+
+  useEffect(() => {
+    if (!form.category) return;
+    setPlansLoading(true);
+    fetchSubscriptionPlans(form.category)
+      .then((data) => setPlans(data.plans || []))
+      .catch((err) => {
+        if (FALLBACK_PLANS.length) setError(err.message || 'Unable to load packages');
+      })
+      .finally(() => setPlansLoading(false));
+  }, [form.category]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -89,7 +104,8 @@ export function GoogleOnboardingPage() {
   }
 
   function choosePlan(plan) {
-    setForm((current) => ({ ...current, subscriptionPlan: plan.value, subscriptionAmount: plan.amount }));
+    if (pendingCheckout) return;
+    setForm((current) => ({ ...current, subscriptionPlan: plan.tier, subscriptionAmount: plan.amount }));
     setErrors((current) => {
       if (!current.subscriptionPlan) return current;
       const next = { ...current };
@@ -108,7 +124,7 @@ export function GoogleOnboardingPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    const selectedPlan = PLANS.find((plan) => plan.value === form.subscriptionPlan);
+    const selectedPlan = plans.find((plan) => plan.tier === form.subscriptionPlan);
     const nextErrors = validatePlan(form);
     setErrors(nextErrors);
     setError('');
@@ -116,14 +132,22 @@ export function GoogleOnboardingPage() {
 
     setSubmitting(true);
     try {
-      await completeGoogleOnboarding({
-        ...form,
-        subscriptionAmount: selectedPlan?.amount || form.subscriptionAmount,
-        gstin: form.gstin.trim().toUpperCase(),
-      });
+      let checkout = pendingCheckout;
+      if (!checkout) {
+        const verification = await completeGoogleOnboarding({
+          ...form,
+          subscriptionAmount: selectedPlan?.amount || form.subscriptionAmount,
+          gstin: form.gstin.trim().toUpperCase(),
+        });
+        if (!verification.paymentRequired || !verification.checkout) throw new Error('Payment order was not created');
+        checkout = verification.checkout;
+        setPendingCheckout(checkout);
+      }
+      const payment = await openRazorpayCheckout(checkout);
+      await verifyRegistrationPayment(payment);
       redirectTo('/dashboard');
     } catch (err) {
-      setError(err.message || 'Unable to save business details');
+      setError(err.message || 'Unable to complete secure payment');
     } finally {
       setSubmitting(false);
     }
@@ -243,20 +267,21 @@ export function GoogleOnboardingPage() {
           <div>
             <label className={LABEL}>Choose Plan</label>
             <div className="grid grid-cols-1 gap-2">
-              {PLANS.map((plan) => (
+              {plansLoading && <div className={'p-4 text-center text-xs text-slate-500'}>Loading packages...</div>}
+              {plans.map((plan) => (
                 <button
-                  key={plan.value}
+                  key={plan.tier}
                   type="button"
                   onClick={() => choosePlan(plan)}
-                  className={`h-[70px] rounded-xl border px-3 text-left cursor-pointer flex items-center justify-between gap-3 ${form.subscriptionPlan === plan.value ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white'}`}
+                  className={`min-h-[70px] rounded-xl border px-3 text-left cursor-pointer flex items-center justify-between gap-3 ${form.subscriptionPlan === plan.tier ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white'}`}
                 >
                   <span>
-                    <span className="block text-[13px] font-extrabold text-slate-800 leading-tight">{plan.label}</span>
-                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-tight">{plan.note}</span>
+                    <span className="block text-[13px] font-extrabold text-slate-800 leading-tight">{plan.name}</span>
+                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-tight">{plan.features.slice(0, 4).join(' · ')}</span>
                   </span>
                   <span className="text-right shrink-0">
-                    <span className="block text-[17px] font-black text-slate-900 leading-none">{plan.price}</span>
-                    <span className="block text-[10px] font-bold text-slate-400 mt-1">/ month</span>
+                    <span className="block text-[17px] font-black text-slate-900 leading-none">₹{Number(plan.amount).toLocaleString('en-IN')}</span>
+                    <span className="block text-[10px] font-bold text-slate-400 mt-1">/ year</span>
                   </span>
                 </button>
               ))}
@@ -268,10 +293,10 @@ export function GoogleOnboardingPage() {
 
           <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-white font-bold text-[14px] border-0 cursor-pointer disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #4f90ff 0%, #6366f1 100%)' }}>
             <CheckCircle2 size={17} />
-            {submitting ? 'Saving...' : 'Save and Dashboard'}
+            {submitting ? 'Opening secure payment...' : pendingCheckout ? 'Retry Secure Payment' : 'Pay & Create Account'}
           </button>
 
-          <button type="button" onClick={() => setStep('details')} className="bg-transparent border-0 cursor-pointer text-[11.5px] font-bold text-slate-500 inline-flex items-center justify-center gap-1">
+          <button type="button" onClick={() => setStep('details')} disabled={Boolean(pendingCheckout)} className="bg-transparent border-0 cursor-pointer text-[11.5px] font-bold text-slate-500 inline-flex items-center justify-center gap-1 disabled:opacity-40">
             <ArrowLeft size={13} /> Back
           </button>
         </form>

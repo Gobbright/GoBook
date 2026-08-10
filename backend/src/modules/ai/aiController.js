@@ -53,7 +53,7 @@ export async function chatWithAssistant(req, res, next) {
 
     const [user, insights] = await Promise.all([
       AppUser.findById(req.user.id).select('name businessName').lean(),
-      buildAiInsights(),
+      buildAiInsights(req.user.id),
     ]);
 
     const safeHistory = Array.isArray(history) ? history.slice(-MAX_HISTORY_MESSAGES) : [];

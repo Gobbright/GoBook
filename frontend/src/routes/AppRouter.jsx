@@ -8,6 +8,7 @@ import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage
 import { InvoicesPage } from '../features/admin/pages/InvoicesPage.jsx';
 import { PaymentsPage } from '../features/admin/pages/PaymentsPage.jsx';
 import { AdminNotificationsPage } from '../features/admin/pages/AdminNotificationsPage.jsx';
+import { AdminStoragePage } from '../features/admin/pages/AdminStoragePage.jsx';
 import { AdminSectionPage } from '../features/admin/pages/AdminSectionPage.jsx';
 import { AdminUserListPage } from '../features/admin/pages/AdminUserListPage.jsx';
 import { AdminUserDetailsPage } from '../features/admin/pages/AdminUserDetailsPage.jsx';
@@ -95,12 +96,12 @@ function AppRoutes() {
       <Route path="/admin/user-details" element={adminRedirect('/admin/user-details/business')} />
       <Route path="/admin/user-details/business" element={adminRoute(<AdminUserDetailsPage type="business" />)} />
       <Route path="/admin/user-details/owner" element={adminRoute(<AdminUserDetailsPage type="owner" />)} />
-      <Route path="/admin/user-details/category" element={adminRoute(<AdminUserDetailsPage type="category" />)} />
+      <Route path="/admin/user-details/category" element={adminRedirect('/admin/user-details/business')} />
       <Route path="/admin/user-details/subscription" element={adminRoute(<AdminUserDetailsPage type="subscription" />)} />
-      <Route path="/admin/user-details/registration" element={adminRoute(<AdminUserDetailsPage type="registration" />)} />
-      <Route path="/admin/user-details/expiry" element={adminRoute(<AdminUserDetailsPage type="expiry" />)} />
+      <Route path="/admin/user-details/registration" element={adminRedirect('/admin/user-details/business')} />
+      <Route path="/admin/user-details/expiry" element={adminRedirect('/admin/user-details/subscription')} />
       <Route path="/admin/user-details/payments" element={adminRoute(<AdminUserDetailsPage type="payments" />)} />
-      <Route path="/admin/user-details/login" element={adminRoute(<AdminUserDetailsPage type="login" />)} />
+      <Route path="/admin/user-details/login" element={adminRedirect('/admin/user-details/owner')} />
       <Route path="/admin/subscription/plans" element={adminRoute(<AdminSubscriptionPage type="plans" />)} />
       <Route path="/admin/subscription/active" element={adminRoute(<AdminSubscriptionPage type="active" />)} />
       <Route path="/admin/subscription/expired" element={adminRoute(<AdminSubscriptionPage type="expired" />)} />
@@ -116,6 +117,13 @@ function AppRoutes() {
       <Route path="/admin/payments/reports" element={adminRoute(<PaymentsPage type="reports" />)} />
       <Route path="/admin/notifications" element={adminRoute(<AdminNotificationsPage />)} />
       <Route path="/admin/notifications/*" element={adminRedirect('/admin/notifications')} />
+      <Route path="/admin/storage" element={adminRedirect('/admin/storage/overview')} />
+      <Route path="/admin/storage/overview" element={adminRoute(<AdminStoragePage type="overview" />)} />
+      <Route path="/admin/storage/files" element={adminRoute(<AdminStoragePage type="files" />)} />
+      <Route path="/admin/storage/users" element={adminRoute(<AdminStoragePage type="businesses" />)} />
+      <Route path="/admin/storage/businesses" element={adminRedirect('/admin/storage/users')} />
+      <Route path="/admin/storage/collections" element={adminRoute(<AdminStoragePage type="collections" />)} />
+      <Route path="/admin/storage/daily-reports" element={adminRoute(<AdminStoragePage type="daily-reports" />)} />
       <Route path="/admin/reports/user-report" element={adminRoute(<AdminRecordPage kind="userReport" />)} />
       <Route path="/admin/reports/renewal-report" element={adminRoute(<AdminRecordPage kind="renewalReport" />)} />
       <Route path="/admin/reports/expiry-report" element={adminRoute(<AdminRecordPage kind="expiryReport" />)} />

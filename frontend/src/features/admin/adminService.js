@@ -99,10 +99,11 @@ function buildNotificationsFromDashboard(dashboard = {}) {
 }
 async function adminRequest(path, options = {}) {
   const token = getAdminToken();
+  const isFormData = options.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
@@ -134,8 +135,81 @@ export async function fetchAdminStats() {
 }
 
 export async function fetchAdminNotifications(dashboardData) {
-  const dashboard = dashboardData || await fetchAdminDashboard();
-  return buildNotificationsFromDashboard(dashboard);
+  try {
+    return await adminRequest('/admin/notifications?limit=2000');
+  } catch (error) {
+    if (!dashboardData) throw error;
+    return buildNotificationsFromDashboard(dashboardData);
+  }
+}
+
+export async function updateAdminNotification(id, read) {
+  return adminRequest(`/admin/notifications/${id}`, { method: 'PATCH', body: JSON.stringify({ read }) });
+}
+
+export async function markAllAdminNotificationsRead() {
+  return adminRequest('/admin/notifications/read-all', { method: 'PATCH', body: '{}' });
+}
+
+export async function archiveAdminNotification(id) {
+  return adminRequest(`/admin/notifications/${id}`, { method: 'DELETE' });
+}
+
+export async function fetchStorageOverview() {
+  return adminRequest('/admin/storage/overview');
+}
+
+export async function fetchStorageFiles(kind = 'all') {
+  return adminRequest(`/admin/storage/files?kind=${encodeURIComponent(kind)}&limit=1000`);
+}
+
+export async function fetchStorageBusinesses() {
+  return adminRequest('/admin/storage/businesses');
+}
+
+export async function fetchDailyStorageReports(days = 30) {
+  return adminRequest(`/admin/storage/daily-reports?days=${encodeURIComponent(days)}`);
+}
+
+export async function uploadAdminStorageFile(formData) {
+  return adminRequest('/admin/storage/files', { method: 'POST', body: formData });
+}
+
+export async function downloadAdminStorageFile(id, inline = false) {
+  const response = await fetch(`${API_BASE_URL}/admin/storage/files/${id}?inline=${inline ? '1' : '0'}`, {
+    headers: { Authorization: `Bearer ${getAdminToken()}` },
+  });
+  if (!response.ok) throw new Error('Unable to download stored file');
+  const blob = await response.blob();
+  const disposition = response.headers.get('content-disposition') || '';
+  const filename = disposition.match(/filename="([^"]+)"/i)?.[1] || 'gobook-file';
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadAdminCollectionExport(collection = '') {
+  const query = collection ? `?collection=${encodeURIComponent(collection)}` : '';
+  const response = await fetch(`${API_BASE_URL}/admin/storage/collections/export${query}`, {
+    headers: { Authorization: `Bearer ${getAdminToken()}` },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) clearAdminSession();
+    throw new Error(data.message || 'Unable to export database collection');
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get('content-disposition') || '';
+  const filename = disposition.match(/filename="([^"]+)"/i)?.[1] || 'gobooks-database-export.json';
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function fetchAdminSection(sectionKey) {
@@ -155,6 +229,28 @@ export async function fetchAdminSection(sectionKey) {
 
 export async function fetchAdminRecords(kind) {
   return adminRequest(`/admin/records/${kind}`);
+}
+
+export async function fetchSubscriptionPlans() {
+  return adminRequest('/admin/subscription-plans');
+}
+
+export async function updateSubscriptionPlan(id, payload) {
+  return adminRequest(`/admin/subscription-plans/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchSubscriptionPayments(status = 'all') {
+  return adminRequest(`/admin/subscription-payments?status=${encodeURIComponent(status)}`);
+}
+
+export async function sendSubscriptionPaymentInvoice(id) {
+  return adminRequest(`/admin/subscription-payments/${id}/send-invoice`, {
+    method: 'POST',
+    body: '{}',
+  });
 }
 
 export async function createAdminRecord(kind, payload) {

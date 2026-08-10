@@ -23,8 +23,8 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Shared by GET /api/more-modules/ai-insights and the AI chat assistant
-export async function buildAiInsights() {
+// Shared by GET /api/more-modules/ai-insights and the AI chat assistant.
+export async function buildAiInsights(userId) {
   const now = new Date();
   const thisMonth = monthBounds(0);
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -32,13 +32,15 @@ export async function buildAiInsights() {
   const cutoff60 = new Date(now);
   cutoff60.setDate(cutoff60.getDate() - 60);
 
+  const invoiceBase = { userId, documentType: 'invoice', status: { $in: ['paid', 'sent'] } };
+
   const [thisMonthInvoices, lastMonthInvoices, allInvoices, lowStockProducts] = await Promise.all([
-    Invoice.find({ documentType: 'invoice', status: { $in: ['paid', 'sent'] }, createdAt: { $gte: thisMonth.start, $lte: thisMonth.end } })
+    Invoice.find({ ...invoiceBase, createdAt: { $gte: thisMonth.start, $lte: thisMonth.end } })
       .select('totals customer createdAt').lean(),
-    Invoice.find({ documentType: 'invoice', status: { $in: ['paid', 'sent'] }, createdAt: { $gte: startOfLastMonth, $lte: sameDayLastMonth } })
+    Invoice.find({ ...invoiceBase, createdAt: { $gte: startOfLastMonth, $lte: sameDayLastMonth } })
       .select('totals').lean(),
-    Invoice.find({ documentType: 'invoice', 'customer.name': { $ne: '' } }).select('customer.name createdAt').lean(),
-    Product.find({ $expr: { $lte: ['$stock', '$minStockLevel'] }, status: 'Active' }).select('_id').lean(),
+    Invoice.find({ userId, documentType: 'invoice', 'customer.name': { $ne: '' } }).select('customer.name createdAt').lean(),
+    Product.find({ userId, $expr: { $lte: ['$stock', '$minStockLevel'] }, status: 'Active' }).select('_id').lean(),
   ]);
 
   const monthTotal = sumTotals(thisMonthInvoices);
@@ -80,9 +82,9 @@ export async function buildAiInsights() {
 }
 
 // GET /api/more-modules/ai-insights
-export async function getAiInsights(_req, res, next) {
+export async function getAiInsights(req, res, next) {
   try {
-    const insights = await buildAiInsights();
+    const insights = await buildAiInsights(req.user.id);
     res.json(insights);
   } catch (err) {
     next(err);
@@ -99,22 +101,23 @@ const REPORT_DEFS = [
 ];
 
 // GET /api/more-modules/reports-summary
-export async function getReportsSummary(_req, res, next) {
+export async function getReportsSummary(req, res, next) {
   try {
+    const userId = req.user.id;
     const [
       salesCount, purchaseCount, financeCount, inventoryCount, hrCount,
       latestInvoice, latestVendor, latestJournal, latestProduct, latestEmployee,
     ] = await Promise.all([
-      Invoice.countDocuments({ documentType: 'invoice' }),
-      Vendor.countDocuments({}),
-      JournalEntry.countDocuments({}),
-      Product.countDocuments({}),
-      Employee.countDocuments({}),
-      Invoice.findOne({ documentType: 'invoice' }).sort({ createdAt: -1 }).select('createdAt').lean(),
-      Vendor.findOne({}).sort({ createdAt: -1 }).select('createdAt').lean(),
-      JournalEntry.findOne({}).sort({ createdAt: -1 }).select('createdAt').lean(),
-      Product.findOne({}).sort({ updatedAt: -1 }).select('updatedAt').lean(),
-      Employee.findOne({}).sort({ createdAt: -1 }).select('createdAt').lean(),
+      Invoice.countDocuments({ userId, documentType: 'invoice' }),
+      Vendor.countDocuments({ userId }),
+      JournalEntry.countDocuments({ userId }),
+      Product.countDocuments({ userId }),
+      Employee.countDocuments({ userId }),
+      Invoice.findOne({ userId, documentType: 'invoice' }).sort({ createdAt: -1 }).select('createdAt').lean(),
+      Vendor.findOne({ userId }).sort({ createdAt: -1 }).select('createdAt').lean(),
+      JournalEntry.findOne({ userId }).sort({ createdAt: -1 }).select('createdAt').lean(),
+      Product.findOne({ userId }).sort({ updatedAt: -1 }).select('updatedAt').lean(),
+      Employee.findOne({ userId }).sort({ createdAt: -1 }).select('createdAt').lean(),
     ]);
 
     const counts = { Sales: salesCount, Purchase: purchaseCount, Finance: financeCount, Inventory: inventoryCount, HR: hrCount };

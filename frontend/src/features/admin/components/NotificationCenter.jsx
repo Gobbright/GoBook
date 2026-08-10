@@ -1,9 +1,12 @@
 import { Bell, Trash2, Eye, EyeOff, AlertCircle, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { safeNavigate } from '../../../routes/navigation.js';
 
 export function NotificationCenter({ notifications = [], onMarkRead, onDelete, onRefresh }) {
   const [open, setOpen] = useState(false);
   const [localNotifications, setLocalNotifications] = useState(notifications);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setLocalNotifications(notifications);
@@ -12,9 +15,10 @@ export function NotificationCenter({ notifications = [], onMarkRead, onDelete, o
   const unreadCount = localNotifications.filter((n) => !n.read).length;
 
   async function handleMarkRead(id) {
+    const current = localNotifications.find((item) => item.id === id);
     await onMarkRead?.(id);
     setLocalNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, read: !current?.read } : n))
     );
   }
 
@@ -124,12 +128,10 @@ export function NotificationCenter({ notifications = [], onMarkRead, onDelete, o
           {/* Footer */}
           {localNotifications.length > 0 && (
             <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2 bg-slate-50 dark:bg-slate-800">
-              <button
-                onClick={onRefresh}
-                className="w-full text-center text-[12px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 py-2 rounded transition border-0 bg-transparent cursor-pointer"
-              >
-                Refresh Notifications
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={onRefresh} className="text-center text-[12px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 py-2 rounded transition border-0 bg-transparent cursor-pointer">Refresh</button>
+                <button onClick={() => { setOpen(false); safeNavigate(navigate, '/admin/notifications'); }} className="text-center text-[12px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 py-2 rounded transition border-0 bg-transparent cursor-pointer">View All</button>
+              </div>
             </div>
           )}
         </div>

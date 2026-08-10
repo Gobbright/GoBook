@@ -21,6 +21,7 @@ const businessSettingsSchema = new Schema({
   autoBackup:            { type: Boolean, default: true },
   maintainAuditLog:      { type: Boolean, default: true },
   logoUrl:               { type: String, default: '' },
+  logoFileId:            { type: Schema.Types.ObjectId },
   bankName:             { type: String, default: '' },
   accountHolderName:    { type: String, default: '' },
   accountNumber:        { type: String, default: '' },

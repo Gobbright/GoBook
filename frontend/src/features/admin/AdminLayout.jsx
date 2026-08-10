@@ -4,7 +4,7 @@ import { AlertTriangle, Bell, CalendarDays, Menu, RefreshCw, ShieldCheck, UserPl
 
 import { Sidebar } from './components/Sidebar.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
-import { clearAdminSession, fetchAdminDashboard, fetchAdminNotifications } from './adminService.js';
+import { archiveAdminNotification, clearAdminSession, fetchAdminDashboard, fetchAdminNotifications, updateAdminNotification } from './adminService.js';
 import { safeNavigate } from '../../routes/navigation.js';
 
 const PAGE_TITLES = [
@@ -16,10 +16,10 @@ const PAGE_TITLES = [
   ['/admin/users/blocked', 'Blocked Users'],
   ['/admin/users/deleted', 'Deleted Users'],
   ['/admin/users', 'User Management'],
-  ['/admin/user-details/business', 'Business Details'],
-  ['/admin/user-details/owner', 'Owner Details'],
+  ['/admin/user-details/business', 'Business, Owner & Login'],
+  ['/admin/user-details/owner', 'Owner & Login'],
   ['/admin/user-details/category', 'Category'],
-  ['/admin/user-details/subscription', 'Subscription Plan'],
+  ['/admin/user-details/subscription', 'Subscription & Expiry'],
   ['/admin/user-details/registration', 'Registration Date'],
   ['/admin/user-details/expiry', 'Expiry Date'],
   ['/admin/user-details/payments', 'Payment History'],
@@ -38,6 +38,13 @@ const PAGE_TITLES = [
   ['/admin/payments/reports', 'Payment Reports'],
   ['/admin/payments', 'Payments'],
   ['/admin/notifications', 'Notifications'],
+  ['/admin/storage/overview', 'Storage Overview'],
+  ['/admin/storage/files', 'GridFS Files'],
+  ['/admin/storage/users', 'All User Storage Size'],
+  ['/admin/storage/businesses', 'All User Storage Size'],
+  ['/admin/storage/collections', 'Database Collections'],
+  ['/admin/storage/daily-reports', 'Daily Reports'],
+  ['/admin/storage', 'Storage'],
   ['/admin/reports/user-report', 'User Report'],
   ['/admin/reports/renewal-report', 'Renewal Report'],
   ['/admin/reports/expiry-report', 'Expiry Report'],
@@ -134,11 +141,15 @@ export function AdminLayout({ children }) {
     safeNavigate(navigate, '/admin-login');
   };
 
-  const markNotificationRead = (id) => {
-    setNotifications((current) => current.map((item) => (item.id === id ? { ...item, read: true } : item)));
+  const markNotificationRead = async (id) => {
+    const current = notifications.find((item) => item.id === id);
+    await updateAdminNotification(id, !current?.read);
+    setNotifications((items) => items.map((item) => (item.id === id ? { ...item, read: !current?.read } : item)));
+    setNavCounts((counts) => ({ ...counts, unreadNotifications: Math.max(0, counts.unreadNotifications + (current?.read ? 1 : -1)) }));
   };
 
-  const deleteNotification = (id) => {
+  const deleteNotification = async (id) => {
+    await archiveAdminNotification(id);
     setNotifications((current) => current.filter((item) => item.id !== id));
   };
 

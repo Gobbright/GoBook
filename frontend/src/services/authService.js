@@ -47,8 +47,8 @@ export async function completeGoogleOnboarding(payload) {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  setSession(data.token, data.user);
-  return data.user;
+  if (data.token && data.user) setSession(data.token, data.user);
+  return data;
 }
 export async function sendRegisterOtp(payload) {
   return apiClient('/auth/register', {
@@ -62,8 +62,8 @@ export async function verifyRegisterOtp({ email, otp }) {
     method: 'POST',
     body: JSON.stringify({ email: email.trim(), otp }),
   });
-  setSession(data.token, data.user);
-  return data.user;
+  if (data.token && data.user) setSession(data.token, data.user);
+  return data;
 }
 
 export async function register(payload) {

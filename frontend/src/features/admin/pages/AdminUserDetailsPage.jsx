@@ -8,14 +8,10 @@ import { fetchAdminSection, isAdminAuthenticated } from '../adminService.js';
 import { DataTable } from '../components/DataTable.jsx';
 
 const DETAIL_VIEWS = {
-  business: { title: 'Business Details', source: 'users', fields: ['businessName', 'name', 'email', 'phone', 'category', 'status'] },
-  owner: { title: 'Owner Details', source: 'users', fields: ['name', 'email', 'phone', 'role', 'businessName', 'status'] },
-  category: { title: 'Category', source: 'users', fields: ['name', 'businessName', 'category', 'subscriptionPlan', 'status'] },
-  subscription: { title: 'Subscription Plan', source: 'users', fields: ['name', 'email', 'businessName', 'subscriptionPlan', 'subscriptionAmount', 'status'] },
-  registration: { title: 'Registration Date', source: 'users', fields: ['name', 'email', 'businessName', 'category', 'createdAt', 'status'] },
-  expiry: { title: 'Expiry Date', source: 'users', fields: ['name', 'email', 'businessName', 'subscriptionPlan', 'status'] },
+  business: { title: 'Business, Owner & Login', source: 'users', fields: ['businessName', 'category', 'name', 'email', 'phone', 'role', 'authProvider', 'lastLogin', 'createdAt', 'status'] },
+  owner: { title: 'Owner & Login', source: 'users', fields: ['name', 'email', 'phone', 'role', 'businessName', 'authProvider', 'lastLogin', 'status'] },
+  subscription: { title: 'Subscription & Expiry', source: 'users', fields: ['name', 'email', 'businessName', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'subscriptionStartDate', 'subscriptionExpiresAt', 'status'] },
   payments: { title: 'Payment History', source: 'payments', fields: ['customerName', 'amount', 'mode', 'status', 'date'] },
-  login: { title: 'Login History', source: 'users', fields: ['name', 'email', 'authProvider', 'lastLogin', 'status'] },
 };
 
 export function AdminUserDetailsPage({ type = 'business' }) {
@@ -69,7 +65,7 @@ export function AdminUserDetailsPage({ type = 'business' }) {
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-4 md:py-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
             <div>
-              <p data-admin-hide className="m-0 text-[10px] md:text-[12px] font-black uppercase tracking-wide text-blue-600 dark:text-blue-400">User Details</p>
+              <p data-admin-hide className="m-0 text-[10px] md:text-[12px] font-black uppercase tracking-wide text-blue-600 dark:text-blue-400">User Management</p>
               <h1 data-admin-hide className="m-0 text-lg md:text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">{view.title}</h1>
               <p data-admin-hide className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">DB connected: {view.source}</p>
             </div>

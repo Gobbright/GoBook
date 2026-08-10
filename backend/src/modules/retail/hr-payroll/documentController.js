@@ -4,23 +4,18 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { HRDocument } from '../../../models/Document.js';
 import { httpError } from '../../../utils/httpError.js';
+import { deleteStoredFile, findStoredFile, hasExpectedFileSignature, pipeStoredFile, safeFilename, storeBuffer } from '../../../services/gridfsStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(__dirname, '../../../uploads/documents');
 
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename:    (_req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    cb(null, `${unique}-${file.originalname}`);
-  },
-});
-
 export const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = /^(application\/pdf|image\/(jpeg|png|gif|webp)|video\/(mp4|webm|quicktime|x-matroska))$/i.test(file.mimetype);
+    callback(allowed ? null : httpError(400, 'Only PDF, image, and video documents are allowed'), allowed);
+  },
 });
 
 function formatSize(bytes) {
@@ -82,7 +77,14 @@ export async function createDocument(req, res, next) {
     const { employee = '', empId = '', category = 'Other Documents', uploadedBy = 'Super Admin' } = req.body;
     const file = req.file;
     if (!file) return next(httpError(400, 'File is required'));
+    if (!hasExpectedFileSignature(file.buffer, file.mimetype)) return next(httpError(400, 'File content does not match its declared PDF, image, or video type'));
 
+    const stored = await storeBuffer({
+      buffer: file.buffer,
+      filename: file.originalname,
+      contentType: file.mimetype,
+      metadata: { kind: 'hr-document', userId: req.user.id, businessId: req.user.businessId, category, employee, empId },
+    });
     const doc = await HRDocument.create({
       userId: req.user.id,
       name:       file.originalname,
@@ -92,7 +94,8 @@ export async function createDocument(req, res, next) {
       uploadedBy,
       uploadedOn: todayLabel(),
       size:       formatSize(file.size),
-      filePath:   file.filename,
+      filePath:   '',
+      gridFsFileId: stored.id,
       mimeType:   file.mimetype,
     });
     res.status(201).json(doc);
@@ -122,7 +125,9 @@ export async function deleteDocument(req, res, next) {
   try {
     const doc = await HRDocument.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
     if (!doc) return next(httpError(404, 'Document not found'));
-    if (doc.filePath) {
+    if (doc.gridFsFileId) {
+      await deleteStoredFile(doc.gridFsFileId).catch(() => {});
+    } else if (doc.filePath) {
       const full = path.join(UPLOAD_DIR, doc.filePath);
       fs.unlink(full, () => {});
     }
@@ -137,6 +142,15 @@ export async function downloadDocument(req, res, next) {
   try {
     const doc = await HRDocument.findOne({ _id: req.params.id, userId: req.user.id }).lean();
     if (!doc) return next(httpError(404, 'Document not found'));
+    if (doc.gridFsFileId) {
+      const file = await findStoredFile(doc.gridFsFileId);
+      if (!file) return next(httpError(404, 'File not found in database'));
+      res.setHeader('Content-Type', file.contentType || doc.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Length', String(file.length || 0));
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(doc.name)}"`);
+      pipeStoredFile(file._id, res);
+      return;
+    }
     const full = path.join(UPLOAD_DIR, doc.filePath);
     if (!fs.existsSync(full)) return next(httpError(404, 'File not found on server'));
     res.download(full, doc.name);
@@ -150,6 +164,15 @@ export async function viewDocument(req, res, next) {
   try {
     const doc = await HRDocument.findOne({ _id: req.params.id, userId: req.user.id }).lean();
     if (!doc) return next(httpError(404, 'Document not found'));
+    if (doc.gridFsFileId) {
+      const file = await findStoredFile(doc.gridFsFileId);
+      if (!file) return next(httpError(404, 'File not found in database'));
+      res.setHeader('Content-Type', file.contentType || doc.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Length', String(file.length || 0));
+      res.setHeader('Content-Disposition', `inline; filename="${safeFilename(doc.name)}"`);
+      pipeStoredFile(file._id, res);
+      return;
+    }
     const full = path.join(UPLOAD_DIR, doc.filePath);
     if (!fs.existsSync(full)) return next(httpError(404, 'File not found on server'));
     res.setHeader('Content-Type', doc.mimeType || 'application/octet-stream');

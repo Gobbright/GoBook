@@ -36,6 +36,12 @@ export const env = {
   adminJwtExpiresIn: process.env.ADMIN_JWT_EXPIRES_IN ?? '8h',
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
 
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID ?? '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+  },
+
   groqApiKey:    process.env.GROQ_API_KEY ?? '',
   groqModel:     process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
 
