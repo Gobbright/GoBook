@@ -10,7 +10,7 @@ const REASONS = ['Leave', 'Holiday', 'Emergency Unavailability', 'Blocked Slot',
 const INPUT = 'h-10 w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[13px] font-[inherit] text-[#111827] outline-none focus:border-blue-500';
 
 const EMPTY_FORM = {
-  doctorName: 'Dr. Arun Kumar',
+  doctorName: '',
   departmentName: 'General Medicine',
   workingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
   morningStart: '09:00',
@@ -27,11 +27,11 @@ const EMPTY_FORM = {
 };
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function doctorName(data = {}) {
-  return data.name || data.doctorName || '';
+  return data.name || data.doctorName || '-';
 }
 
 function dateBetween(value, from, to) {
@@ -170,7 +170,7 @@ export function DoctorSchedulePage() {
   const [showBlock, setShowBlock] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [block, setBlock] = useState({ doctorName: 'Dr. Arun Kumar', from: todayISO(), to: todayISO(), reason: 'Leave', notify: true });
+  const [block, setBlock] = useState({ doctorName: '', from: todayISO(), to: todayISO(), reason: 'Leave', notify: true });
 
   const doctorOptions = useMemo(() => {
     const fromDoctors = doctors.records.map((record) => ({
@@ -184,7 +184,7 @@ export function DoctorSchedulePage() {
       consultationFee: record.data?.consultationFee,
     })).filter((item) => item.doctorName);
     const map = new Map([...fromDoctors, ...fromSchedules].map((item) => [item.doctorName, item]));
-    return map.size ? [...map.values()] : [{ doctorName: 'Dr. Arun Kumar', departmentName: 'General Medicine', consultationFee: 500 }];
+    return map.size ? [...map.values()] : [{ doctorName: '', departmentName: 'General Medicine', consultationFee: 500 }];
   }, [doctors.records, schedules.records]);
 
   const departments = useMemo(() => [...new Set(['General Medicine', ...doctorOptions.map((item) => item.departmentName).filter(Boolean)])], [doctorOptions]);
@@ -399,3 +399,4 @@ export function DoctorSchedulePage() {
     </div>
   );
 }
+

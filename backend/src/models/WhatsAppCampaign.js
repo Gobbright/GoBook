@@ -1,6 +1,7 @@
 import { Schema, model } from 'mongoose';
 
 const whatsAppCampaignSchema = new Schema({
+  userId:    { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   name:      { type: String, required: true, trim: true },
   type:      { type: String, enum: ['Promotional', 'Transactional', 'Utility'], default: 'Promotional' },
   message:   { type: String, trim: true, default: '' },

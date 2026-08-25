@@ -20,7 +20,7 @@ const STAFF = ['Nurse Priya', 'Nurse Anu', 'Nurse Kavitha', 'Duty Staff'];
 const STATUSES = ['Ordered', 'In Progress', 'Completed', 'Cancelled'];
 
 function normalizeStatus(status = '') {
-  return String(status || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return String(status || '-').trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
 function money(value) {
@@ -31,7 +31,7 @@ function nextOpdNo(records) {
   const year = new Date().getFullYear();
   const prefix = `OPD-${year}-`;
   const max = records.reduce((highest, record) => {
-    const raw = record.data?.opdNo || record.data?.visitNo || '';
+    const raw = record.data?.opdNo || record.data?.visitNo || '-';
     if (!String(raw).startsWith(prefix)) return highest;
     const n = Number(String(raw).slice(prefix.length));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
@@ -99,14 +99,14 @@ export function ProceduresPage() {
   const patientData = patient?.data || {};
   const visitData = activeVisit?.data || {};
   const appointmentData = activeAppointment?.data || {};
-  const patientName = visitData.patientName || appointmentData.patientName || patientData.name || 'Raj Kumar';
-  const patientId = visitData.patientId || appointmentData.patientId || patientData.patientId || 'GBH-00128';
-  const doctorName = visitData.doctorName || appointmentData.doctorName || 'Dr. Arun Kumar';
+  const patientName = visitData.patientName || appointmentData.patientName || patientData.name || '-';
+  const patientId = visitData.patientId || appointmentData.patientId || patientData.patientId || '-';
+  const doctorName = visitData.doctorName || appointmentData.doctorName || '-';
   const opdNo = visitData.opdNo || visitData.visitNo || appointmentData.opdNo || nextOpdNo(opd.records);
 
   const todayProcedures = useMemo(() => procedures.records
     .filter((record) => (record.data?.opdNo === opdNo || record.data?.patientName === patientName) && record.data?.date === todayISO())
-    .sort((a, b) => (a.data?.time || '').localeCompare(b.data?.time || '')), [opdNo, patientName, procedures.records]);
+    .sort((a, b) => (a.data?.time || '-').localeCompare(b.data?.time || '-')), [opdNo, patientName, procedures.records]);
 
   function selectProcedure(name) {
     const item = PROCEDURE_MASTER.find((procedure) => procedure.name === name);
@@ -234,3 +234,4 @@ export function ProceduresPage() {
     </div>
   );
 }
+

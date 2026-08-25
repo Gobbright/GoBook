@@ -30,6 +30,7 @@ const voucherLineSchema = new Schema({
 const accountingVoucherSchema = new Schema({
   userId:       { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   businessId:   { type: Schema.Types.ObjectId, ref: 'Business', index: true },
+  branch:       { type: String, trim: true, default: '', index: true },
   voucherType:  { type: String, enum: VOUCHER_TYPES, required: true, index: true },
   voucherNo:    { type: String, required: true, trim: true },
   financialYear:{ type: String, required: true, trim: true, index: true },

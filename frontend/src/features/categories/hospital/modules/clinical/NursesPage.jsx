@@ -9,7 +9,7 @@ const SPECIALIZATIONS = ['General Nursing', 'ICU Nursing', 'OT Nursing', 'Pediat
 const WARDS = ['General Ward', 'Private Ward', 'ICU', 'NICU', 'PICU', 'Maternity', 'Emergency'];
 const STATUSES = ['Active', 'On Duty', 'Off Duty', 'Inactive'];
 const EMPTY_FORM = {
-  name: 'Priya S',
+  name: '',
   employeeId: 'EMP-0082',
   departmentName: 'General Medicine',
   designation: 'Senior Staff Nurse',
@@ -20,32 +20,14 @@ const EMPTY_FORM = {
   currentShift: 'Morning',
   patientsAssigned: '6',
 };
-const DEMO_NURSES = [
-  {
-    _id: 'demo-nur-0018',
-    data: {
-      nurseId: 'NUR-0018',
-      name: 'Priya S',
-      employeeId: 'EMP-0082',
-      departmentName: 'General Medicine',
-      designation: 'Senior Staff Nurse',
-      registrationNo: 'TN-NUR-28452',
-      primaryWard: 'General Ward',
-      specialization: 'General Nursing',
-      currentShift: 'Morning',
-      patientsAssigned: '6',
-      status: 'On Duty',
-    },
-  },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function nextNurseId(records) {
   const max = records.reduce((highest, record) => {
-    const match = String(record.data?.nurseId || '').match(/NUR-(\d+)/i);
+    const match = String(record.data?.nurseId || '-').match(/NUR-(\d+)/i);
     return match ? Math.max(highest, Number(match[1])) : highest;
   }, 18);
   return `NUR-${String(max + 1).padStart(4, '0')}`;
@@ -86,10 +68,10 @@ export function NursesPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const records = nurses.records.length ? nurses.records : DEMO_NURSES;
+  const records = nurses.records;
   const departmentOptions = useMemo(() => {
     const existing = names(departments.records);
-    return existing.length ? existing : ['General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics'];
+    return existing;
   }, [departments.records]);
   const employeeOptions = useMemo(() => {
     const fromEmployees = employees.records.map((record) => record.data?.employeeId || record.data?.code || record.data?.name).filter(Boolean);
@@ -219,7 +201,7 @@ export function NursesPage() {
                 <div key={record._id} className="grid gap-4 p-4 lg:grid-cols-[160px_minmax(240px,1fr)_260px_auto] lg:items-center">
                   <div>
                     <div className="text-[12px] font-extrabold text-[#64748b]">{data.nurseId || 'NUR-0018'}</div>
-                    <div className="mt-1 text-[17px] font-extrabold text-[#071936]">{data.name || 'Priya S'}</div>
+                    <div className="mt-1 text-[17px] font-extrabold text-[#071936]">{data.name || '-'}</div>
                   </div>
                   <div className="min-w-0">
                     <div className="font-bold text-[#334155]">{data.designation || 'Senior Staff Nurse'}</div>
@@ -250,3 +232,5 @@ export function NursesPage() {
     </div>
   );
 }
+
+

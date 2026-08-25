@@ -7,6 +7,7 @@ import {
 } from '../../../../services/accountingPostings.js';
 import { getAccountingStatusForSource } from '../../../../services/salesAccountingStatus.js';
 import { buildSalesAggregationPipeline, unwrapFacetResult } from '../shared/salesFilters.js';
+import { branchScopedAggregateMatch, branchScopedQuery } from '../../../../utils/branchScope.js';
 
 function calcInvoiceTotal(inv) {
   const totals = inv.totals ?? {};
@@ -46,10 +47,10 @@ async function paymentSummary(invoice, userId, excludePaymentId = null) {
 // GET /sales/invoices/:id/payments
 export async function listPayments(req, res, next) {
   try {
-    const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.user.id }).lean();
+    const invoice = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!invoice) return next(httpError(404, 'Invoice not found'));
 
-    const payments = await Payment.find({ invoiceId: req.params.id, userId: req.user.id })
+    const payments = await Payment.find(await branchScopedQuery(req, { model: Payment, ownerField: 'userId' }, { invoiceId: req.params.id }))
       .sort({ createdAt: -1 })
       .lean();
 
@@ -81,7 +82,7 @@ export async function listPayments(req, res, next) {
 // POST /sales/invoices/:id/payments
 export async function recordPayment(req, res, next) {
   try {
-    const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.user.id }).lean();
+    const invoice = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!invoice) return next(httpError(404, 'Invoice not found'));
 
     const { amount, date, method, reference, notes } = req.body;
@@ -94,6 +95,7 @@ export async function recordPayment(req, res, next) {
 
     const payment = await Payment.create({
       userId:        req.user.id,
+      branch:        invoice.branch || req.user.branch || '',
       invoiceId:     invoice._id,
       invoiceNumber: invoice.number,
       customerName:  invoice.customer?.name || '',
@@ -124,7 +126,7 @@ export async function recordPayment(req, res, next) {
 // DELETE /sales/payments/:id
 export async function deletePayment(req, res, next) {
   try {
-    const payment = await Payment.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
+    const payment = await Payment.findOneAndDelete(await branchScopedQuery(req, { model: Payment, ownerField: 'userId' }, { _id: req.params.id }));
     if (!payment) return next(httpError(404, 'Payment not found'));
     await reverseAccountingPosting({ userId: req.user.id, sourceType: 'payment', sourceId: payment._id });
     res.json({ message: 'Payment deleted' });
@@ -145,8 +147,10 @@ export async function listOutstanding(req, res, next) {
     weekEnd.setDate(weekEnd.getDate() + 7);
     const weekEndStr = weekEnd.toISOString().slice(0, 10);
 
+    const baseMatch = await branchScopedAggregateMatch(req, { model: Invoice, ownerField: 'userId' });
     const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, baseDocumentType, {
       includePayment: true,
+      baseMatch,
       stats: {
         totalOutstanding: { $sum: { $cond: [{ $gt: ['$balance', 0] }, '$balance', 0] } },
         totalOverdue: { $sum: { $cond: [{ $eq: ['$payStatus', 'Overdue'] }, '$balance', 0] } },

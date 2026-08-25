@@ -7,49 +7,21 @@ const INPUT = 'h-10 w-full rounded-md border border-[#dbe4ef] bg-white px-3 text
 const TEXTAREA = 'min-h-20 w-full rounded-md border border-[#dbe4ef] bg-white px-3 py-2 text-[13px] font-[inherit] text-[#111827] outline-none focus:border-blue-500';
 const COMMON_DEPARTMENTS = ['General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics', 'Gynecology', 'Dermatology', 'ENT', 'Neurology', 'Nephrology', 'Urology', 'Oncology', 'General Surgery'];
 const STATUSES = ['Active', 'Inactive'];
-const DEMO_DEPARTMENTS = [
-  {
-    _id: 'demo-general-medicine',
-    data: {
-      name: 'General Medicine',
-      code: 'GEN',
-      headOfDept: 'Dr. Arun Kumar',
-      location: 'Block A - 1st Floor',
-      doctors: '8',
-      nurses: '14',
-      currentPatients: '32',
-      status: 'Active',
-    },
-  },
-  {
-    _id: 'demo-cardiology',
-    data: {
-      name: 'Cardiology',
-      code: 'CARD',
-      headOfDept: 'Dr. Ravi Kumar',
-      location: 'Block A - 2nd Floor',
-      doctors: '5',
-      nurses: '9',
-      currentPatients: '18',
-      status: 'Active',
-    },
-  },
-];
 const EMPTY_FORM = {
   name: 'Cardiology',
   code: 'CARD',
-  headOfDept: 'Dr. Ravi Kumar',
+  headOfDept: '',
   location: 'Block A - 2nd Floor',
   description: '',
   status: 'Active',
 };
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function codeFromName(name) {
-  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+  const words = String(name || '-').trim().split(/\s+/).filter(Boolean);
   if (!words.length) return '';
   if (words.length === 1) return words[0].slice(0, 4).toUpperCase();
   return words.map((word) => word[0]).join('').slice(0, 4).toUpperCase();
@@ -96,10 +68,10 @@ export function DepartmentsPage() {
 
   const doctorOptions = useMemo(() => {
     const existing = names(doctors.records);
-    return existing.length ? existing : ['Dr. Arun Kumar', 'Dr. Ravi Kumar', 'Dr. Priya'];
+    return existing;
   }, [doctors.records]);
 
-  const records = departments.records.length ? departments.records : DEMO_DEPARTMENTS;
+  const records = departments.records;
 
   const filtered = useMemo(() => {
     const q = normalize(search);
@@ -296,3 +268,5 @@ export function DepartmentsPage() {
     </div>
   );
 }
+
+

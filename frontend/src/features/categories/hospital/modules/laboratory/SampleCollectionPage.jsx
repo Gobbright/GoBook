@@ -10,13 +10,9 @@ const SAMPLE_TYPES = ['All Samples', 'Blood', 'Urine', 'Stool', 'Swab', 'Tissue'
 const QUEUE_STATUSES = ['Pending Collection', 'Collected', 'Received In Lab', 'Processing', 'Rejected', 'Recollection Required'];
 const PRIORITIES = ['All Priority', 'Routine', 'Urgent'];
 const CONDITIONS = ['Acceptable', 'Hemolyzed', 'Insufficient quantity', 'Wrong container', 'Label mismatch', 'Contaminated', 'Other'];
-const DEMO_ORDERS = [
-  { _id: 'demo-lab-1025', data: { orderId: 'LAB-1025', patientName: 'Raj Kumar', patientId: 'GBH-00128', visitNo: 'OPD-00452', tests: [{ name: 'CBC', sampleType: 'Blood', container: 'EDTA Tube' }, { name: 'Blood Sugar', sampleType: 'Blood', container: 'EDTA Tube' }], priority: 'Urgent', status: 'ORDERED', date: todayISO() } },
-  { _id: 'demo-lab-1026', data: { orderId: 'LAB-1026', patientName: 'Priya S', patientId: 'GBH-00129', visitNo: 'IPD-0185', tests: [{ name: 'Urine Routine', sampleType: 'Urine', container: 'Urine Container' }], priority: 'Routine', status: 'ORDERED', date: todayISO() } },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function nowLabel() {
@@ -66,7 +62,7 @@ export function SampleCollectionPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const orderRecords = orders.records.length ? orders.records : DEMO_ORDERS;
+  const orderRecords = orders.records;
   const queue = useMemo(() => orderRecords.filter((record) => {
     const data = record.data || {};
     const sample = orderSample(record);
@@ -79,7 +75,7 @@ export function SampleCollectionPage() {
     return matchesSearch && matchesStatus && matchesSample && matchesPriority;
   }), [orderRecords, priority, sampleType, search, status]);
 
-  const selectedOrder = orderRecords.find((record) => record._id === selectedOrderId) || queue[0] || DEMO_ORDERS[0];
+  const selectedOrder = orderRecords.find((record) => record._id === selectedOrderId) || queue[0] || null;
   const selectedSample = orderSample(selectedOrder);
   const barcode = `${String(selectedOrder?.data?.orderId || 'LAB1025').replace(/-/g, '')}-B01`;
 
@@ -113,7 +109,7 @@ export function SampleCollectionPage() {
         rejectionReason: form.sampleCondition === 'Acceptable' ? '' : form.sampleCondition,
       };
       await samples.create(payload);
-      if (!String(selectedOrder._id).startsWith('demo-')) {
+      if (selectedOrder._id) {
         await orders.update(selectedOrder._id, {
           ...selectedOrder.data,
           sampleStatus: form.sampleCondition === 'Acceptable' ? 'Collected' : 'Recollection Required',
@@ -151,7 +147,7 @@ export function SampleCollectionPage() {
               <div className="grid gap-4 border-b border-[#edf2f7] pb-4 md:grid-cols-2">
                 <div>
                   <div className="text-[12px] font-extrabold uppercase text-[#64748b]">Patient</div>
-                  <div className="mt-1 text-[15px] font-extrabold text-[#071936]">{selectedOrder.data?.patientName} - {selectedOrder.data?.patientId || 'GBH-00128'}</div>
+                  <div className="mt-1 text-[15px] font-extrabold text-[#071936]">{selectedOrder.data?.patientName} - {selectedOrder.data?.patientId || '-'}</div>
                 </div>
                 <div>
                   <div className="text-[12px] font-extrabold uppercase text-[#64748b]">Order</div>
@@ -228,7 +224,7 @@ export function SampleCollectionPage() {
                       <span className="text-[15px] font-extrabold text-[#071936]">{data.orderId}</span>
                       <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${urgent ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{data.priority || 'Routine'}</span>
                     </div>
-                    <div className="text-[14px] font-extrabold text-[#071936]">{data.patientName} - {data.patientId || 'GBH-00128'}</div>
+                    <div className="text-[14px] font-extrabold text-[#071936]">{data.patientName} - {data.patientId || '-'}</div>
                     <div className="mt-1 text-[12px] font-semibold text-[#64748b]">{data.visitNo || '-'}</div>
                     <div className="mt-4">
                       <div className="text-[12px] font-extrabold uppercase text-[#64748b]">Tests</div>
@@ -254,3 +250,5 @@ export function SampleCollectionPage() {
     </div>
   );
 }
+
+

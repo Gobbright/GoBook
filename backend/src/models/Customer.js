@@ -2,6 +2,7 @@ import { Schema, model } from 'mongoose';
 
 const customerSchema = new Schema({
   userId:  { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  branch:  { type: String, trim: true, default: '', index: true },
   name:    { type: String, required: true, trim: true },
   gstin:   { type: String, trim: true, uppercase: true, default: '' },
   phone:   { type: String, trim: true, default: '' },
@@ -10,6 +11,11 @@ const customerSchema = new Schema({
   city:    { type: String, trim: true, default: '' },
   state:   { type: String, trim: true, default: '' },
   pincode: { type: String, trim: true, default: '' },
+  bankName:          { type: String, trim: true, default: '' },
+  accountHolderName: { type: String, trim: true, default: '' },
+  accountNumber:     { type: String, trim: true, default: '' },
+  ifscCode:          { type: String, trim: true, uppercase: true, default: '' },
+  bankBranch:        { type: String, trim: true, default: '' },
   status:  { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
   sales:   { type: Number, default: 0, min: 0 },
 }, { timestamps: true });

@@ -2,25 +2,6 @@ import { useMemo, useState } from 'react';
 
 import { names, useLookupRecords, useModuleRecords } from '../../../shared/recordUi/useModuleRecords.js';
 
-const DEMO_DOCTOR = {
-  _id: 'demo-doc-0012',
-  data: {
-    name: 'Dr. Arun Kumar',
-    doctorId: 'DOC-0012',
-    departmentName: 'General Medicine',
-    specialization: 'Internal Medicine',
-    qualification: 'MBBS, MD',
-    registrationNo: 'TNMC-123456',
-    experienceYears: '12',
-    consultationFee: '500',
-    followUpFee: '300',
-    followUpValidityDays: '7',
-    todaySchedule: '09:00 AM - 01:00 PM',
-    appointmentsToday: '18',
-    appointmentCapacity: '24',
-    status: 'Available',
-  },
-};
 const SPECIALIZATIONS = ['Internal Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics', 'Gynecology', 'Dermatology', 'ENT', 'General Surgery'];
 const GENDERS = ['Male', 'Female', 'Other'];
 const STATUSES = ['Available', 'On Leave', 'Inactive'];
@@ -41,7 +22,7 @@ const EMPTY_FORM = {
 };
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function Line() {
@@ -89,7 +70,7 @@ function BracketSelect({ value, onChange, options, className = '' }) {
 
 function nextDoctorId(records) {
   const max = records.reduce((highest, record) => {
-    const id = record.data?.doctorId || '';
+    const id = record.data?.doctorId || '-';
     const match = id.match(/DOC-(\d+)/i);
     return match ? Math.max(highest, Number(match[1])) : highest;
   }, 12);
@@ -107,10 +88,10 @@ export function DoctorsPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const records = doctors.records.length ? doctors.records : [DEMO_DOCTOR];
+  const records = doctors.records;
   const departmentOptions = useMemo(() => {
     const existing = names(departments.records);
-    return existing.length ? existing : ['General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics'];
+    return existing;
   }, [departments.records]);
 
   const filtered = useMemo(() => {
@@ -145,7 +126,7 @@ export function DoctorsPage() {
         todaySchedule: '09:00 AM - 01:00 PM',
         appointmentsToday: '0',
         appointmentCapacity: '24',
-        linkedEmployeeId: form.linkedEmployeeId || '',
+        linkedEmployeeId: form.linkedEmployeeId || '-',
       });
       setForm({ ...EMPTY_FORM, departmentName: departmentOptions[0] || 'General Medicine' });
       setMessage(`${doctorId} saved. Link this doctor to Employee ID for HR details.`);
@@ -196,7 +177,7 @@ export function DoctorsPage() {
               const data = record.data || {};
               return (
                 <div key={record._id}>
-                  <div>{data.name || 'Dr. Arun Kumar'}</div>
+                  <div>{data.name || '-'}</div>
                   <div>{data.departmentName || 'General Medicine'} • {data.qualification || 'MBBS, MD'}</div>
                   <div>Doctor ID: {data.doctorId || 'DOC-0012'}</div>
 
@@ -292,3 +273,5 @@ export function DoctorsPage() {
     </div>
   );
 }
+
+

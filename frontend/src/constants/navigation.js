@@ -1,6 +1,100 @@
 function isAdminUser(user = {}) {
   return user.isPlatformOwner || ['Super Admin', 'Admin', 'Owner'].includes(user.role);
 }
+
+function isSuperAdminUser(user = {}) {
+  return user.isSuperAdmin || user.accountType === 'owner' || user.role === 'Super Admin';
+}
+
+const SECTION_PERMISSION = {
+  sales: 'billing',
+  purchase: 'purchase',
+  hospitalBilling: 'billing',
+  hotelBilling: 'billing',
+  financeBills: 'billing',
+  inventory: 'inventory',
+  accounting: 'accounting',
+  gst: 'accounting',
+  crm: 'crm',
+  financeCustomers: 'crm',
+  hrPayroll: 'employee-management',
+  reports: 'reports',
+  reportsHub: 'reports',
+  hospitalReports: 'reports',
+  hotelReports: 'reports',
+  financeReports: 'reports',
+  dataManagement: 'data-management',
+  settings: 'settings',
+  financeProfileSettings: 'settings',
+  moreModules: 'marketing',
+};
+
+const ROUTE_PERMISSION_RULES = [
+  [/^\/billing\/(purchase-order|purchase-entry|supplier-return)(\/|$)/, 'purchase'],
+  [/^\/billing(\/|$)/, 'billing'],
+  [/^\/sales-reports$/, 'reports'],
+  [/^\/purchase-reports$/, 'reports'],
+  [/^\/products$/, 'inventory'],
+  [/^\/product-categories$/, 'inventory'],
+  [/^\/brands$/, 'inventory'],
+  [/^\/warehouse$/, 'inventory'],
+  [/^\/barcode$/, 'inventory'],
+  [/^\/stock-/, 'inventory'],
+  [/^\/inventory-reports$/, 'reports'],
+  [/^\/vouchers$/, 'accounting'],
+  [/^\/accounting-reports$/, 'reports'],
+  [/^\/ledger$/, 'accounting'],
+  [/^\/journal-entry$/, 'accounting'],
+  [/^\/trial-balance$/, 'accounting'],
+  [/^\/pnl$/, 'accounting'],
+  [/^\/balance-sheet$/, 'accounting'],
+  [/^\/cash-book$/, 'accounting'],
+  [/^\/bank-book$/, 'accounting'],
+  [/^\/bank-reconciliation$/, 'accounting'],
+  [/^\/gst-reports$/, 'reports'],
+  [/^\/gst-/, 'accounting'],
+  [/^\/gstr-/, 'accounting'],
+  [/^\/customers$/, 'crm'],
+  [/^\/leads$/, 'crm'],
+  [/^\/follow-ups$/, 'crm'],
+  [/^\/customer-lifecycle$/, 'crm'],
+  [/^\/crm-reports$/, 'reports'],
+  [/^\/employee-management(\/|$)/, 'employee-management'],
+  [/^\/hr-reports$/, 'reports'],
+  [/^\/reports$/, 'reports'],
+  [/^\/data-management(\/|$)/, 'data-management'],
+  [/^\/multi-branch$/, 'settings'],
+  [/^\/users-roles$/, 'settings'],
+  [/^\/audit-report$/, 'settings'],
+  [/^\/business-settings$/, 'settings'],
+  [/^\/whatsapp-business$/, 'marketing'],
+  [/^\/email-marketing$/, 'marketing'],
+  [/^\/sales-management$/, 'marketing'],
+  [/^\/vendor-management$/, 'marketing'],
+];
+
+function userModules(user = {}) {
+  return Array.isArray(user.permissions?.modules) ? user.permissions.modules : [];
+}
+
+function canManageBranchUsers(user = {}) {
+  return user.role === 'Branch Manager' && Boolean(user.branch);
+}
+
+export function hasModuleAccess(user = {}, moduleKey) {
+  if (!moduleKey || isSuperAdminUser(user)) return true;
+  if (moduleKey === 'settings' && canManageBranchUsers(user)) return true;
+  return userModules(user).includes(moduleKey);
+}
+
+export function canAccessPath(path = '/', user = {}) {
+  if (isSuperAdminUser(user)) return true;
+  if (path === '/' || path === '/dashboard' || path === '/finance/dashboard') return true;
+  if (path === '/users-roles') return canManageBranchUsers(user) || hasModuleAccess(user, 'settings');
+  const rule = ROUTE_PERMISSION_RULES.find(([pattern]) => pattern.test(path));
+  return rule ? hasModuleAccess(user, rule[1]) : true;
+}
+
 const SECTIONS = {
   main: {
     title: 'Dashboard',
@@ -18,7 +112,6 @@ const SECTIONS = {
       { label: 'Debit Note', href: '/billing/debit-note/new', icon: 'FilePlus' },
       { label: 'E-Invoice', href: '/billing/e-invoice/new', icon: 'Zap' },
       { label: 'E-Way Bill', href: '/billing/e-way-bill/new', icon: 'Route' },
-      { label: 'Sales Reports', href: '/sales-reports', icon: 'BarChart3' },
     ],
   },
   purchase: {
@@ -27,7 +120,6 @@ const SECTIONS = {
       { label: 'Purchase Order', href: '/billing/purchase-order/new', icon: 'ShoppingCart' },
       { label: 'Purchase Entry', href: '/billing/purchase-entry/new', icon: 'FileCheck' },
       { label: 'Supplier Returns', href: '/billing/supplier-return/new', icon: 'ArrowRightLeft' },
-      { label: 'Purchase Reports', href: '/purchase-reports', icon: 'BarChart3' },
     ],
   },  gst: {
     title: 'GST',
@@ -37,14 +129,12 @@ const SECTIONS = {
       { label: 'GSTR-3B', href: '/gstr-3b', icon: 'FileSpreadsheet' },
       { label: 'GSTR-9', href: '/gstr-9', icon: 'FileCheck' },
       { label: 'GST Reconciliation', href: '/gst-reconciliation', icon: 'RefreshCw' },
-      { label: 'GST Reports', href: '/gst-reports', icon: 'BarChart3' },
     ],
   },
   accounting: {
     title: 'Accounting',
     items: [
       { label: 'Vouchers', href: '/vouchers', icon: 'ReceiptText' },
-      { label: 'Accounting Reports', href: '/accounting-reports', icon: 'BarChart3' },
       { label: 'Ledger', href: '/ledger', icon: 'BookOpen' },
       { label: 'Journal Entry', href: '/journal-entry', icon: 'PenLine' },
       { label: 'Trial Balance', href: '/trial-balance', icon: 'Scale' },
@@ -76,7 +166,6 @@ const SECTIONS = {
       { label: 'Stock In', href: '/stock-in', icon: 'PackagePlus' },
       { label: 'Stock Out', href: '/stock-out', icon: 'PackageMinus' },
       { label: 'Stock Alerts', href: '/stock-alerts', icon: 'AlertTriangle' },
-      { label: 'Inventory Reports', href: '/inventory-reports', icon: 'BarChart3' },
     ],
   },  hrPayroll: {
     title: 'Employee Management',
@@ -118,7 +207,14 @@ const SECTIONS = {
       { label: 'Accounting Reports', href: '/accounting-reports', icon: 'BarChart3' },
       { label: 'GST Reports', href: '/gst-reports', icon: 'BarChart3' },
     ],
-  },  settings: {
+  },
+  reportsHub: {
+    title: 'Reports',
+    items: [
+      { label: 'Reports Hub', href: '/reports', icon: 'BarChart2' },
+    ],
+  },
+  settings: {
     title: 'Settings',
     items: [
       { label: 'Multi Branch', href: '/multi-branch', icon: 'GitBranch' },
@@ -240,43 +336,93 @@ const SECTIONS = {
   },
 
   // --- School ---
-  schoolStudentManagement: {
-    title: 'Student Management',
+  schoolAdmissions: {
+    title: 'Admissions',
     items: [
-      { label: 'Students', href: '/school/students', icon: 'Users' },
-      { label: 'Admission', href: '/school/admission', icon: 'UserPlus' },
-      { label: 'Transfer', href: '/school/transfer', icon: 'ArrowRightLeft' },
-      { label: 'Parent Details', href: '/school/parent-details', icon: 'Contact' },
-      { label: 'Certificates', href: '/school/certificates', icon: 'Award' },
+      { label: 'New Admission', href: '/school/admissions/new-admission', icon: 'UserPlus' },
+      { label: 'Applications', href: '/school/admissions/applications', icon: 'FileText' },
+      { label: 'Admission Enquiries', href: '/school/admissions/enquiries', icon: 'MessageCircle' },
+      { label: 'Merit / Selection', href: '/school/admissions/merit-selection', icon: 'Award' },
+      { label: 'Admission Reports', href: '/school/admissions/reports', icon: 'BarChart3' },
+    ],
+  },
+  schoolStudents: {
+    title: 'Students',
+    items: [
+      { label: 'Student Registration', href: '/school/students/registration', icon: 'UserPlus' },
+      { label: 'Student List', href: '/school/students/list', icon: 'Users' },
+      { label: 'Student Profile', href: '/school/students/profile', icon: 'UserRound' },
+      { label: 'Student Documents', href: '/school/students/documents', icon: 'FolderOpen' },
     ],
   },
   schoolAcademic: {
-    title: 'Academic',
+    title: 'Academics',
     items: [
-      { label: 'Classes', href: '/school/classes', icon: 'BookOpen' },
-      { label: 'Sections', href: '/school/sections', icon: 'Grid3x3' },
-      { label: 'Subjects', href: '/school/subjects', icon: 'GraduationCap' },
-      { label: 'Timetable', href: '/school/timetable', icon: 'CalendarClock' },
-      { label: 'Exams', href: '/school/exams', icon: 'FileText' },
+      { label: 'Classes & Sections', href: '/school/academics/classes-sections', icon: 'BookOpen' },
+      { label: 'Subjects', href: '/school/academics/subjects', icon: 'GraduationCap' },
+      { label: 'Teachers & Subjects', href: '/school/academics/teachers-subjects', icon: 'UserCheck' },
+      { label: 'Timetable', href: '/school/academics/timetable', icon: 'CalendarClock' },
+      { label: 'Academic Year', href: '/school/academics/academic-year', icon: 'CalendarCheck' },
+    ],
+  },
+  schoolAttendance: {
+    title: 'Attendance',
+    items: [
+      { label: 'Student Attendance', href: '/school/attendance/student-attendance', icon: 'CalendarCheck' },
+      { label: 'Teacher Attendance', href: '/school/attendance/teacher-attendance', icon: 'UserCheck' },
+      { label: 'Attendance Register', href: '/school/attendance/register', icon: 'ClipboardList' },
+      { label: 'Leave Management', href: '/school/attendance/leave-management', icon: 'CalendarOff' },
+      { label: 'Attendance Reports', href: '/school/attendance/reports', icon: 'BarChart3' },
     ],
   },
   schoolFeeManagement: {
-    title: 'Fee Management',
+    title: 'Fees & Billing',
     items: [
-      { label: 'Fee Structure', href: '/school/fee-structure', icon: 'Wallet' },
-      { label: 'Fee Collection', href: '/school/fee-collection', icon: 'CreditCard' },
-      { label: 'Fee Receipt', href: '/school/fee-receipt', icon: 'Receipt' },
-      { label: 'Scholarships', href: '/school/scholarships', icon: 'Award' },
-      { label: 'Due Reports', href: '/school/due-reports', icon: 'AlertTriangle' },
+      { label: 'Fee Structure', href: '/school/fees/fee-structure', icon: 'Wallet' },
+      { label: 'Student Fees', href: '/school/fees/student-fees', icon: 'Users' },
+      { label: 'Collect Fees', href: '/school/fees/collect-fees', icon: 'CreditCard' },
+      { label: 'Fee Receipts', href: '/school/fees/receipts', icon: 'Receipt' },
+      { label: 'Outstanding', href: '/school/fees/outstanding', icon: 'AlertTriangle' },
+      { label: 'Refunds', href: '/school/fees/refunds', icon: 'RefreshCw' },
+    ],
+  },
+  schoolExaminations: {
+    title: 'Examinations',
+    items: [
+      { label: 'Exam Setup', href: '/school/examinations/exam-setup', icon: 'FileText' },
+      { label: 'Exam Schedule', href: '/school/examinations/schedule', icon: 'CalendarClock' },
+      { label: 'Marks Entry', href: '/school/examinations/marks-entry', icon: 'PenLine' },
+      { label: 'Results', href: '/school/examinations/results', icon: 'BarChart3' },
+      { label: 'Report Cards', href: '/school/examinations/report-cards', icon: 'FileCheck' },
+    ],
+  },
+  schoolHomework: {
+    title: 'Homework & Assignments',
+    items: [
+      { label: 'Create Homework', href: '/school/homework/create', icon: 'FilePlus' },
+      { label: 'Assignment List', href: '/school/homework/assignment-list', icon: 'ClipboardList' },
+      { label: 'Student Submissions', href: '/school/homework/submissions', icon: 'FileCheck' },
+      { label: 'Evaluation', href: '/school/homework/evaluation', icon: 'CheckSquare' },
+    ],
+  },
+  schoolCommunication: {
+    title: 'Communication',
+    items: [
+      { label: 'Notices', href: '/school/communication/notices', icon: 'FileText' },
+      { label: 'Announcements', href: '/school/communication/announcements', icon: 'Bell' },
+      { label: 'Messages', href: '/school/communication/messages', icon: 'Mail' },
+      { label: 'Parent Communication', href: '/school/communication/parent-communication', icon: 'Contact' },
+      { label: 'Notifications', href: '/school/communication/notifications', icon: 'MessageCircle' },
     ],
   },
   schoolLibrary: {
     title: 'Library',
     items: [
       { label: 'Books', href: '/school/library/books', icon: 'BookOpen' },
+      { label: 'Categories', href: '/school/library/categories', icon: 'Grid3x3' },
       { label: 'Issue / Return', href: '/school/library/issue-return', icon: 'ArrowRightLeft' },
-      { label: 'Fine', href: '/school/library/fine', icon: 'Wallet' },
-      { label: 'Catalogue', href: '/school/library/catalogue', icon: 'Grid3x3' },
+      { label: 'Members', href: '/school/library/members', icon: 'Users' },
+      { label: 'Fines', href: '/school/library/fines', icon: 'Wallet' },
     ],
   },
   schoolTransport: {
@@ -284,9 +430,9 @@ const SECTIONS = {
     items: [
       { label: 'Routes', href: '/school/transport/routes', icon: 'Route' },
       { label: 'Vehicles', href: '/school/transport/vehicles', icon: 'Bus' },
-      { label: 'Drivers', href: '/school/transport/drivers', icon: 'Users' },
-      { label: 'GPS Tracking', href: '/school/transport/gps-tracking', icon: 'Activity' },
-      { label: 'Transport Fees', href: '/school/transport/fees', icon: 'Wallet' },
+      { label: 'Stops', href: '/school/transport/stops', icon: 'Building2' },
+      { label: 'Student Allocation', href: '/school/transport/student-allocation', icon: 'UserCheck' },
+      { label: 'Transport Tracking', href: '/school/transport/tracking', icon: 'Activity' },
     ],
   },
   schoolHostel: {
@@ -303,45 +449,93 @@ const SECTIONS = {
   hotelDashboard: {
     title: 'Dashboard',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
+      { label: 'Dashboard', href: '/hotel/dashboard', icon: 'LayoutDashboard' },
     ],
   },
-  hotelGuestManagement: {
-    title: 'Guest Management',
+  hotelReservations: {
+    title: 'Reservations',
     items: [
-      { label: 'Guests', href: '/hotel/guests', icon: 'Users' },
-      { label: 'Bookings', href: '/hotel/bookings', icon: 'CalendarCheck' },
-      { label: 'Check-In', href: '/hotel/check-in', icon: 'LogIn' },
-      { label: 'Check-Out', href: '/hotel/check-out', icon: 'LogOut' },
-      { label: 'Guest History', href: '/hotel/guest-history', icon: 'History' },
+      { label: 'New Reservation', href: '/hotel/reservations/new', icon: 'CalendarCheck' },
+      { label: 'Reservation List', href: '/hotel/reservations/list', icon: 'ClipboardList' },
+      { label: 'Calendar', href: '/hotel/reservations/calendar', icon: 'CalendarClock' },
+      { label: 'Availability', href: '/hotel/reservations/availability', icon: 'CheckSquare' },
+      { label: 'Rate Plans', href: '/hotel/reservations/rate-plans', icon: 'IndianRupee' },
     ],
   },
-  hotelRooms: {
-    title: 'Rooms',
+  hotelFrontDesk: {
+    title: 'Front Desk',
     items: [
-      { label: 'Room Types', href: '/hotel/room-types', icon: 'BedDouble' },
-      { label: 'Availability', href: '/hotel/availability', icon: 'CheckSquare' },
-      { label: 'Housekeeping', href: '/hotel/housekeeping', icon: 'Sparkles' },
-      { label: 'Maintenance', href: '/hotel/maintenance', icon: 'Wrench' },
+      { label: 'Check-in', href: '/hotel/front-desk/check-in', icon: 'LogIn' },
+      { label: 'In-House Guests', href: '/hotel/front-desk/in-house-guests', icon: 'Users' },
+      { label: 'Check-out', href: '/hotel/front-desk/check-out', icon: 'LogOut' },
+      { label: 'Room Change', href: '/hotel/front-desk/room-change', icon: 'ArrowRightLeft' },
+      { label: 'Guest Requests', href: '/hotel/front-desk/guest-requests', icon: 'Bell' },
+    ],
+  },
+  hotelGuests: {
+    title: 'Guests',
+    items: [
+      { label: 'Guest Registration', href: '/hotel/guests/registration', icon: 'UserPlus' },
+      { label: 'Guest List', href: '/hotel/guests/list', icon: 'Users' },
+      { label: 'Guest Profile', href: '/hotel/guests/profile', icon: 'UserRound' },
+      { label: 'Guest Documents', href: '/hotel/guests/documents', icon: 'FolderOpen' },
+    ],
+  },
+  hotelRoomsAvailability: {
+    title: 'Rooms & Availability',
+    items: [
+      { label: 'Room Types', href: '/hotel/rooms-availability/room-types', icon: 'BedDouble' },
+      { label: 'Rooms', href: '/hotel/rooms-availability/rooms', icon: 'Home' },
+      { label: 'Room Status', href: '/hotel/rooms-availability/room-status', icon: 'CheckSquare' },
+      { label: 'Floor / Building', href: '/hotel/rooms-availability/floor-building', icon: 'Building2' },
+    ],
+  },
+  hotelHousekeeping: {
+    title: 'Housekeeping',
+    items: [
+      { label: 'Dashboard', href: '/hotel/housekeeping/room-status', icon: 'LayoutDashboard' },
+      { label: 'Cleaning Tasks', href: '/hotel/housekeeping/cleaning-tasks', icon: 'Sparkles' },
+      { label: 'Housekeeping Schedule', href: '/hotel/housekeeping/schedule', icon: 'CalendarClock' },
+      { label: 'Lost & Found', href: '/hotel/housekeeping/lost-found', icon: 'FolderOpen' },
+    ],
+  },
+  hotelRestaurantPos: {
+    title: 'Restaurant & POS',
+    items: [
+      { label: 'POS Billing', href: '/hotel/restaurant-pos/billing', icon: 'Receipt' },
+      { label: 'Tables', href: '/hotel/restaurant-pos/tables', icon: 'UtensilsCrossed' },
+      { label: 'Menu', href: '/hotel/restaurant-pos/menu', icon: 'BookOpen' },
+      { label: 'Orders', href: '/hotel/restaurant-pos/orders', icon: 'ShoppingCart' },
+      { label: 'KOT', href: '/hotel/restaurant-pos/kot', icon: 'ReceiptText' },
+    ],
+  },
+  hotelServices: {
+    title: 'Hotel Services',
+    items: [
+      { label: 'Room Service', href: '/hotel/services/room-service', icon: 'Bell' },
+      { label: 'Laundry', href: '/hotel/services/laundry', icon: 'Sparkles' },
+      { label: 'Spa', href: '/hotel/services/spa', icon: 'HeartPulse' },
+      { label: 'Transport', href: '/hotel/services/transport', icon: 'Truck' },
+      { label: 'Other Services', href: '/hotel/services/other-services', icon: 'PackagePlus' },
     ],
   },
   hotelBilling: {
     title: 'Billing',
     items: [
-      { label: 'Guest Invoice', href: '/hotel/guest-invoice', icon: 'Receipt' },
-      { label: 'POS', href: '/hotel/pos', icon: 'ShoppingCart' },
-      { label: 'Payments', href: '/hotel/payments', icon: 'Wallet' },
-      { label: 'Reports', href: '/hotel/billing-reports', icon: 'BarChart3' },
+      { label: 'New Bill', href: '/hotel/billing/new-bill', icon: 'Receipt' },
+      { label: 'Guest Billing', href: '/hotel/billing/guest-billing', icon: 'Users' },
+      { label: 'Restaurant Billing', href: '/hotel/billing/restaurant-billing', icon: 'UtensilsCrossed' },
+      { label: 'Bills & Invoices', href: '/hotel/billing/bills-invoices', icon: 'FileText' },
+      { label: 'Payments', href: '/hotel/billing/payments', icon: 'Wallet' },
+      { label: 'Outstanding', href: '/hotel/billing/outstanding', icon: 'IndianRupee' },
+      { label: 'Refunds', href: '/hotel/billing/refunds', icon: 'ArrowRightLeft' },
+      { label: 'Estimates', href: '/hotel/billing/estimates', icon: 'FileSpreadsheet' },
     ],
   },
-  hotelRestaurant: {
-    title: 'Restaurant',
+  hotelReports: {
+    title: 'Reports',
     items: [
-      { label: 'Table Management', href: '/hotel/restaurant/table-management', icon: 'UtensilsCrossed' },
-      { label: 'KOT', href: '/hotel/restaurant/kot', icon: 'ReceiptText' },
-      { label: 'Menu', href: '/hotel/restaurant/menu', icon: 'BookOpen' },
-      { label: 'Room Service', href: '/hotel/restaurant/room-service', icon: 'Bell' },
-      { label: 'Bar', href: '/hotel/restaurant/bar', icon: 'Wallet' },
+      { label: 'Reports', href: '/hotel/reports', icon: 'BarChart3' },
     ],
   },
 
@@ -536,24 +730,26 @@ const SECTIONS = {
   },
 };
 
-// Shared by every category: GST, Accounting, CRM, Inventory, Employee Management, More Modules, Settings.
-const COMMON_LAYOUT = ['main', 'gst', 'accounting', 'crm', 'inventory', 'hrPayroll', 'moreModules', 'dataManagement', 'settings'];
+// Shared by every category: Inventory, Accounting, GST, Customers, Employee Management, More Modules, Settings.
+const COMMON_LAYOUT = ['main', 'inventory', 'accounting', 'gst', 'crm', 'hrPayroll', 'moreModules', 'reportsHub', 'dataManagement', 'settings'];
 
 const CATEGORY_LAYOUTS = {
-  retail: ['main', 'sales', 'purchase', 'crm', 'inventory', 'accounting', 'gst', 'hrPayroll', 'moreModules', 'reports', 'dataManagement', 'settings'],
+  retail: ['main', 'sales', 'purchase', 'inventory', 'accounting', 'gst', 'crm', 'hrPayroll', 'moreModules', 'reports', 'dataManagement', 'settings'],
   hospital: [
     'main', 'hospitalPatients', 'hospitalAppointments', 'hospitalBilling', 'hospitalOpd', 'hospitalIpdBeds',
     'hospitalDoctorsNursing', 'hospitalDiagnostics', 'hospitalPharmacy',
     'hospitalEmergencyOt', 'hospitalReports',
-    ...COMMON_LAYOUT.slice(1),
+    ...COMMON_LAYOUT.slice(1).filter((key) => key !== 'reportsHub'),
   ],
   school: [
-    'main', 'schoolStudentManagement', 'schoolAcademic', 'schoolFeeManagement',
-    'schoolLibrary', 'schoolTransport', 'schoolHostel', ...COMMON_LAYOUT.slice(1),
+    'main', 'schoolAdmissions', 'schoolStudents', 'schoolAcademic', 'schoolAttendance',
+    'schoolFeeManagement', 'schoolExaminations', 'schoolHomework', 'schoolCommunication',
+    'schoolTransport', 'schoolLibrary', 'schoolHostel', 'reportsHub', 'dataManagement',
   ],
   hotel: [
-    'hotelDashboard', 'hotelGuestManagement', 'hotelRooms', 'hotelBilling', 'hotelRestaurant',
-    ...COMMON_LAYOUT.slice(1),
+    'hotelDashboard', 'hotelReservations', 'hotelFrontDesk', 'hotelGuests', 'hotelRoomsAvailability',
+    'hotelHousekeeping', 'hotelRestaurantPos', 'hotelServices', 'hotelBilling', 'hotelReports',
+    ...COMMON_LAYOUT.slice(1).filter((key) => key !== 'crm' && key !== 'reportsHub'),
   ],
   restaurant: COMMON_LAYOUT,
   manufacturing: COMMON_LAYOUT,
@@ -571,7 +767,7 @@ const CATEGORY_LAYOUTS = {
   ],
   finance: [
     'financeDashboard', 'financeCustomers', 'financeCollections', 'financeBills',
-    'financeReminders', 'financeReports', 'financeProfileSettings',
+    'financeReminders', 'financeReports', 'reportsHub', 'dataManagement', 'financeProfileSettings',
   ],
   transport: COMMON_LAYOUT,
   other: COMMON_LAYOUT,
@@ -579,5 +775,20 @@ const CATEGORY_LAYOUTS = {
 
 export function getSidebarSections(category, user = {}) {
   const layout = CATEGORY_LAYOUTS[category] || CATEGORY_LAYOUTS.other;
-  return layout.map((key) => SECTIONS[key]).filter((section) => section && (!section.adminOnly || isAdminUser(user)));
+  const sections = layout
+    .map((key) => SECTIONS[key])
+    .map((section, index) => {
+      const key = layout[index];
+      if (!section) return null;
+      const locked = !hasModuleAccess(user, SECTION_PERMISSION[key]);
+      const items = key === 'settings' && canManageBranchUsers(user) && !isSuperAdminUser(user)
+        ? section.items.map((item) => ({ ...item, locked: item.href !== '/users-roles' }))
+        : section.items;
+      return { ...section, items, locked };
+    })
+    .filter((section) => section && (!section.adminOnly || isAdminUser(user)));
+  const dashboard = sections.filter((section) => section.title === 'Dashboard');
+  const unlocked = sections.filter((section) => section.title !== 'Dashboard' && !section.locked);
+  const locked = sections.filter((section) => section.title !== 'Dashboard' && section.locked);
+  return [...dashboard, ...unlocked, ...locked];
 }

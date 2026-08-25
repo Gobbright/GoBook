@@ -16,6 +16,7 @@ import {
   attachAccountingStatus,
   attachAccountingStatusList,
 } from '../../../../services/salesAccountingStatus.js';
+import { branchForNewRecord, branchScopedAggregateMatch, branchScopedQuery } from '../../../../utils/branchScope.js';
 
 function normalizeInvoicePayload(body = {}) {
   const items = Array.isArray(body.items)
@@ -67,7 +68,8 @@ export async function listInvoices(req, res, next) {
     const baseDocumentType = documentType || { $in: ['invoice', 'bill-of-supply'] };
     const includePayment = isBillableDocType(documentType);
 
-    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, baseDocumentType, { includePayment });
+    const baseMatch = await branchScopedAggregateMatch(req, { model: Invoice, ownerField: 'userId' });
+    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, baseDocumentType, { includePayment, baseMatch });
     const result = await Invoice.aggregate(pipeline);
     const { data, total } = unwrapFacetResult(result);
 
@@ -80,7 +82,7 @@ export async function listInvoices(req, res, next) {
 // GET /api/sales/invoices/:id
 export async function getInvoice(req, res, next) {
   try {
-    const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.user.id }).lean();
+    const invoice = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!invoice) return next(httpError(404, 'Invoice not found'));
     res.json(await attachAccountingStatus(req.user.id, invoice));
   } catch (err) {
@@ -92,7 +94,7 @@ export async function getInvoice(req, res, next) {
 export async function createInvoice(req, res, next) {
   try {
     const payload = normalizeInvoicePayload(req.body);
-    const invoice = await Invoice.create({ ...payload, userId: req.user.id, businessId: req.user.businessId });
+    const invoice = await Invoice.create({ ...payload, userId: req.user.id, businessId: req.user.businessId, branch: await branchForNewRecord(req, payload.branch) });
     try {
       await postInventoryForDocument(invoice, req.user.id);
       await postInvoiceAccounting(invoice, req.user);
@@ -119,7 +121,7 @@ export async function createInvoice(req, res, next) {
 export async function updateInvoice(req, res, next) {
   try {
     const payload = normalizeInvoicePayload(req.body);
-    const existing = await Invoice.findOne({ _id: req.params.id, userId: req.user.id });
+    const existing = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id }));
     if (!existing) return next(httpError(404, 'Invoice not found'));
     const nextInvoice = new Invoice({
       ...existing.toObject(),
@@ -140,8 +142,8 @@ export async function updateInvoice(req, res, next) {
     let invoice;
     try {
       invoice = await Invoice.findOneAndUpdate(
-        { _id: req.params.id, userId: req.user.id },
-        { $set: payload },
+        await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id }),
+        { $set: { ...payload, branch: await branchForNewRecord(req, payload.branch ?? existing.branch) } },
         { new: true, runValidators: false },
       );
     } catch (err) {
@@ -164,7 +166,7 @@ export async function updateInvoice(req, res, next) {
 // DELETE /api/sales/invoices/:id
 export async function deleteInvoice(req, res, next) {
   try {
-    const invoice = await Invoice.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
+    const invoice = await Invoice.findOneAndDelete(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!invoice) return next(httpError(404, 'Invoice not found'));
     await reverseInventoryForDocument(invoice, req.user.id);
     await reverseAccountingPosting({ userId: req.user.id, sourceType: 'invoice', sourceId: invoice._id });
@@ -185,7 +187,7 @@ export async function deleteInvoice(req, res, next) {
 // POST /api/sales/invoices/:id/send-email
 export async function sendInvoiceEmail(req, res, next) {
   try {
-    const invoice = await Invoice.findOne({ _id: req.params.id, userId: req.user.id }).lean();
+    const invoice = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!invoice) return next(httpError(404, 'Invoice not found'));
 
     const { toEmail, pdfBase64 } = req.body;

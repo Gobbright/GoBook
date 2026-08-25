@@ -1,42 +1,21 @@
-import { BarChart3, CheckCircle2, Cloud, FileText, Moon, Star, Sun } from 'lucide-react';
+import { BarChart3, BookOpen, Building2, FileText, Mail, Moon, Package, ShieldCheck, Star, Sun, Users } from 'lucide-react';
 
 import { useTheme } from '../../app/ThemeContext.jsx';
 
 const DECISION_GUIDE = [
-  { icon: FileText, label: 'Billing first', desc: 'GST, non-GST, invoices and returns' },
-  { icon: BarChart3, label: 'Control stock', desc: 'Inventory, alerts and movement reports' },
-  { icon: Cloud, label: 'Grow modules', desc: 'CRM, HR, accounting and branch tools' },
+  { icon: FileText, label: 'Billing & Invoices', desc: 'Create professional invoices in seconds' },
+  { icon: Package, label: 'Inventory Control', desc: 'Track stock, manage inventory & avoid shortages' },
+  { icon: BarChart3, label: 'Reports & Insights', desc: 'Get real-time insights and grow your business' },
+  { icon: ShieldCheck, label: 'Secure & Reliable', desc: 'Your data is protected with enterprise security' },
 ];
 
-function DecisionGuide() {
-  return (
-    <div className="w-full max-w-[500px] min-w-0 text-left mb-4">
-      <section className="rounded-[22px] border border-blue-100/80 dark:border-blue-500/20 bg-white/90 dark:bg-slate-900/80 px-4 py-3.5 shadow-[0_18px_42px_-28px_rgba(30,64,175,0.45)]">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div>
-            <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.14em] text-blue-500">Decision Guide</p>
-            <h2 className="m-0 mt-1 text-[15px] font-black text-slate-900 dark:text-white">Choose the right start</h2>
-          </div>
-          <span className="inline-flex h-8 w-8 min-[1180px]:h-9 min-[1180px]:w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600">
-            <CheckCircle2 className="h-4 w-4 min-[1180px]:h-[18px] min-[1180px]:w-[18px]" />
-          </span>
-        </div>
-        <div className="grid grid-cols-1 min-[1180px]:grid-cols-3 gap-2.5">
-          {DECISION_GUIDE.map(({ icon: Icon, label, desc }) => (
-            <div key={label} className="min-w-0 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:shadow-[0_14px_26px_-22px_rgba(37,99,235,0.8)] dark:hover:bg-slate-900">
-              <span className="mb-2 inline-flex h-7 w-7 min-[1180px]:h-8 min-[1180px]:w-8 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400">
-                <Icon className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
-              </span>
-              <strong className="block text-[12px] leading-tight text-slate-900 dark:text-slate-100">{label}</strong>
-              <span className="mt-1 block text-[10.5px] leading-snug text-slate-500 dark:text-slate-400">{desc}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-    </div>
-  );
-}
+const LIGHT_FEATURES = [
+  { icon: FileText, label: 'Billing & Invoicing', desc: 'Create professional invoices in seconds' },
+  { icon: Package, label: 'Inventory Management', desc: 'Track stock, manage inventory in real-time' },
+  { icon: Users, label: 'CRM & Customers', desc: 'Manage leads, customers & build strong relationships' },
+  { icon: BookOpen, label: 'Accounting', desc: 'Track income, expenses & get clear insights' },
+  { icon: Building2, label: 'Multi-branch', desc: 'Manage multiple branches from one place' },
+];
 
 function FacebookIcon({ size = 17 }) {
   return (
@@ -65,86 +44,231 @@ function InstagramIcon({ size = 17 }) {
 }
 
 const SOCIAL_LINKS = [
-  { label: 'WhatsApp',  href: 'https://wa.me/918925550775', icon: WhatsAppIcon, className: 'text-white bg-[#25D366] hover:bg-[#1fbd5a] shadow-[0_8px_18px_-10px_rgba(37,211,102,0.9)]' },
-  { label: 'Facebook',  href: 'https://www.facebook.com/share/18xYZv2Hqy/?mibextid=wwXIfr', icon: FacebookIcon, className: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
+  { label: 'WhatsApp', href: 'https://wa.me/918925550775', icon: WhatsAppIcon, className: 'text-white bg-[#25D366] hover:bg-[#1fbd5a] shadow-[0_8px_18px_-10px_rgba(37,211,102,0.9)]' },
+  { label: 'Facebook', href: 'https://www.facebook.com/share/18xYZv2Hqy/?mibextid=wwXIfr', icon: FacebookIcon, className: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
   { label: 'Instagram', href: 'https://www.instagram.com/gobook_?igsh=MTZrZ29kdmozMmlqdA%3D%3D&utm_source=qr', icon: InstagramIcon, className: 'text-pink-500 bg-pink-50 hover:bg-pink-100' },
 ];
+
+function CyberFeatures() {
+  return (
+    <div className="auth-cyber-feature-grid">
+      {DECISION_GUIDE.map(({ icon: Icon, label, desc }) => (
+        <section key={label} className="auth-cyber-feature-card">
+          <span className="auth-cyber-feature-icon">
+            <Icon size={26} />
+          </span>
+          <strong>{label}</strong>
+          <span>{desc}</span>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function DecorativeBackdrop() {
+  return (
+    <>
+      <div className="auth-cyber-star auth-cyber-star-one" />
+      <div className="auth-cyber-star auth-cyber-star-two" />
+      <div className="auth-cyber-star auth-cyber-star-three" />
+      <div className="auth-cyber-rings" />
+      <div className="auth-cyber-panel-lines" />
+    </>
+  );
+}
+
+function LightLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
+  return (
+    <div className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} auth-shell auth-light-shell`}>
+      <section className="auth-light-left">
+        <div className="auth-light-logo">
+          <img src="/gobook-logo-full.png" alt="GoBook" />
+        </div>
+
+        <div className="auth-light-main">
+          <div className="auth-light-copy">
+            <h1>Manage More.</h1>
+            <h2>Grow Faster.</h2>
+            <p>GoBook is your all-in-one business management platform to streamline, automate and scale your business operations seamlessly.</p>
+          </div>
+
+          <div className="auth-light-hero" aria-hidden="true">
+            <img src="/auth-light-hero.png" alt="" />
+          </div>
+        </div>
+
+        <section className="auth-light-features">
+          <h3>Everything you need to run your business</h3>
+          <div className="auth-light-feature-grid">
+            {LIGHT_FEATURES.map(({ icon: Icon, label, desc }) => (
+              <article key={label} className="auth-light-feature-card">
+                <span><Icon size={22} /></span>
+                <strong>{label}</strong>
+                <p>{desc}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <div className="auth-light-footer">
+          <div className="auth-light-socials" aria-label="Social links">
+            {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+                <Icon size={21} strokeWidth={2.2} />
+              </a>
+            ))}
+            <a href="mailto:support@gobook.app" aria-label="Email" title="Email"><Mail size={20} /></a>
+          </div>
+
+          <p>&copy; 2026 GoBook Business Management. All rights reserved.</p>
+        </div>
+      </section>
+
+      <section className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen overflow-y-auto'} auth-panel auth-light-right`}>
+        <button type="button" onClick={toggleTheme} className="auth-theme-toggle auth-light-toggle">
+          <Sun size={14} />
+          Light Mode
+        </button>
+
+        <div className="auth-card-wrap auth-light-card-wrap" style={{ maxWidth: cardMaxWidth }}>
+          <div className={`${compact ? 'px-8 py-9' : 'px-9 py-10'} auth-card auth-light-card`}>
+            {children}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DarkLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
+  return (
+    <div className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} auth-shell auth-dark-shell`}>
+      <section className="auth-dark-left">
+        <DecorativeBackdrop />
+        <div className="auth-dark-logo">
+          <img src="/gobook-logo-full.png" alt="GoBook" />
+        </div>
+
+        <div className="auth-dark-main">
+          <div className="auth-dark-copy">
+            <h1>Manage More.</h1>
+            <h2>Grow Faster.</h2>
+            <p>GoBook is your all-in-one business management platform to streamline, automate and scale your business operations seamlessly.</p>
+          </div>
+
+          <div className="auth-dark-hero" aria-hidden="true">
+            <img src="/auth-light-hero.png" alt="" />
+          </div>
+        </div>
+
+        <section className="auth-dark-features">
+          <h3>Everything you need to run your business</h3>
+          <div className="auth-dark-feature-grid">
+            {LIGHT_FEATURES.map(({ icon: Icon, label, desc }) => (
+              <article key={label} className="auth-dark-feature-card">
+                <span><Icon size={22} /></span>
+                <strong>{label}</strong>
+                <p>{desc}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <div className="auth-dark-footer">
+          <div className="auth-dark-socials" aria-label="Social links">
+            {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+                <Icon size={21} strokeWidth={2.2} />
+              </a>
+            ))}
+            <a href="mailto:support@gobook.app" aria-label="Email" title="Email"><Mail size={20} /></a>
+          </div>
+
+          <p>&copy; 2026 GoBook Business Management. All rights reserved.</p>
+        </div>
+      </section>
+
+      <section className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen overflow-y-auto'} auth-panel auth-dark-right`}>
+        <DecorativeBackdrop />
+        <button type="button" onClick={toggleTheme} className="auth-theme-toggle auth-dark-toggle">
+          <Moon size={14} />
+          Dark Mode
+        </button>
+
+        <div className="auth-card-wrap auth-dark-card-wrap" style={{ maxWidth: cardMaxWidth }}>
+          <div className={`${compact ? 'px-8 py-9' : 'px-9 py-10'} auth-card auth-dark-card`}>
+            {children}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CyberDarkLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
+  return (
+    <div className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} auth-shell auth-cyber-shell`}>
+      <section className="auth-cyber-left">
+        <DecorativeBackdrop />
+        <div className="auth-cyber-left-content">
+          <div className="auth-cyber-logo">
+            <img src="/gobook-logo-full.png" alt="GoBook" />
+          </div>
+
+          <div className="auth-cyber-badge">
+            <Star size={15} fill="currentColor" />
+            <span>Trusted by 10,000+ Businesses</span>
+          </div>
+
+          <div className="auth-cyber-copy">
+            <h1>Smart Billing.</h1>
+            <h2>Better Business.</h2>
+            <p>Create invoices, manage customers, track payments and grow your business with ease.</p>
+          </div>
+
+          <CyberFeatures />
+        </div>
+
+        <div className="auth-cyber-hero" aria-hidden="true">
+          <img src="/auth-billing-hero.png" alt="" />
+        </div>
+
+        <div className="auth-cyber-left-footer">
+          <div className="auth-cyber-socials" aria-label="Social links">
+            {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+                <Icon size={22} strokeWidth={2.2} />
+              </a>
+            ))}
+            <a href="mailto:support@gobook.app" aria-label="Email" title="Email"><Mail size={20} /></a>
+          </div>
+          <p>&copy; 2026 GoBook Billing App. All rights reserved.</p>
+        </div>
+      </section>
+
+      <section className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen overflow-y-auto'} auth-panel auth-cyber-right`}>
+        <DecorativeBackdrop />
+        <button type="button" onClick={toggleTheme} className="auth-theme-toggle auth-cyber-toggle">
+          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+        </button>
+
+        <div className="auth-card-wrap auth-cyber-card-wrap" style={{ maxWidth: cardMaxWidth }}>
+          <div className={`${compact ? 'px-7 py-8 sm:px-8 sm:py-9' : 'px-8 py-9'} auth-card auth-cyber-card`}>
+            {children}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 export function AuthLayout({ children, cardMaxWidth = 430, compact = false }) {
   const { theme, toggleTheme } = useTheme();
 
-  return (
-    <div className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} auth-shell relative flex bg-white dark:bg-slate-950`}>
-      {/* Left brand panel */}
-      <div className="hidden xl:flex xl:w-[46%] relative flex-col items-center justify-center text-center px-12 2xl:px-16 py-10 overflow-hidden">
-        {/* Dot grid (top-left) */}
-        <div className="absolute left-0 top-0 pointer-events-none" style={{ width: 260, height: 260, backgroundImage: 'radial-gradient(circle, rgba(79,144,255,0.35) 1.5px, transparent 1.5px)', backgroundSize: '18px 18px' }} />
-        {/* Decorative blob (bottom-left) */}
-        <div className="absolute pointer-events-none" style={{ left: -180, bottom: -300, width: 380, height: 380, borderRadius: '50%', background: 'linear-gradient(135deg, #4f90ff 0%, #2f6bff 100%)' }} />
+  if (theme === 'dark') {
+    return <DarkLayout cardMaxWidth={cardMaxWidth} compact={compact} theme={theme} toggleTheme={toggleTheme}>{children}</DarkLayout>;
+  }
 
-        <div className="relative flex flex-col items-center">
-          {/* Logo */}
-          <div className="bg-white rounded-2xl px-5 py-3 mb-6" style={{ boxShadow: '0 8px 20px -12px rgba(30,41,59,0.15)' }}>
-            <img src="/gobook-logo-full.png" alt="GoBook" className="h-12 w-auto object-contain" />
-          </div>
-
-          {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 mb-4 bg-blue-500/10">
-            <Star size={13} fill="#3b6dff" style={{ color: '#3b6dff' }} />
-            <span className="text-[12.5px] font-semibold" style={{ color: '#3b6dff' }}>Smart. Simple. Secure.</span>
-          </div>
-
-          {/* Headline */}
-          <h1 className="text-slate-900 dark:text-white text-[38px] font-extrabold leading-[1.1] m-0">Smart Billing.</h1>
-          <h1 className="text-[38px] font-extrabold leading-[1.1] m-0 mb-3" style={{ color: '#3b6dff' }}>Better Business.</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-[14px] leading-relaxed m-0 mb-6 max-w-[420px]">
-            GoBook helps you create invoices, manage customers, track payments and grow your business with ease.
-          </p>
-
-          <DecisionGuide />
-
-          <div className="flex items-center justify-center gap-3 mt-1 mb-3" aria-label="Social links">
-            {SOCIAL_LINKS.map(({ label, href, icon: Icon, className }) => (
-              <a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={label}
-                title={label}
-                className={`w-11 h-11 rounded-full inline-flex items-center justify-center transition-colors ${className}`}
-              >
-                <Icon size={21} strokeWidth={2.2} />
-              </a>
-            ))}
-          </div>
-
-          <p className="text-slate-400 dark:text-slate-600 text-[11.5px] mt-0 mb-0">&copy; 2026 GoBook Billing App. All rights reserved.</p>
-        </div>
-      </div>
-
-      {/* Right panel */}
-      <div className={`${compact ? 'h-[100dvh] overflow-hidden px-3 py-3 sm:px-4 sm:py-4' : 'min-h-screen overflow-y-auto px-6 py-10'} auth-panel relative flex-1 flex items-center justify-center bg-[linear-gradient(160deg,#eef2ff_0%,#e4e9fb_100%)] dark:bg-[linear-gradient(160deg,#0f172a_0%,#0b1120_100%)]`}>
-        <button type="button" onClick={toggleTheme}
-                className={`${compact ? 'top-3 right-3 px-3 py-1.5 text-[11px]' : 'top-6 right-6 px-4 py-2 text-[12.5px]'} auth-theme-toggle absolute inline-flex items-center gap-2 rounded-full bg-white dark:bg-slate-800 font-semibold text-slate-600 dark:text-slate-300 cursor-pointer border-0 transition-colors hover:text-slate-900 dark:hover:text-white`}
-                style={{ boxShadow: '0 4px 14px -4px rgba(30,41,59,0.18)' }}>
-          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-        </button>
-
-        <div className="auth-card-wrap w-full flex-none" style={{ maxWidth: cardMaxWidth }}>
-          {/* Mobile-only logo */}
-          <div className={`${compact ? 'hidden' : 'flex'} auth-mobile-logo justify-center mb-6 xl:hidden`}>
-            <div className="inline-flex bg-white rounded-xl px-4 py-2.5">
-              <img src="/gobook-logo-full.png" alt="GoBook" className="h-8 w-auto object-contain" />
-            </div>
-          </div>
-
-          <div className={`${compact ? 'rounded-2xl px-5 py-5 sm:px-6 sm:py-6' : 'rounded-[28px] px-8 py-9'} auth-card bg-white dark:bg-slate-900`} style={{ boxShadow: '0 30px 70px -20px rgba(30,41,59,0.25)' }}>
-            {children}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <LightLayout cardMaxWidth={cardMaxWidth} compact={compact} theme={theme} toggleTheme={toggleTheme}>{children}</LightLayout>;
 }

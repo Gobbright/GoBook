@@ -2,9 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
+import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
+import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 
-const EMPTY = { name: '', contact: '', phone: '', email: '', category: '', status: 'Active', gstin: '', address: '' };
+const EMPTY = {
+  name: '', contact: '', phone: '', email: '', category: '', status: 'Active', gstin: '', address: '',
+  bankName: '', accountHolderName: '', accountNumber: '', ifscCode: '', bankBranch: '',
+};
 const AVATAR_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#e11d48', '#65a30d'];
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
@@ -18,12 +24,25 @@ function pageNumbers(current, total) {
   return [1, '...', current - 1, current, current + 1, '...', total];
 }
 
+function partyKeys(party = {}) {
+  return [
+    party.gstin,
+    party.phone,
+    party.name,
+  ].map((value) => String(value || '').trim().toLowerCase()).filter(Boolean);
+}
+
 export function VendorManagementPage() {
   const [vendors, setVendors]       = useState([]);
+  const [customers, setCustomers]   = useState([]);
   const [stats, setStats]           = useState({ total: 0, active: 0, inactive: 0 });
   const [categories, setCategories] = useState([]);
   const [search, setSearch]         = useState('');
   const [category, setCategory]     = useState('All Categories');
+  const [status, setStatus]         = useState('All Status');
+  const [partyType, setPartyType]   = useState('All Parties');
+  const [dateFrom, setDateFrom]     = useState('');
+  const [dateTo, setDateTo]         = useState('');
   const [page, setPage]             = useState(1);
   const [showForm, setShowForm]     = useState(false);
   const [editingId, setEditingId]   = useState(null);
@@ -35,23 +54,39 @@ export function VendorManagementPage() {
 
   async function load() {
     try {
-      const data = await apiClient('/more-modules/vendors');
-      setVendors(data.vendors ?? []);
-      setStats(data.stats ?? {});
-      setCategories(data.categories ?? []);
+      const [vendorResult, customerResult] = await Promise.allSettled([
+        apiClient('/more-modules/vendors'),
+        apiClient('/crm/customers'),
+      ]);
+      const vendorData = vendorResult.status === 'fulfilled' ? vendorResult.value : {};
+      const customerData = customerResult.status === 'fulfilled' ? customerResult.value : {};
+      setVendors(vendorData.vendors ?? []);
+      setStats(vendorData.stats ?? {});
+      setCategories(vendorData.categories ?? []);
+      setCustomers(customerData.customers ?? []);
     } catch {}
   }
 
   useEffect(() => { load(); }, []);
 
   const catOptions = ['All Categories', ...categories];
+  const customerKeys = new Set(customers.flatMap(partyKeys));
+  function isAlsoCustomer(vendor) {
+    return partyKeys(vendor).some((key) => customerKeys.has(key));
+  }
+
   const filtered   = vendors.filter((v) => {
     const matchSearch   = !search || v.name.toLowerCase().includes(search.toLowerCase()) || (v.contact || '').toLowerCase().includes(search.toLowerCase());
     const matchCategory = category === 'All Categories' || v.category === category;
-    return matchSearch && matchCategory;
+    const matchStatus = status === 'All Status' || v.status === status;
+    const alsoCustomer = isAlsoCustomer(v);
+    const matchPartyType = partyType === 'All Parties'
+      || (partyType === 'Vendor Only' && !alsoCustomer)
+      || (partyType === 'Customer & Vendor' && alsoCustomer);
+    return matchSearch && matchCategory && matchStatus && matchPartyType && isWithinDateRange(v.createdAt || v.updatedAt, dateFrom, dateTo);
   });
 
-  useEffect(() => { setPage(1); }, [search, category]);
+  useEffect(() => { setPage(1); }, [search, category, status, partyType, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -90,7 +125,22 @@ export function VendorManagementPage() {
   }
 
   function handleEdit(v) {
-    setForm({ name: v.name, contact: v.contact, phone: v.phone, email: v.email, category: v.category, status: v.status, gstin: v.gstin, address: v.address });
+    setForm({
+      ...EMPTY,
+      name: v.name,
+      contact: v.contact,
+      phone: v.phone,
+      email: v.email,
+      category: v.category,
+      status: v.status,
+      gstin: v.gstin,
+      address: v.address,
+      bankName: v.bankName || '',
+      accountHolderName: v.accountHolderName || '',
+      accountNumber: v.accountNumber || '',
+      ifscCode: v.ifscCode || '',
+      bankBranch: v.bankBranch || '',
+    });
     setEditingId(v._id);
     setShowForm(true);
   }
@@ -107,6 +157,19 @@ export function VendorManagementPage() {
     { label: 'Inactive Vendors', value: String(stats.inactive ?? 0), sub: `${stats.total ? Math.round(((stats.inactive ?? 0) / stats.total) * 100) : 0}%`, color: '#f97316', bg: '#fff7ed' },
     { label: 'Categories',       value: String(categories.length),   sub: 'Vendor Types', color: '#0891b2', bg: '#ecfeff' },
     { label: 'Filtered',         value: String(filtered.length),     sub: 'In view',      color: '#7c3aed', bg: '#f5f3ff' },
+  ];
+  const exportColumns = [
+    { label: 'Vendor', value: (row) => row.name },
+    { label: 'Contact Person', value: (row) => row.contact },
+    { label: 'Phone', value: (row) => row.phone },
+    { label: 'Email', value: (row) => row.email },
+    { label: 'Category', value: (row) => row.category },
+    { label: 'GSTIN', value: (row) => row.gstin },
+    { label: 'Status', value: (row) => row.status },
+    { label: 'Party Type', value: (row) => isAlsoCustomer(row) ? 'Customer & Vendor' : 'Vendor Only' },
+    { label: 'Bank', value: (row) => row.bankName },
+    { label: 'A/C No.', value: (row) => row.accountNumber },
+    { label: 'IFSC', value: (row) => row.ifscCode },
   ];
 
   return (
@@ -149,6 +212,16 @@ export function VendorManagementPage() {
             <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] sm:col-span-2" placeholder="Address" value={form.address} onChange={(e) => updateForm('address', e.target.value)} />
           </div>
+          <div className="mb-4">
+            <div className="text-[12px] font-semibold uppercase tracking-wide text-[#536173] mb-2">Bank Details</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Bank Name" value={form.bankName} onChange={(e) => updateForm('bankName', e.target.value)} />
+              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="A/C Name" value={form.accountHolderName} onChange={(e) => updateForm('accountHolderName', e.target.value)} />
+              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="A/C No." value={form.accountNumber} onChange={(e) => updateForm('accountNumber', e.target.value)} />
+              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="IFSC" value={form.ifscCode} onChange={(e) => updateForm('ifscCode', e.target.value.toUpperCase())} />
+              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] sm:col-span-2" placeholder="Bank Branch" value={form.bankBranch} onChange={(e) => updateForm('bankBranch', e.target.value)} />
+            </div>
+          </div>
           {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{formError}</p>}
           <div className="flex justify-end gap-2">
             <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
@@ -184,6 +257,16 @@ export function VendorManagementPage() {
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search vendor..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={category} onChange={setCategory} options={catOptions} />
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={status} onChange={setStatus} options={['All Status', 'Active', 'Inactive']} />
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={partyType} onChange={setPartyType} options={['All Parties', 'Vendor Only', 'Customer & Vendor']} />
+          <DateRangeFilter
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={setDateFrom}
+            onToChange={setDateTo}
+            onClear={() => { setDateFrom(''); setDateTo(''); }}
+          />
+          <ExportButtons title="Vendors" filename="vendors" rows={filtered} columns={exportColumns} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
@@ -208,6 +291,7 @@ export function VendorManagementPage() {
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-none" style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>{row.name[0]}</div>
                       <span className="font-medium text-[#111827]">{row.name}</span>
+                      {isAlsoCustomer(row) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Customer</span>}
                     </div>
                   </td>
                   <td className={`${TD} text-[#536173]`}>{row.contact || '—'}</td>

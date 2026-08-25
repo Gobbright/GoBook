@@ -9,12 +9,6 @@ const CATEGORIES = ['Hematology', 'Biochemistry', 'Pathology', 'Hormone', 'Micro
 const SAMPLE_TYPES = ['Blood', 'Urine', 'Stool', 'Swab', 'Sputum', 'Tissue'];
 const CONTAINERS = ['EDTA Tube', 'Plain Tube', 'Fluoride Tube', 'Urine Container', 'Sterile Container', 'Swab Tube'];
 const STATUSES = ['Active', 'Inactive'];
-const DEMO_TESTS = [
-  { _id: 'demo-cbc', data: { name: 'Complete Blood Count', shortName: 'CBC', testCode: 'LAB-CBC', category: 'Hematology', sampleType: 'Blood', container: 'EDTA Tube', reportTimeHours: '4', price: '800', status: 'Active', parameters: [{ name: 'Hemoglobin', unit: 'g/dL', range: '13.0 - 17.0' }, { name: 'WBC', unit: '/uL', range: '4,000 - 11,000' }, { name: 'Platelets', unit: '/uL', range: '150,000 - 450,000' }] } },
-  { _id: 'demo-sugar', data: { name: 'Blood Sugar', shortName: 'Blood Sugar', testCode: 'LAB-BS', category: 'Biochemistry', sampleType: 'Blood', container: 'Fluoride Tube', reportTimeHours: '2', price: '300', status: 'Active', parameters: [{ name: 'Glucose', unit: 'mg/dL', range: '70 - 110' }] } },
-  { _id: 'demo-urine', data: { name: 'Urine Routine', shortName: 'Urine Routine', testCode: 'LAB-UR', category: 'Pathology', sampleType: 'Urine', container: 'Urine Container', reportTimeHours: '3', price: '250', status: 'Active', parameters: [{ name: 'Protein', unit: '', range: 'Nil' }] } },
-  { _id: 'demo-thyroid', data: { name: 'Thyroid Profile', shortName: 'Thyroid Profile', testCode: 'LAB-TFT', category: 'Hormone', sampleType: 'Blood', container: 'Plain Tube', reportTimeHours: '8', price: '1200', status: 'Active', parameters: [{ name: 'TSH', unit: 'uIU/mL', range: '0.4 - 4.0' }] } },
-];
 const EMPTY_FORM = {
   name: 'Complete Blood Count',
   shortName: 'CBC',
@@ -87,7 +81,7 @@ export function LaboratoryPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const testRecords = tests.records.length ? tests.records : DEMO_TESTS;
+  const testRecords = tests.records;
   const todayOrders = useMemo(() => labWorkflow.records.filter((record) => (record.data?.date || record.createdAt || '').slice(0, 10) === todayISO()), [labWorkflow.records]);
   const stats = {
     orders: todayOrders.length || 124,
@@ -253,3 +247,4 @@ export function LaboratoryPage() {
     </div>
   );
 }
+

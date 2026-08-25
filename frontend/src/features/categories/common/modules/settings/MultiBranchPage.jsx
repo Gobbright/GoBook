@@ -3,13 +3,16 @@ import { useEffect, useState } from 'react';
 import { apiClient } from '../../../../../services/apiClient.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { getCurrentUser } from '../../../../../services/authService.js';
 
 const EMPTY = { name: '', code: '', manager: '', phone: '', email: '', city: '', status: 'Active', users: 0, revenue: 0 };
+const BRANCH_LIMIT = 3;
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
 const PAGE_SIZE = 10;
 
 export function MultiBranchPage() {
+  const currentUser = getCurrentUser();
   const [branches, setBranches] = useState([]);
   const [stats, setStats]       = useState({ total: 0, active: 0, inactive: 0, totalUsers: 0, totalRevenue: 0 });
   const [search, setSearch]     = useState('');
@@ -17,6 +20,9 @@ export function MultiBranchPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm]         = useState(EMPTY);
+  const [formError, setFormError] = useState('');
+  const hasUnlimitedBranches = ['advanced', 'enterprise'].includes(currentUser?.subscriptionPlan);
+  const branchLimitReached = !hasUnlimitedBranches && branches.length >= BRANCH_LIMIT;
 
   function load() {
     return apiClient('/settings/branches')
@@ -36,21 +42,46 @@ export function MultiBranchPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visible    = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  function updateForm(k, v) { setForm((f) => ({ ...f, [k]: v })); }
-  function resetForm() { setForm(EMPTY); setEditingId(null); setShowForm(false); }
+  function updateForm(k, v) { setForm((f) => ({ ...f, [k]: v })); setFormError(''); }
+  function resetForm() { setForm(EMPTY); setEditingId(null); setShowForm(false); setFormError(''); }
+  function openCreateForm() {
+    if (branchLimitReached) {
+      setFormError(`Branch limit reached. This plan supports up to ${BRANCH_LIMIT} branches. Upgrade to Advanced for unlimited branches.`);
+      setShowForm(false);
+      return;
+    }
+    setForm(EMPTY);
+    setEditingId(null);
+    setFormError('');
+    setShowForm(true);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const payload = { ...form, users: Number(form.users), revenue: Number(form.revenue) };
-    if (editingId) await apiClient(`/settings/branches/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
-    else await apiClient('/settings/branches', { method: 'POST', body: JSON.stringify(payload) });
-    await load();
-    resetForm();
+    setFormError('');
+    const code = form.code.trim().toUpperCase();
+    const duplicate = branches.some((branch) =>
+      branch.code?.toUpperCase() === code && String(branch._id) !== String(editingId),
+    );
+    if (duplicate) {
+      setFormError('Branch code already exists');
+      return;
+    }
+    try {
+      const payload = { ...form, code, users: Number(form.users), revenue: Number(form.revenue) };
+      if (editingId) await apiClient(`/settings/branches/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      else await apiClient('/settings/branches', { method: 'POST', body: JSON.stringify(payload) });
+      await load();
+      resetForm();
+    } catch (err) {
+      setFormError(err.message || 'Unable to save branch');
+    }
   }
 
   function handleEdit(b) {
     setForm({ name: b.name, code: b.code, manager: b.manager, phone: b.phone, email: b.email, city: b.city, status: b.status, users: b.users, revenue: b.revenue });
     setEditingId(b._id);
+    setFormError('');
     setShowForm(true);
   }
 
@@ -79,11 +110,19 @@ export function MultiBranchPage() {
           <h1 className="m-0 text-[22px] font-bold">Multi Branch</h1>
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">Manage and monitor all branches of your business</p>
         </div>
-        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="button" onClick={() => setShowForm(true)}>
+        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-50 disabled:cursor-not-allowed" type="button" disabled={branchLimitReached} onClick={openCreateForm}>
           <svg fill="none" height="14" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" width="14"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
           Add Branch
         </button>
       </div>
+      {branchLimitReached && (
+        <div className="mt-4 rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+          Branch limit reached. This plan supports up to {BRANCH_LIMIT} branches. Upgrade to Advanced for unlimited branches.
+        </div>
+      )}
+      {formError && !showForm && (
+        <div className="mt-4 rounded-md border border-red-100 bg-red-50 px-4 py-3 text-[13px] text-red-700">{formError}</div>
+      )}
 
       {showForm && (
         <form className="app-form-modal bg-white border border-[#dfe7f1] rounded-xl p-5 mt-5" onSubmit={handleSubmit}>
@@ -91,6 +130,7 @@ export function MultiBranchPage() {
             <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit Branch' : 'New Branch'}</h3>
             <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>×</button>
           </div>
+          {formError && <div className="mb-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">{formError}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Branch name *" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Branch code *" required value={form.code} onChange={(e) => updateForm('code', e.target.value)} />

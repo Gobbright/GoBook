@@ -1,13 +1,17 @@
 import { Schema, model } from 'mongoose';
 
 const productVariantSchema = new Schema({
-  size:          { type: String, trim: true, required: true },
+  size:          { type: String, trim: true, default: '' },
+  modelName:     { type: String, trim: true, default: '' },
+  rate:          { type: Number, default: 0, min: 0 },
+  barcode:       { type: String, trim: true, default: '' },
   stock:         { type: Number, default: 0, min: 0 },
   minStockLevel: { type: Number, default: 0, min: 0 },
 }, { _id: true });
 
 const productSchema = new Schema({
   userId:        { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  branch:        { type: String, trim: true, default: '', index: true },
   code:          { type: String, required: true, trim: true, uppercase: true },
   description:   { type: String, required: true, trim: true },
   productDescription: { type: String, default: '' },

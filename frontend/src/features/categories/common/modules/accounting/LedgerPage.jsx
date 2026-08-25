@@ -10,7 +10,8 @@ import {
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
-const GROUPS = ['All Groups', 'Cash-In-Hand', 'Bank Accounts', 'Sundry Debtors', 'Sundry Creditors', 'Direct Expenses', 'Direct Incomes', 'Fixed Assets', 'Capital Account'];
+const ACCOUNT_GROUPS = ['Cash-In-Hand', 'Bank Accounts', 'Sundry Debtors', 'Sundry Creditors', 'Direct Expenses', 'Direct Incomes', 'Fixed Assets', 'Capital Account', 'Contra'];
+const CUSTOM_GROUP_OPTION = 'Add Account';
 const EMPTY_ACCOUNT = { name: '', group: 'Bank Accounts', opening: 0, debit: 0, credit: 0, color: '#2563eb' };
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
@@ -37,6 +38,7 @@ export function LedgerPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_ACCOUNT);
+  const [customGroup, setCustomGroup] = useState('');
 
   function loadLedgerAccounts() {
     return getLedgerAccounts()
@@ -65,6 +67,13 @@ export function LedgerPage() {
     if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+  const groupFilterOptions = [
+    'All Groups',
+    ...ACCOUNT_GROUPS,
+    ...ledgerData
+      .map((account) => account.group)
+      .filter((accountGroup) => accountGroup && !ACCOUNT_GROUPS.includes(accountGroup)),
+  ];
 
   useEffect(() => { setPage(1); }, [search, group]);
 
@@ -85,9 +94,14 @@ export function LedgerPage() {
   const closing = stats.totalDebit - stats.totalCredit + ledgerData.reduce((a, r) => a + r.opening, 0);
 
   function getClosing(r) { return r.opening + r.debit - r.credit; }
-  function updateForm(field, value) { setForm((current) => ({ ...current, [field]: value })); }
+  function updateForm(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+    if (field === 'group' && value !== CUSTOM_GROUP_OPTION) setCustomGroup('');
+    setFormError('');
+  }
   function resetForm() {
     setForm(EMPTY_ACCOUNT);
+    setCustomGroup('');
     setEditingId(null);
     setShowForm(false);
     setFormError('');
@@ -95,8 +109,14 @@ export function LedgerPage() {
   async function handleSubmit(event) {
     event.preventDefault();
     setFormError('');
+    const accountGroup = form.group === CUSTOM_GROUP_OPTION ? customGroup.trim() : form.group.trim();
+    if (!accountGroup) {
+      setFormError('Account group is required');
+      return;
+    }
     const payload = {
       ...form,
+      group: accountGroup,
       opening: Number(form.opening),
       debit: Number(form.debit),
       credit: Number(form.credit),
@@ -128,14 +148,16 @@ export function LedgerPage() {
     }
   }
   function handleEdit(row) {
+    const isKnownGroup = ACCOUNT_GROUPS.includes(row.group);
     setForm({
       name: row.name,
-      group: row.group,
+      group: isKnownGroup ? row.group : CUSTOM_GROUP_OPTION,
       opening: row.opening,
       debit: row.debit,
       credit: row.credit,
       color: row.color,
     });
+    setCustomGroup(isKnownGroup ? '' : row.group);
     setEditingId(row._id);
     setShowForm(true);
   }
@@ -171,19 +193,37 @@ export function LedgerPage() {
       </div>
 
       {showForm && (
-        <form className="bg-white border border-[#dfe7f1] rounded-xl p-5 mt-5" onSubmit={handleSubmit}>
-          <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+        <form className="w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-white border border-[#dfe7f1] rounded-lg shadow-xl" onSubmit={handleSubmit}>
+          <div className="sticky top-0 z-10 flex justify-between items-center border-b border-[#edf2f7] bg-white px-6 py-4">
             <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit Ledger' : 'New Ledger'}</h3>
             <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>×</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
+          <div className="px-6 py-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Account Name <span className="text-red-500">*</span></label>
               <input className="w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="e.g. HDFC Bank Account" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Account Group <span className="text-red-500">*</span></label>
-              <SelectDropdown value={form.group} onChange={(v) => updateForm('group', v)} options={GROUPS.filter((item) => item !== 'All Groups')} />
+              <SelectDropdown
+                value={form.group}
+                onChange={(v) => updateForm('group', v)}
+                options={[
+                  ...ACCOUNT_GROUPS,
+                  { value: CUSTOM_GROUP_OPTION, label: CUSTOM_GROUP_OPTION, activeOption: true },
+                ]}
+              />
+              {form.group === CUSTOM_GROUP_OPTION && (
+                <input
+                  className="mt-2 w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]"
+                  placeholder="Type custom group"
+                  required
+                  value={customGroup}
+                  onChange={(event) => { setCustomGroup(event.target.value); setFormError(''); }}
+                />
+              )}
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Opening Balance (₹)</label>
@@ -199,11 +239,13 @@ export function LedgerPage() {
             </div>
           </div>
           {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mt-3">{formError}</p>}
-          <div className="flex justify-end gap-2 mt-4">
+          </div>
+          <div className="sticky bottom-0 z-10 flex justify-end gap-2 border-t border-[#edf2f7] bg-white px-6 py-4">
             <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
             <button className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="submit">{editingId ? 'Update Ledger' : 'Save Ledger'}</button>
           </div>
         </form>
+        </div>
       )}
 
       {importResult && (
@@ -244,7 +286,7 @@ export function LedgerPage() {
             </svg>
             <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search ledger accounts..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <SelectDropdown className="w-40 flex-none" value={group} onChange={setGroup} options={GROUPS} />
+          <SelectDropdown className="w-40 flex-none" value={group} onChange={setGroup} options={groupFilterOptions} />
           <button className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button">
             <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
             Filter

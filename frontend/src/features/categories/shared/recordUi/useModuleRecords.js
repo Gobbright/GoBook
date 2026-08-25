@@ -23,8 +23,23 @@ export function useModuleRecords(moduleKey) {
 
   useEffect(() => { reload(); }, [reload]);
 
-  async function create(data) { await createModuleRecord(moduleKey, data); await reload(); }
-  async function update(id, data) { await updateModuleRecord(id, data); await reload(); }
+  async function create(data) {
+    const now = new Date().toISOString();
+    await createModuleRecord(moduleKey, {
+      ...data,
+      createdAt: data.createdAt || now,
+      updatedAt: now,
+    });
+    await reload();
+  }
+
+  async function update(id, data) {
+    await updateModuleRecord(id, {
+      ...data,
+      updatedAt: new Date().toISOString(),
+    });
+    await reload();
+  }
   async function remove(id) { await deleteModuleRecord(id); await reload(); }
 
   return { records, loading, error, reload, create, update, remove };
@@ -48,5 +63,28 @@ export function useLookupRecords(moduleKey) {
 }
 
 export function names(records) {
-  return [...new Set(records.map((r) => r.data?.name).filter(Boolean))].sort();
+  const displayKeys = [
+    'name',
+    'patientName',
+    'doctorName',
+    'nurseName',
+    'departmentName',
+    'wardName',
+    'roomName',
+    'bedNumber',
+    'medicineName',
+    'testName',
+    'packageName',
+    'supplierName',
+    'staffName',
+    'surgery',
+  ];
+
+  return [...new Set(records
+    .map((record) => {
+      const data = record.data || {};
+      return displayKeys.map((key) => data[key]).find(Boolean)
+        || [data.firstName, data.lastName].filter(Boolean).join(' ');
+    })
+    .filter(Boolean))].sort();
 }

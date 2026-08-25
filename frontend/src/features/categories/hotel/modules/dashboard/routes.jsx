@@ -1,6 +1,6 @@
-import { DashboardPage } from '../../../../../pages/DashboardPage.jsx';
+import { HotelDashboardPage } from './HotelDashboardPage.jsx';
 
-const dashboard = <DashboardPage />;
+const dashboard = <HotelDashboardPage />;
 
 export const hotelDashboardRoutes = [
   { path: '/hotel/dashboard', element: dashboard },

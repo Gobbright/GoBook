@@ -139,6 +139,10 @@ export function GoogleOnboardingPage() {
           subscriptionAmount: selectedPlan?.amount || form.subscriptionAmount,
           gstin: form.gstin.trim().toUpperCase(),
         });
+        if (verification.token && verification.user) {
+          redirectTo('/dashboard');
+          return;
+        }
         if (!verification.paymentRequired || !verification.checkout) throw new Error('Payment order was not created');
         checkout = verification.checkout;
         setPendingCheckout(checkout);

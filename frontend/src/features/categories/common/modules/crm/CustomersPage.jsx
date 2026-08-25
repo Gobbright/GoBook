@@ -11,6 +11,7 @@ import {
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { apiClient } from '../../../../../services/apiClient.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 
@@ -29,11 +30,23 @@ function pageNumbers(current, total) {
   return [1, '...', current - 1, current, current + 1, '...', total];
 }
 
+function partyKeys(party = {}) {
+  return [
+    party.gstin,
+    party.phone,
+    party.name,
+  ].map((value) => String(value || '').trim().toLowerCase()).filter(Boolean);
+}
+
 export function CustomersPage() {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All Status');
+  const [cityFilter, setCityFilter] = useState('All Cities');
+  const [partyTypeFilter, setPartyTypeFilter] = useState('All Parties');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [customers, setCustomers] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -51,24 +64,41 @@ export function CustomersPage() {
 
   useEffect(() => {
     let isMounted = true;
-    getCustomers()
-      .then((data) => { if (isMounted) setCustomers(data.customers ?? []); })
-      .catch(() => { if (isMounted) setCustomers([]); });
+    Promise.allSettled([
+      getCustomers(),
+      apiClient('/more-modules/vendors'),
+    ]).then(([customerResult, vendorResult]) => {
+      if (!isMounted) return;
+      setCustomers(customerResult.status === 'fulfilled' ? customerResult.value.customers ?? [] : []);
+      setVendors(vendorResult.status === 'fulfilled' ? vendorResult.value.vendors ?? [] : []);
+    });
     return () => { isMounted = false; };
   }, []);
+
+  const vendorKeys = new Set(vendors.flatMap(partyKeys));
+  function isAlsoVendor(customer) {
+    return partyKeys(customer).some((key) => vendorKeys.has(key));
+  }
 
   const filtered = customers.filter((c) => {
     const matchesSearch = !search ||
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.email.toLowerCase().includes(search.toLowerCase()) ||
       c.phone.includes(search);
-    return matchesSearch && isWithinDateRange(c.createdAt || c.updatedAt, dateFrom, dateTo);
+    const matchesStatus = statusFilter === 'All Status' || c.status === statusFilter;
+    const matchesCity = cityFilter === 'All Cities' || c.city === cityFilter;
+    const alsoVendor = isAlsoVendor(c);
+    const matchesPartyType = partyTypeFilter === 'All Parties'
+      || (partyTypeFilter === 'Customer Only' && !alsoVendor)
+      || (partyTypeFilter === 'Customer & Vendor' && alsoVendor);
+    return matchesSearch && matchesStatus && matchesCity && matchesPartyType && isWithinDateRange(c.createdAt || c.updatedAt, dateFrom, dateTo);
   });
 
-  useEffect(() => { setPage(1); }, [search, dateFrom, dateTo]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, cityFilter, partyTypeFilter, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const cityOptions = ['All Cities', ...[...new Set(customers.map((c) => c.city).filter(Boolean))].sort()];
 
   const totalCustomers    = customers.length;
   const activeCustomers   = customers.filter((c) => c.status === 'Active').length;
@@ -80,6 +110,7 @@ export function CustomersPage() {
     { label: 'Phone', value: (row) => row.phone },
     { label: 'City', value: (row) => row.city },
     { label: 'Status', value: (row) => row.status },
+    { label: 'Party Type', value: (row) => isAlsoVendor(row) ? 'Customer & Vendor' : 'Customer Only' },
     { label: 'Sales', value: (row) => formatCurrency(row.sales || 0) },
   ];
 
@@ -216,6 +247,9 @@ export function CustomersPage() {
             onToChange={setDateTo}
             onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={statusFilter} onChange={setStatusFilter} options={['All Status', 'Active', 'Inactive']} />
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={cityFilter} onChange={setCityFilter} options={cityOptions} />
+          <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] text-[#536173] bg-white cursor-pointer" value={partyTypeFilter} onChange={setPartyTypeFilter} options={['All Parties', 'Customer Only', 'Customer & Vendor']} />
           <ExportButtons title="Customers" filename="customers" rows={filtered} columns={exportColumns} />
         </div>
         <div className="overflow-x-auto">
@@ -240,6 +274,7 @@ export function CustomersPage() {
                         {row.name[0]}
                       </div>
                       <span className="font-medium text-[#111827]">{row.name}</span>
+                      {isAlsoVendor(row) && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Vendor</span>}
                     </div>
                   </td>
                   <td className={`${TD} text-[#536173]`}>{row.email}</td>

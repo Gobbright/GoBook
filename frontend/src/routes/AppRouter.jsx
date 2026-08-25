@@ -27,19 +27,28 @@ import { EmployeeLoginRoute, EmployeePortalRoutes } from '../features/employee-m
 import EmployeeAdminDashboard from '../features/employee-management/pages/admin/Dashboard.jsx';
 import EmployeeList from '../features/employee-management/pages/admin/employees/EmployeeList.jsx';
 import AddEmployee from '../features/employee-management/pages/admin/employees/AddEmployee.jsx';
+import EmployeeProfile from '../features/employee-management/pages/admin/employees/EmployeeProfile.jsx';
+import EmployeeDocuments from '../features/employee-management/pages/admin/employees/EmployeeDocuments.jsx';
 import TodayAttendance from '../features/employee-management/pages/admin/attendance/TodayAttendance.jsx';
 import LeaveRequests from '../features/employee-management/pages/admin/leave/LeaveRequests.jsx';
 import Salary from '../features/employee-management/pages/admin/payroll/Salary.jsx';
 import AllNotices from '../features/employee-management/pages/admin/notices/AllNotices.jsx';
 import AdminMonthlyAttendance from '../features/employee-management/pages/admin/attendance/MonthlyAttendance.jsx';
 import CorrectionRequests from '../features/employee-management/pages/admin/attendance/CorrectionRequests.jsx';
+import AttendanceReports from '../features/employee-management/pages/admin/attendance/AttendanceReports.jsx';
 import LeaveBalance from '../features/employee-management/pages/admin/leave/LeaveBalance.jsx';
 import LeaveTypes from '../features/employee-management/pages/admin/leave/LeaveTypes.jsx';
+import LeaveCalendar from '../features/employee-management/pages/admin/leave/LeaveCalendar.jsx';
+import LeaveReports from '../features/employee-management/pages/admin/leave/LeaveReports.jsx';
 import AdminPayslips from '../features/employee-management/pages/admin/payroll/Payslips.jsx';
+import PayrollProcessing from '../features/employee-management/pages/admin/payroll/PayrollProcessing.jsx';
+import PayrollDeductions from '../features/employee-management/pages/admin/payroll/Deductions.jsx';
+import PayrollReports from '../features/employee-management/pages/admin/payroll/PayrollReports.jsx';
 import AddNotice from '../features/employee-management/pages/admin/notices/AddNotice.jsx';
 import HolidayList from '../features/employee-management/pages/admin/holidays/HolidayList.jsx';
 import AddHoliday from '../features/employee-management/pages/admin/holidays/AddHoliday.jsx';
 import { DashboardPage } from '../pages/DashboardPage.jsx';
+import { HotelDashboardPage } from '../features/categories/hotel/modules/dashboard/HotelDashboardPage.jsx';
 import { isAuthenticated, refreshCurrentUser } from '../services/authService.js';
 import { useCurrentUser } from '../hooks/useCurrentUser.js';
 import {
@@ -151,11 +160,13 @@ function AppRoutes() {
 
       <Route element={<ProtectedShell />}>
         <Route index element={<Navigate to={getLastRoute()} replace />} />
-        <Route path="/dashboard" element={category === 'finance' ? <Navigate to="/finance/dashboard" replace /> : <DashboardPage />} />
+        <Route path="/dashboard" element={category === 'finance' ? <Navigate to="/finance/dashboard" replace /> : category === 'hotel' ? <HotelDashboardPage /> : <DashboardPage />} />
 
         <Route path="/employee-management/dashboard" element={employeeManagementPage(<EmployeeAdminDashboard />)} />
         <Route path="/employee-management/employees" element={employeeManagementPage(<EmployeeList />)} />
         <Route path="/employee-management/employees/add" element={employeeManagementPage(<AddEmployee />)} />
+        <Route path="/employee-management/employees/:id" element={employeeManagementPage(<EmployeeProfile />)} />
+        <Route path="/employee-management/employees/:id/documents" element={employeeManagementPage(<EmployeeDocuments />)} />
         <Route path="/employee-management/attendance" element={employeeManagementPage(<TodayAttendance />)} />
         <Route path="/employee-management/leave" element={employeeManagementPage(<LeaveRequests />)} />
         <Route path="/employee-management/payroll" element={employeeManagementPage(<Salary />)} />
@@ -164,9 +175,15 @@ function AppRoutes() {
         <Route path="/employee-management/settings" element={<Navigate to="/employee-management/dashboard" replace />} />
         <Route path="/employee-management/attendance/monthly" element={employeeManagementPage(<AdminMonthlyAttendance />)} />
         <Route path="/employee-management/attendance/corrections" element={employeeManagementPage(<CorrectionRequests />)} />
+        <Route path="/employee-management/attendance/reports" element={employeeManagementPage(<AttendanceReports />)} />
         <Route path="/employee-management/leave/balance" element={employeeManagementPage(<LeaveBalance />)} />
         <Route path="/employee-management/leave/types" element={employeeManagementPage(<LeaveTypes />)} />
+        <Route path="/employee-management/leave/calendar" element={employeeManagementPage(<LeaveCalendar />)} />
+        <Route path="/employee-management/leave/reports" element={employeeManagementPage(<LeaveReports />)} />
+        <Route path="/employee-management/payroll/processing" element={employeeManagementPage(<PayrollProcessing />)} />
         <Route path="/employee-management/payroll/payslips" element={employeeManagementPage(<AdminPayslips />)} />
+        <Route path="/employee-management/payroll/deductions" element={employeeManagementPage(<PayrollDeductions />)} />
+        <Route path="/employee-management/payroll/reports" element={employeeManagementPage(<PayrollReports />)} />
         <Route path="/employee-management/notices/add" element={employeeManagementPage(<AddNotice />)} />
         <Route path="/employee-management/holidays" element={employeeManagementPage(<HolidayList />)} />
         <Route path="/employee-management/holidays/add" element={employeeManagementPage(<AddHoliday />)} />

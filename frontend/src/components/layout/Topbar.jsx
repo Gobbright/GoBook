@@ -100,7 +100,7 @@ export function Topbar({ onMenuClick, onOpenSearch }) {
   return (
     <header className="app-topbar bg-white dark:bg-slate-900 border-b border-[#dde6f2] dark:border-slate-800 flex items-center gap-4 h-18 px-7">
       <button
-        className="w-9 h-9 bg-white dark:bg-slate-800 border border-[#dbe4ef] dark:border-slate-700 rounded-md cursor-pointer text-[#536173] dark:text-slate-300 flex items-center justify-center md:hidden flex-none"
+        className="w-9 h-9 bg-white dark:bg-slate-800 border border-[#dbe4ef] dark:border-slate-700 rounded-md cursor-pointer text-[#536173] dark:text-slate-300 flex items-center justify-center flex-none"
         type="button"
         aria-label="Open menu"
         onClick={onMenuClick}
@@ -108,7 +108,7 @@ export function Topbar({ onMenuClick, onOpenSearch }) {
         <Menu size={18} />
       </button>
 
-      <span className="md:hidden flex-1 text-white text-[16px] font-extrabold truncate">{pageTitle}</span>
+      <span className="md:hidden flex-1 text-[#111827] dark:text-slate-100 text-[16px] font-extrabold truncate">{pageTitle}</span>
 
       <button
         type="button"
@@ -118,7 +118,6 @@ export function Topbar({ onMenuClick, onOpenSearch }) {
       >
         <Search size={15} className="text-[#94a3b8] flex-none" />
         <span className="text-[13px] text-[#94a3b8] truncate">Search menu / customers / products / reports...</span>
-        <kbd className="hidden md:inline-block ml-auto flex-none text-[11px] font-semibold text-[#64748b] dark:text-slate-400 border border-[#dbe4ef] dark:border-slate-600 rounded px-1.5 py-0.5">Alt+Q</kbd>
       </button>
 
       <div className="flex-1" />
@@ -155,7 +154,7 @@ export function Topbar({ onMenuClick, onOpenSearch }) {
                 onError={() => setLogoUrl('')}
               />
             ) : (
-              <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-[12px] font-semibold flex items-center justify-center flex-none">
+              <span className="w-8 h-8 rounded-full bg-slate-700 text-white text-[12px] font-semibold flex items-center justify-center flex-none">
                 {getInitials(user?.name)}
               </span>
             )}

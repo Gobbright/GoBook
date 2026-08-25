@@ -1,10 +1,29 @@
 import { useEffect, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
-import { getCurrentUser } from '../../../../../services/authService.js';
+import { getCurrentUser, refreshCurrentUser } from '../../../../../services/authService.js';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 
 const ROLES = ['Super Admin', 'Branch Manager', 'Accountant', 'Sales Executive', 'Inventory Manager'];
+const MODULE_OPTIONS = [
+  { key: 'billing', label: 'Billing' },
+  { key: 'purchase', label: 'Purchase' },
+  { key: 'accounting', label: 'Accounting' },
+  { key: 'employee-management', label: 'Employee Management' },
+  { key: 'inventory', label: 'Inventory' },
+  { key: 'crm', label: 'CRM' },
+  { key: 'reports', label: 'Reports' },
+  { key: 'data-management', label: 'Data Management' },
+  { key: 'settings', label: 'Settings' },
+];
+const ROLE_MODULE_PRESETS = {
+  'Super Admin': MODULE_OPTIONS.map((item) => item.key),
+  Accountant: ['accounting', 'reports'],
+  'Sales Executive': ['billing', 'crm', 'reports'],
+  'Inventory Manager': ['inventory', 'reports'],
+  'Branch Manager': ['billing', 'crm', 'inventory', 'reports'],
+};
 
 const ROLE_STYLES = {
   'Super Admin':       { bg: '#1e293b', text: '#f1f5f9' },
@@ -19,7 +38,19 @@ const AVATAR_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
 const PAGE_SIZE = 8;
-const EMPTY = { name: '', email: '', password: '', role: 'Sales Executive', branch: '', phone: '', status: 'Active' };
+const EMPTY = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'Sales Executive',
+  branch: '',
+  phone: '',
+  status: 'Active',
+  modules: ROLE_MODULE_PRESETS['Sales Executive'],
+  canDelete: false,
+  canExport: false,
+  canManageUsers: false,
+};
 
 function RolesDonut({ rolesOverview }) {
   const total = rolesOverview.reduce((s, r) => s + r.count, 0) || 1;
@@ -64,33 +95,74 @@ function RolesDonut({ rolesOverview }) {
 }
 
 export function UsersRolesPage() {
-  const currentUser = getCurrentUser();
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
   const [users, setUsers]           = useState([]);
+  const [branches, setBranches]     = useState([]);
   const [stats, setStats]           = useState({ total: 0, active: 0, inactive: 0 });
   const [rolesOverview, setRolesOverview] = useState([]);
   const [search, setSearch]         = useState('');
   const [roleFilter, setRoleFilter] = useState('All Roles');
   const [page, setPage]             = useState(1);
   const [showForm, setShowForm]     = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [editingId, setEditingId]   = useState(null);
   const [form, setForm]             = useState(EMPTY);
   const [formError, setFormError]   = useState('');
 
   function load() {
-    return apiClient('/settings/users')
-      .then((data) => {
+    return Promise.all([
+      apiClient('/settings/users'),
+      apiClient('/settings/branches').catch(() => ({ branches: [] })),
+    ])
+      .then(([data, branchData]) => {
         setUsers(data.users ?? []);
+        setBranches(branchData.branches ?? []);
         setStats(data.stats ?? {});
         setRolesOverview(data.rolesOverview ?? []);
       })
       .catch(() => {});
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    refreshCurrentUser().then((user) => {
+      if (user) setCurrentUser(user);
+    }).catch(() => {});
+  }, []);
 
   const roleOptions = ['All Roles', ...ROLES];
+  const isSuperAdmin = currentUser?.isSuperAdmin || currentUser?.accountType === 'owner' || currentUser?.role === 'Super Admin';
+  const canManageUsers = isSuperAdmin || (currentUser?.role === 'Branch Manager' && Boolean(currentUser?.branch));
+  const canAssignBranches = isSuperAdmin;
+  const formRoleOptions = isSuperAdmin ? ROLES : ROLES.filter((role) => role !== 'Super Admin');
+  const branchOptions = [
+    { value: '', label: 'All Branches / Head Office' },
+    ...branches.map((branch) => ({ value: branch.code || branch.name, label: `${branch.name}${branch.code ? ` (${branch.code})` : ''}` })),
+  ];
+  const managerBranchOptions = [
+    branchOptions.find((option) => option.value === currentUser?.branch) || { value: currentUser?.branch || '', label: currentUser?.branch || 'Assigned Branch' },
+  ].filter((option) => option.value);
+  const currentUserId = String(currentUser?.id || currentUser?._id || '');
 
-  const filtered = users.filter((u) => {
+  function isCurrentUserRow(user) {
+    return currentUserId && String(user?._id || user?.id || '') === currentUserId;
+  }
+
+  function canSeeRow(user) {
+    if (isSuperAdmin) return true;
+    return user.role !== 'Super Admin' && user.accountType !== 'owner' && user.branch === currentUser?.branch;
+  }
+
+  function canEditRow(user) {
+    if (isSuperAdmin) return true;
+    return canManageUsers && canSeeRow(user) && !isCurrentUserRow(user);
+  }
+
+  function canDeleteRow(user) {
+    return canEditRow(user);
+  }
+
+  const filtered = users.filter(canSeeRow).filter((u) => {
     const matchSearch = !search ||
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -103,15 +175,41 @@ export function UsersRolesPage() {
   const visible    = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function updateForm(k, v) {
-    setForm((f) => ({ ...f, [k]: k === 'email' ? v.trim().toLowerCase() : v }));
+    setForm((f) => ({
+      ...f,
+      [k]: k === 'email' ? v.trim().toLowerCase() : v,
+      ...(k === 'role' ? { modules: ROLE_MODULE_PRESETS[v] || [], canManageUsers: v === 'Branch Manager' } : {}),
+    }));
     setFormError('');
   }
-  function resetForm() { setForm(EMPTY); setEditingId(null); setShowForm(false); setFormError(''); }
+  function toggleModule(moduleKey) {
+    if (form.role === 'Super Admin') return;
+    setForm((f) => ({
+      ...f,
+      modules: f.modules.includes(moduleKey)
+        ? f.modules.filter((item) => item !== moduleKey)
+        : [...f.modules, moduleKey],
+    }));
+  }
+  function resetForm() { setForm(EMPTY); setEditingId(null); setShowForm(false); setShowPassword(false); setFormError(''); }
+  function openCreateForm() {
+    setForm({
+      ...EMPTY,
+      role: isSuperAdmin ? EMPTY.role : 'Sales Executive',
+      branch: canAssignBranches ? EMPTY.branch : currentUser?.branch || '',
+    });
+    setEditingId(null);
+    setShowPassword(false);
+    setFormError('');
+    setShowForm(true);
+  }
 
   function validateForm() {
     if (!form.name.trim() || !form.email.trim()) return 'Name and email are required';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return 'Enter a valid email address';
     if (!editingId && !form.password) return 'Password is required';
+    if (!isSuperAdmin && form.role === 'Super Admin') return 'Branch Manager cannot create Super Admin users';
+    if (!canAssignBranches && form.branch !== currentUser?.branch) return 'Branch Manager can manage only their assigned branch';
     if (form.password) {
       if (form.password.length < 8) return 'Password must be at least 8 characters';
       if (!/[A-Za-z]/.test(form.password) || !/[0-9]/.test(form.password)) return 'Password must include at least one letter and one number';
@@ -133,21 +231,52 @@ export function UsersRolesPage() {
       branch: form.branch,
       phone: form.phone,
       status: form.status,
+      permissions: {
+        modules: form.role === 'Super Admin' ? MODULE_OPTIONS.map((item) => item.key) : form.modules,
+        actions: {
+          view: true,
+          create: true,
+          edit: true,
+          delete: form.canDelete,
+          export: form.canExport,
+          manageUsers: form.role === 'Branch Manager',
+        },
+      },
       ...(form.password ? { password: form.password } : {}),
     };
-    if (editingId) await apiClient(`/settings/users/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
-    else await apiClient('/settings/users', { method: 'POST', body: JSON.stringify(payload) });
-    await load();
-    resetForm();
+    try {
+      if (editingId) await apiClient(`/settings/users/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      else await apiClient('/settings/users', { method: 'POST', body: JSON.stringify(payload) });
+      await load();
+      resetForm();
+    } catch (err) {
+      setFormError(err.message || 'Unable to save user');
+    }
   }
 
   function handleEdit(u) {
-    setForm({ name: u.name, email: u.email, password: '', role: u.role, branch: u.branch, phone: u.phone, status: u.status });
+    if (!canEditRow(u)) return;
+    setForm({
+      name: u.name,
+      email: u.email,
+      password: '',
+      role: u.role,
+      branch: u.branch,
+      phone: u.phone,
+      status: u.status,
+      modules: u.permissions?.modules?.length ? u.permissions.modules : ROLE_MODULE_PRESETS[u.role] || [],
+      canDelete: Boolean(u.permissions?.actions?.delete),
+      canExport: Boolean(u.permissions?.actions?.export),
+      canManageUsers: u.role === 'Branch Manager' || Boolean(u.permissions?.actions?.manageUsers),
+    });
     setEditingId(u._id);
+    setShowPassword(false);
     setShowForm(true);
   }
 
   async function handleDelete(id) {
+    const user = users.find((item) => String(item._id) === String(id));
+    if (!user || !canDeleteRow(user)) return;
     if (!window.confirm('Delete this user?')) return;
     await apiClient(`/settings/users/${id}`, { method: 'DELETE' });
     await load();
@@ -160,19 +289,18 @@ export function UsersRolesPage() {
     { label: 'Total Roles',    value: String(ROLES.length),        sub: 'Defined Roles', color: '#7c3aed', bg: '#f5f3ff' },
     { label: 'Admins',         value: String(users.filter((u) => u.role === 'Super Admin').length), sub: 'Super Admins', color: '#0891b2', bg: '#ecfeff' },
   ];
-
   return (
     <div className="p-4 md:p-7">
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-1">
         <div>
           <nav className="flex items-center gap-1 text-[13px] text-[#536173] mb-1">
             <a className="text-blue-600 no-underline hover:underline" href="/dashboard">Home</a>
-            <span>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº</span><span>Settings</span><span>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº</span><span>Users &amp; Roles</span>
+            <span>&gt;</span><span>Settings</span><span>&gt;</span><span>Users &amp; Roles</span>
           </nav>
           <h1 className="m-0 text-[22px] font-bold">Users &amp; Roles</h1>
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">Manage system users and their roles &amp; permissions</p>
         </div>
-        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="button" onClick={() => setShowForm(true)}>
+        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-50 disabled:cursor-not-allowed" type="button" title="Add user" disabled={!canManageUsers} onClick={openCreateForm}>
           <svg fill="none" height="14" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" width="14"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
           Add User
         </button>
@@ -182,17 +310,65 @@ export function UsersRolesPage() {
         <form className="app-form-modal bg-white border border-[#dfe7f1] rounded-xl p-5 mt-5" onSubmit={handleSubmit}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit User' : 'New User'}</h3>
-            <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>ÃƒÆ’Ã¢â‚¬â€</button>
+            <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>x</button>
           </div>
           {formError && <div className="mb-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">{formError}</div>}
+          {!canManageUsers && !editingId && <div className="mb-4 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">Only Super Admin or permitted Branch Manager can add users.</div>}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Full name *" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email *" required type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Phone" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder={editingId ? 'New password (optional)' : 'Password *'} required={!editingId} minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" title="Password must be at least 8 characters and include one letter and one number" type="password" value={form.password} onChange={(e) => updateForm('password', e.target.value)} />
-            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.role} onChange={(v) => updateForm('role', v)} options={ROLES} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Branch" value={form.branch} onChange={(e) => updateForm('branch', e.target.value)} />
+            <div className="relative">
+              <input
+                className="w-full border border-[#dbe4ef] rounded-md pl-3 pr-10 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]"
+                placeholder={editingId ? 'New password (optional)' : 'Password *'}
+                required={!editingId}
+                minLength={8}
+                pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}"
+                title="Password must be at least 8 characters and include one letter and one number"
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => updateForm('password', e.target.value)}
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword((value) => !value)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center justify-center text-[#64748b] hover:text-[#111827] bg-transparent border-0 cursor-pointer p-1"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.role} onChange={(v) => updateForm('role', v)} options={formRoleOptions} />
+            <SelectDropdown buttonClassName={`border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none ${canAssignBranches ? '' : 'opacity-70 pointer-events-none'}`} value={form.branch} onChange={(v) => updateForm('branch', v)} options={canAssignBranches ? branchOptions : managerBranchOptions} />
             <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
+          </div>
+          <div className="mb-4">
+            <div className="text-[12px] font-semibold uppercase tracking-wide text-[#536173] mb-2">Module Access</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {MODULE_OPTIONS.map((module) => (
+                <label key={module.key} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-[13px] ${form.modules.includes(module.key) ? 'border-blue-200 bg-blue-50 text-[#1d4ed8]' : 'border-[#edf2f7] text-[#374151]'}`}>
+                  <input type="checkbox" className="w-4 h-4 accent-blue-600" checked={form.modules.includes(module.key)} disabled={form.role === 'Super Admin'} onChange={() => toggleModule(module.key)} />
+                  {module.label}
+                </label>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-3">
+              <label className="inline-flex items-center gap-2 text-[12.5px] text-[#374151]">
+                <input type="checkbox" className="w-4 h-4 accent-blue-600" checked={form.canExport} onChange={(event) => updateForm('canExport', event.target.checked)} />
+                Allow export
+              </label>
+              <label className="inline-flex items-center gap-2 text-[12.5px] text-[#374151]">
+                <input type="checkbox" className="w-4 h-4 accent-blue-600" checked={form.canDelete} onChange={(event) => updateForm('canDelete', event.target.checked)} />
+                Allow delete
+              </label>
+              {isSuperAdmin && form.role === 'Branch Manager' && (
+                <label className="inline-flex items-center gap-2 text-[12.5px] text-[#374151]">
+                  <input type="checkbox" className="w-4 h-4 accent-blue-600" checked disabled readOnly />
+                  Manage branch users
+                </label>
+              )}
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
@@ -255,18 +431,20 @@ export function UsersRolesPage() {
                       <td className={TD}>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: rs.bg, color: rs.text }}>{row.role}</span>
                       </td>
-                      <td className={`${TD} text-[#536173]`}>{row.branch || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
-                      <td className={`${TD} text-[#536173]`}>{row.phone || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                      <td className={`${TD} text-[#536173]`}>{row.branch || '-'}</td>
+                      <td className={`${TD} text-[#536173]`}>{row.phone || '-'}</td>
                       <td className={TD}>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${row.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{row.status}</span>
                       </td>
-                      <td className={`${TD} text-[#536173] text-[12px]`}>{row.lastLogin || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'}</td>
+                      <td className={`${TD} text-[#536173] text-[12px]`}>{row.lastLogin || '-'}</td>
                       <td className={TD}>
                         <div className="flex items-center gap-1">
-                          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-yellow-50 text-yellow-500 bg-transparent border-0 cursor-pointer" type="button" title="Edit" onClick={() => handleEdit(row)}>
-                            <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                          </button>
-                          {String(row._id) !== String(currentUser?.id) && (
+                          {canEditRow(row) && (
+                            <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-yellow-50 text-yellow-500 bg-transparent border-0 cursor-pointer" type="button" title="Edit" onClick={() => handleEdit(row)}>
+                              <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                          )}
+                          {canDeleteRow(row) && (
                             <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-50 text-red-400 bg-transparent border-0 cursor-pointer" type="button" title="Delete" onClick={() => handleDelete(row._id)}>
                               <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                             </button>

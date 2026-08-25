@@ -32,74 +32,9 @@ const ROW_ACTIONS = [
   'Plan Discharge',
 ];
 
-const DEMO_INPATIENTS = [
-  {
-    _id: 'demo-182',
-    data: {
-      ipdNo: 'IPD-2026-00182',
-      patientName: 'Raj Kumar',
-      patientId: 'GBH-00128',
-      patientPhone: '+91 98765 43210',
-      age: '34',
-      gender: 'Male',
-      bloodGroup: 'O+',
-      wardName: 'General Ward',
-      roomName: 'G-201',
-      bedNumber: 'B01',
-      doctorName: 'Dr. Arun Kumar',
-      departmentName: 'General Medicine',
-      admissionDate: '2026-08-06',
-      diagnosis: 'Viral Fever',
-      allergy: 'Penicillin',
-      status: 'UNDER TREATMENT',
-      currentBill: 15000,
-      estimatedDischarge: '2026-08-10',
-    },
-  },
-  {
-    _id: 'demo-181',
-    data: {
-      ipdNo: 'IPD-2026-00181',
-      patientName: 'Priya S',
-      patientPhone: '+91 98432 11009',
-      age: '29',
-      gender: 'Female',
-      bloodGroup: 'B+',
-      wardName: 'ICU',
-      roomName: 'ICU',
-      bedNumber: 'IC-04',
-      doctorName: 'Dr. Ravi',
-      departmentName: 'Critical Care',
-      admissionDate: '2026-08-04',
-      diagnosis: 'Pneumonia',
-      allergy: 'None',
-      status: 'ADMITTED',
-    },
-  },
-  {
-    _id: 'demo-180',
-    data: {
-      ipdNo: 'IPD-2026-00180',
-      patientName: 'Karthik R',
-      patientPhone: '+91 99876 22110',
-      age: '41',
-      gender: 'Male',
-      bloodGroup: 'A+',
-      wardName: 'Private Room',
-      roomName: 'P-105',
-      bedNumber: 'B02',
-      doctorName: 'Dr. Priya',
-      departmentName: 'General Medicine',
-      admissionDate: '2026-08-07',
-      diagnosis: 'Dehydration',
-      allergy: 'None',
-      status: 'DISCHARGE PLANNED',
-    },
-  },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function statusOf(value = '') {
@@ -110,7 +45,7 @@ function statusOf(value = '') {
 }
 
 function shortIpd(value = '') {
-  const text = String(value || '');
+  const text = String(value || '-');
   const n = text.match(/(\d{3,})$/)?.[1];
   return n ? `IPD-${n.slice(-4)}` : text || 'IPD-0182';
 }
@@ -174,7 +109,7 @@ export function InpatientsPage() {
   const [activeTab, setActiveTab] = useState('Overview');
   const [menuId, setMenuId] = useState('');
 
-  const sourceRecords = admissions.records.length ? admissions.records : DEMO_INPATIENTS;
+  const sourceRecords = admissions.records;
   const admittedRecords = useMemo(() => sourceRecords.filter((record) => {
     const normalized = statusOf(record.data?.status);
     return admissions.records.length ? normalized !== 'DRAFT' : true;
@@ -199,7 +134,7 @@ export function InpatientsPage() {
   }, [admittedRecords, department, doctor, search, status, ward]);
 
   const activeAdmissions = admittedRecords.filter((record) => ACTIVE_STATUSES.includes(statusOf(record.data?.status)));
-  const selected = filtered.find((record) => record._id === selectedId) || filtered[0] || admittedRecords[0] || DEMO_INPATIENTS[0];
+  const selected = filtered.find((record) => record._id === selectedId) || filtered[0] || admittedRecords[0] || null;
   const data = selected?.data || {};
   const selectedStay = stayDay(data.admissionDate);
 
@@ -289,11 +224,11 @@ export function InpatientsPage() {
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_230px]">
               <div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="m-0 text-[20px] font-extrabold uppercase text-[#071936]">{data.patientName || 'Raj Kumar'}</h2>
-                  <span className="rounded-md bg-blue-700 px-2.5 py-1 text-[12px] font-extrabold text-white">{data.ipdNo || data.admissionNo || 'IPD-2026-00182'}</span>
+                  <h2 className="m-0 text-[20px] font-extrabold uppercase text-[#071936]">{data.patientName || '-'}</h2>
+                  <span className="rounded-md bg-blue-700 px-2.5 py-1 text-[12px] font-extrabold text-white">{data.ipdNo || data.admissionNo || '-'}</span>
                 </div>
                 <div className="mt-2 text-[13px] font-semibold text-[#475569]">{data.age || '34'} Y - {data.gender || 'Male'} - {data.bloodGroup || 'O+'}</div>
-                <div className="mt-1 text-[13px] font-semibold text-[#475569]">{data.departmentName || 'General Medicine'} - {data.doctorName || 'Dr. Arun Kumar'}</div>
+                <div className="mt-1 text-[13px] font-semibold text-[#475569]">{data.departmentName || 'General Medicine'} - {data.doctorName || '-'}</div>
               </div>
               <div className="grid gap-2 text-[13px] font-semibold text-[#334155]">
                 <div className="flex justify-between"><span>Stay</span><strong>Day {selectedStay}</strong></div>
@@ -369,3 +304,5 @@ export function InpatientsPage() {
     </div>
   );
 }
+
+

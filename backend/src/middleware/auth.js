@@ -38,6 +38,11 @@ export function requireAuth(req, _res, next) {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
+      accountType: payload.accountType || (payload.role === 'Super Admin' ? 'owner' : 'member'),
+      isSuperAdmin: Boolean(payload.isSuperAdmin || payload.role === 'Super Admin'),
+      permissions: payload.permissions || {},
+      branch: payload.branch || '',
+      subscriptionPlan: payload.subscriptionPlan || '',
       businessId: payload.businessId,
       category: payload.category || 'retail',
     };

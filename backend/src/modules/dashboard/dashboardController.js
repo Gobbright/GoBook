@@ -1,7 +1,7 @@
-import { Types } from 'mongoose';
 import { Invoice } from '../../models/Invoice.js';
 import { Product } from '../../models/Product.js';
 import { Payment } from '../../models/Payment.js';
+import { branchScopedAggregateMatch, branchScopedQuery, resolveBranchScope } from '../../utils/branchScope.js';
 
 function fmtCurrency(n) {
   return `₹ ${Number(n || 0).toLocaleString('en-IN')}`;
@@ -76,16 +76,22 @@ function paymentStatus(inv) {
 // GET /api/dashboard/summary
 export async function getDashboardSummary(req, res, next) {
   try {
-    const invoiceFilter = { userId: req.user.id, documentType: 'invoice' };
+    const invoiceCollection = { model: Invoice, ownerField: 'userId' };
+    const productCollection = { model: Product, ownerField: 'userId' };
+    const paymentCollection = { model: Payment, ownerField: 'userId' };
+    const scope = await resolveBranchScope(req);
+    const invoiceFilter = await branchScopedQuery(req, invoiceCollection, { documentType: 'invoice' });
+    const productFilter = await branchScopedQuery(req, productCollection);
+    const paymentMatch = await branchScopedAggregateMatch(req, paymentCollection);
     const [todayInvoices, monthInvoices, lastMonthInvoices, allInvoices, recentInvoices, allProducts, paymentAgg] = await Promise.all([
       Invoice.find({ ...invoiceFilter, createdAt: todayRange() }).lean(),
       Invoice.find({ ...invoiceFilter, createdAt: monthRange() }).lean(),
       Invoice.find({ ...invoiceFilter, createdAt: previousMonthRange() }).lean(),
       Invoice.find(invoiceFilter).lean(),
       Invoice.find(invoiceFilter).sort({ createdAt: -1 }).limit(5).lean(),
-      Product.find({ userId: req.user.id }).select('description stock minStockLevel status').lean(),
+      Product.find(productFilter).select('description stock minStockLevel status').lean(),
       Payment.aggregate([
-        { $match: { userId: new Types.ObjectId(req.user.id) } },
+        { $match: paymentMatch },
         { $group: { _id: '$invoiceId', totalPaid: { $sum: '$amount' } } },
       ]),
     ]);
@@ -212,7 +218,7 @@ export async function getDashboardSummary(req, res, next) {
       growthPct: Math.round(growthPct),
     };
 
-    res.json({ metrics, transactions, reminders, insights, topCustomers, inventoryStatus, salesTrend, cashFlow, growthScore });
+    res.json({ metrics, transactions, reminders, insights, topCustomers, inventoryStatus, salesTrend, cashFlow, growthScore, branch: scope.branch || '' });
   } catch (err) {
     next(err);
   }

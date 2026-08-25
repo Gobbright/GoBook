@@ -16,14 +16,9 @@ const SCANS = {
   'Ultrasound Abdomen': { modality: 'Ultrasound', bodyPart: 'Abdomen', price: 1800 },
 };
 
-const DEMO_ORDERS = [
-  { _id: 'demo-rad-0251', data: { orderId: 'RAD-0251', patientName: 'Raj Kumar', scan: 'Chest X-Ray', modality: 'X-Ray', bodyPart: 'Chest', priority: 'Routine', status: 'WAITING', date: todayISO() } },
-  { _id: 'demo-rad-0250', data: { orderId: 'RAD-0250', patientName: 'Priya S', scan: 'CT Brain', modality: 'CT', bodyPart: 'Brain', priority: 'URGENT', status: 'IN PROGRESS', date: todayISO() } },
-  { _id: 'demo-rad-0249', data: { orderId: 'RAD-0249', patientName: 'Arun K', scan: 'MRI Knee', modality: 'MRI', bodyPart: 'Knee', priority: 'Routine', status: 'COMPLETED', date: todayISO() } },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function money(value) {
@@ -32,7 +27,7 @@ function money(value) {
 
 function nextRadiologyId(records) {
   const max = records.reduce((highest, record) => {
-    const match = String(record.data?.orderId || '').match(/RAD-(\d+)/i);
+    const match = String(record.data?.orderId || '-').match(/RAD-(\d+)/i);
     return match ? Math.max(highest, Number(match[1])) : highest;
   }, 251);
   return `RAD-${String(max + 1).padStart(4, '0')}`;
@@ -70,9 +65,9 @@ export function RadiologyPage() {
   const [priority, setPriority] = useState('All Priority');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
-    patientName: 'Raj Kumar',
+    patientName: '',
     visitNo: 'OPD-00452',
-    orderedBy: 'Dr. Arun Kumar',
+    orderedBy: '',
     scan: 'Chest X-Ray',
     priority: 'Routine',
     clinicalIndication: 'Persistent cough',
@@ -81,7 +76,7 @@ export function RadiologyPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const records = orders.records.length ? orders.records : DEMO_ORDERS;
+  const records = orders.records;
   const scanDetails = SCANS[form.scan] || SCANS['Chest X-Ray'];
   const filteredOrders = useMemo(() => {
     const q = normalize(search);
@@ -240,3 +235,5 @@ export function RadiologyPage() {
     </div>
   );
 }
+
+

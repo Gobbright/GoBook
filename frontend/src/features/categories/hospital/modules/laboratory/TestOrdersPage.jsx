@@ -9,20 +9,9 @@ const TEXTAREA = 'min-h-20 w-full rounded-md border border-[#dbe4ef] bg-white px
 const SOURCES = ['All Sources', 'OPD', 'IPD', 'Emergency', 'Health Package', 'Direct'];
 const PRIORITIES = ['Routine', 'Urgent'];
 const STATUSES = ['ORDERED', 'SAMPLE COLLECTED', 'PROCESSING', 'RESULT ENTERED', 'VERIFIED', 'COMPLETED', 'CANCELLED', 'RECOLLECTION REQUIRED'];
-const DEMO_TESTS = [
-  { _id: 'demo-cbc', data: { shortName: 'CBC', name: 'CBC', testCode: 'LAB-CBC', price: 800 } },
-  { _id: 'demo-sugar', data: { shortName: 'Blood Sugar', name: 'Blood Sugar', testCode: 'LAB-BS', price: 300 } },
-  { _id: 'demo-crp', data: { shortName: 'CRP', name: 'CRP', testCode: 'LAB-CRP', price: 600 } },
-  { _id: 'demo-thyroid', data: { shortName: 'Thyroid', name: 'Thyroid Profile', testCode: 'LAB-TFT', price: 1200 } },
-];
-const DEMO_ORDERS = [
-  { _id: 'demo-lab-1025', data: { orderId: 'LAB-1025', patientName: 'Raj Kumar', tests: [{ name: 'CBC', price: 800 }], source: 'OPD', priority: 'Routine', status: 'ORDERED', date: todayISO() } },
-  { _id: 'demo-lab-1024', data: { orderId: 'LAB-1024', patientName: 'Priya S', tests: [{ name: 'CBC', price: 800 }, { name: 'Blood Sugar', price: 300 }, { name: 'CRP', price: 600 }], source: 'IPD', priority: 'Urgent', status: 'SAMPLE COLLECTED', date: todayISO() } },
-  { _id: 'demo-lab-1023', data: { orderId: 'LAB-1023', patientName: 'Arun K', tests: [{ name: 'Sugar', price: 300 }], source: 'Direct', priority: 'Routine', status: 'COMPLETED', date: todayISO() } },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function money(value) {
@@ -31,7 +20,7 @@ function money(value) {
 
 function nextOrderId(records) {
   const max = records.reduce((highest, record) => {
-    const match = String(record.data?.orderId || '').match(/LAB-(\d+)/i);
+    const match = String(record.data?.orderId || '-').match(/LAB-(\d+)/i);
     return match ? Math.max(highest, Number(match[1])) : highest;
   }, 1025);
   return `LAB-${max + 1}`;
@@ -73,9 +62,9 @@ export function TestOrdersPage() {
     { name: 'CRP', code: 'LAB-CRP', price: 600 },
   ]);
   const [form, setForm] = useState({
-    patientName: 'Raj Kumar',
+    patientName: '',
     visitNo: 'OPD-2026-00452',
-    orderedBy: 'Dr. Arun Kumar',
+    orderedBy: '',
     source: 'OPD',
     priority: 'Routine',
     clinicalNotes: 'Fever for 3 days',
@@ -86,14 +75,14 @@ export function TestOrdersPage() {
 
   const patientOptions = useMemo(() => {
     const existing = names(patients.records);
-    return existing.length ? existing : ['Raj Kumar', 'Priya S', 'Arun K'];
+    return existing;
   }, [patients.records]);
   const doctorOptions = useMemo(() => {
     const existing = names(doctors.records);
-    return existing.length ? existing : ['Dr. Arun Kumar', 'Dr. Ravi Kumar', 'Dr. Priya'];
+    return existing;
   }, [doctors.records]);
-  const testRecords = tests.records.length ? tests.records : DEMO_TESTS;
-  const orderRecords = orders.records.length ? orders.records : DEMO_ORDERS;
+  const testRecords = tests.records;
+  const orderRecords = orders.records;
 
   const filteredTests = useMemo(() => {
     const q = normalize(testSearch);
@@ -107,7 +96,7 @@ export function TestOrdersPage() {
       const data = record.data || {};
       const testText = (data.tests || []).map((item) => item.name || item.testName).join(' ');
       const matchesSearch = !q || normalize([data.orderId, data.patientName, testText].filter(Boolean).join(' ')).includes(q);
-      const matchesDate = dateFilter !== 'Today' || (data.date || '').slice(0, 10) === todayISO();
+      const matchesDate = dateFilter !== 'Today' || (data.date || '-').slice(0, 10) === todayISO();
       const matchesSource = sourceFilter === 'All Sources' || data.source === sourceFilter;
       const matchesPriority = priorityFilter === 'Priority' || data.priority === priorityFilter;
       const matchesStatus = statusFilter === 'Status' || data.status === statusFilter;
@@ -304,3 +293,5 @@ export function TestOrdersPage() {
     </div>
   );
 }
+
+

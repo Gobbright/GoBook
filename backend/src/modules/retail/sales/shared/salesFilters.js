@@ -44,14 +44,14 @@ function resolveDocumentTypeCondition(query, baseDocumentType) {
 // Builds a plain Mongo match object (usable directly in .find() or as a
 // pipeline $match stage). Does NOT cover paymentStatus, which depends on a
 // computed field from paymentStatusStages() and must be matched afterwards.
-export function buildSalesMatchStage(query, userId, baseDocumentType) {
+export function buildSalesMatchStage(query, userId, baseDocumentType, baseMatch = null) {
   const {
     search, dateFrom, dateTo, paymentMethod, customer, city, state,
     supplyType, amountMin, amountMax, itemType, hsn, productName, barcode,
     irnStatus, ewbStatus,
   } = query;
 
-  const match = { userId: toObjectId(userId) };
+  const match = baseMatch ? { ...baseMatch } : { userId: toObjectId(userId) };
 
   const documentType = resolveDocumentTypeCondition(query, baseDocumentType);
   if (documentType) match.documentType = documentType;
@@ -110,14 +110,13 @@ export function buildSalesMatchStage(query, userId, baseDocumentType) {
 // in-memory logic previously in paymentController.js::listOutstanding.
 export function paymentStatusStages(userId) {
   const todayStr = new Date().toISOString().slice(0, 10);
-  const objectId = toObjectId(userId);
   return [
     {
       $lookup: {
         from: 'payments',
         let: { invId: '$_id' },
         pipeline: [
-          { $match: { $expr: { $and: [{ $eq: ['$invoiceId', '$$invId'] }, { $eq: ['$userId', objectId] }] } } },
+          { $match: { $expr: { $eq: ['$invoiceId', '$$invId'] } } },
           { $group: { _id: null, totalPaid: { $sum: '$amount' } } },
         ],
         as: '_paymentAgg',
@@ -162,9 +161,9 @@ export function paymentStatusStages(userId) {
 // Full pipeline: match -> (optional payment-status attach + filter) -> sort -> facet(data/total).
 // `stats` (optional) is a $group spec (without _id) computed over the fully-matched,
 // pre-pagination set, returned as `stats` in the facet result.
-export function buildSalesAggregationPipeline(query, userId, baseDocumentType, { includePayment = false, stats = null } = {}) {
+export function buildSalesAggregationPipeline(query, userId, baseDocumentType, { includePayment = false, stats = null, baseMatch = null } = {}) {
   const { page = 1, limit = 50, paymentStatus } = query;
-  const pipeline = [{ $match: buildSalesMatchStage(query, userId, baseDocumentType) }];
+  const pipeline = [{ $match: buildSalesMatchStage(query, userId, baseDocumentType, baseMatch) }];
 
   if (includePayment) {
     pipeline.push(...paymentStatusStages(userId));

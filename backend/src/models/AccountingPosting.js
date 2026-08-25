@@ -11,6 +11,7 @@ const postingLineSchema = new Schema({
 const accountingPostingSchema = new Schema({
   userId:          { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   businessId:      { type: Schema.Types.ObjectId, ref: 'Business', index: true },
+  branch:          { type: String, trim: true, default: '', index: true },
   sourceType:      { type: String, required: true, trim: true },
   sourceId:        { type: Schema.Types.ObjectId, required: true, index: true },
   sourceNumber:    { type: String, default: '', trim: true },

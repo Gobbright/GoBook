@@ -82,6 +82,50 @@ function subscriptionEndDate(start) {
   return end;
 }
 
+// Activates an account without Razorpay checkout, for when PAYMENT_REQUIRED=false.
+export async function completeFreeSignup(pending) {
+  const existing = await AppUser.findOne({ email: pending.email });
+  if (existing) {
+    const startDate = new Date();
+    existing.subscriptionPlan = pending.subscriptionPlan;
+    existing.subscriptionAmount = pending.subscriptionAmount;
+    existing.subscriptionStatus = 'active';
+    existing.subscriptionStartDate = startDate;
+    existing.subscriptionExpiresAt = subscriptionEndDate(startDate);
+    existing.status = 'Active';
+    await existing.save();
+    await BusinessSettings.findOneAndUpdate(
+      { userId: existing._id },
+      { $setOnInsert: { userId: existing._id, businessName: existing.businessName, businessEmail: existing.email, phone: existing.phone || '', gstin: pending.gstin } },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+    await PendingSignup.deleteOne({ _id: pending._id });
+    await createAdminNotification({ dedupeKey: `new-user:${existing._id}`, type: 'new_user', title: 'New user registration', message: `${existing.businessName} account was created (payment skipped)`, relatedUser: existing.businessName, userId: existing._id, businessId: existing.businessId }).catch(() => {});
+    return existing;
+  }
+
+  const business = await Business.create({ name: pending.businessName, category: pending.category });
+  const startDate = new Date();
+  const user = await AppUser.create({
+    name: pending.name, email: pending.email, password: pending.password,
+    businessId: business._id, businessName: pending.businessName,
+    category: pending.category, phone: pending.phone, role: 'Super Admin',
+    googleId: pending.googleId || '', authProvider: pending.authProvider || 'email',
+    googleProfile: pending.googleProfile,
+    lastLogin: new Date().toISOString(), subscriptionPlan: pending.subscriptionPlan,
+    subscriptionAmount: pending.subscriptionAmount, subscriptionStatus: 'active',
+    subscriptionStartDate: startDate, subscriptionExpiresAt: subscriptionEndDate(startDate),
+    onboardingCompleted: true, emailVerified: true,
+  });
+  await BusinessSettings.create({
+    userId: user._id, businessName: pending.businessName, businessEmail: pending.email,
+    phone: pending.phone, gstin: pending.gstin,
+  });
+  await PendingSignup.deleteOne({ _id: pending._id });
+  await createAdminNotification({ dedupeKey: `new-user:${user._id}`, type: 'new_user', title: 'New user registration', message: `${user.businessName} account was created (payment skipped)`, relatedUser: user.businessName, userId: user._id, businessId: user.businessId }).catch(() => {});
+  return user;
+}
+
 export async function completePaidSignup(transaction, paymentData = {}, signature = '') {
   if (transaction.status === 'successful' && transaction.userId) {
     const existingUser = await AppUser.findById(transaction.userId);

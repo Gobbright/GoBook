@@ -22,6 +22,18 @@ const VENDOR_IMPORT_COLUMNS = {
   'vendor address': 'address',
   'billing address': 'address',
   'street address': 'address',
+  'bank name': 'bankName',
+  bank: 'bankName',
+  'account holder name': 'accountHolderName',
+  'a/c name': 'accountHolderName',
+  'account name': 'accountHolderName',
+  'account number': 'accountNumber',
+  'a/c no': 'accountNumber',
+  'ac no': 'accountNumber',
+  ifsc: 'ifscCode',
+  'ifsc code': 'ifscCode',
+  'bank branch': 'bankBranch',
+  branch: 'bankBranch',
 };
 
 // GET /api/more-modules/vendors?search=&category=
@@ -88,6 +100,11 @@ export async function importVendors(req, res, next) {
         status: enumValue(record.status, ['Active', 'Inactive'], 'Active'),
         gstin: asText(record.gstin).toUpperCase(),
         address: asText(record.address),
+        bankName: asText(record.bankName),
+        accountHolderName: asText(record.accountHolderName),
+        accountNumber: asText(record.accountNumber),
+        ifscCode: asText(record.ifscCode).toUpperCase(),
+        bankBranch: asText(record.bankBranch),
       };
 
       const matchBase = data.gstin ? { gstin: data.gstin } : data.phone ? { phone: data.phone } : { name: data.name };

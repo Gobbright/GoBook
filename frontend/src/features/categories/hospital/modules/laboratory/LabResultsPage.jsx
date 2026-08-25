@@ -10,33 +10,32 @@ const DEPARTMENTS = ['Department', 'Hematology', 'Biochemistry', 'Pathology', 'H
 const PRIORITIES = ['Priority', 'Routine', 'Urgent', 'Critical'];
 
 const PARAMETERS = [
-  { name: 'Hemoglobin', value: '14.2', unit: 'g/dL', reference: '13.0 - 17.0', low: 13, high: 17 },
-  { name: 'WBC', value: '12500', unit: '/uL', reference: '4000 - 11000', low: 4000, high: 11000 },
-  { name: 'Platelets', value: '220000', unit: '/uL', reference: '150000 - 450000', low: 150000, high: 450000 },
+  { name: '', value: '', unit: '', reference: '', low: '', high: '' },
 ];
 
-const DEMO_RESULT = {
-  orderId: 'LAB-1025',
-  patientName: 'Raj Kumar',
-  patientAge: '34 Y',
-  patientGender: 'Male',
-  testName: 'CBC',
-  department: 'Hematology',
-  priority: 'Urgent',
-  sampleCollectedAt: '07 Aug - 11:20 AM',
+const EMPTY_RESULT = {
+  orderId: '',
+  patientName: '',
+  patientAge: '',
+  patientGender: '',
+  testName: '',
+  department: '',
+  priority: '',
   status: 'Pending Results',
   parameters: PARAMETERS,
-  technicianNotes: 'Mild leukocytosis',
-  enteredBy: 'Tech. Priya',
-  verifiedBy: 'Dr. / Lab In-charge',
+  technicianNotes: '',
+  enteredBy: '',
+  verifiedBy: '',
+  sampleCollectedAt: '',
 };
 
+
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function compareParameter(parameter) {
-  const value = Number(String(parameter.value || '').replace(/,/g, ''));
+  const value = Number(String(parameter.value || '-').replace(/,/g, ''));
   if (!Number.isFinite(value)) return '';
   if (parameter.high && value > parameter.high) return 'high';
   if (parameter.low && value < parameter.low) return 'low';
@@ -67,16 +66,17 @@ function Card({ children, className = '' }) {
 function resultFromOrder(order) {
   const firstTest = order.data?.tests?.[0] || {};
   return {
-    ...DEMO_RESULT,
-    orderId: order.data?.orderId || DEMO_RESULT.orderId,
-    patientName: order.data?.patientName || DEMO_RESULT.patientName,
-    patientAge: order.data?.patientAge || DEMO_RESULT.patientAge,
-    patientGender: order.data?.patientGender || DEMO_RESULT.patientGender,
-    testName: firstTest.name || firstTest.testName || DEMO_RESULT.testName,
-    department: firstTest.category || DEMO_RESULT.department,
-    priority: order.data?.priority || DEMO_RESULT.priority,
-    status: order.data?.resultStatus || DEMO_RESULT.status,
-    technicianNotes: order.data?.technicianNotes || DEMO_RESULT.technicianNotes,
+    ...EMPTY_RESULT,
+    orderId: order.data?.orderId || '',
+    patientName: order.data?.patientName || '',
+    patientAge: order.data?.patientAge || '',
+    patientGender: order.data?.patientGender || '',
+    testName: firstTest.name || firstTest.testName || '',
+    department: firstTest.category || '',
+    priority: order.data?.priority || '',
+    status: order.data?.resultStatus || 'Pending Results',
+    technicianNotes: order.data?.technicianNotes || '',
+    sampleCollectedAt: order.data?.sampleCollectedAt || '',
   };
 }
 
@@ -92,9 +92,9 @@ export function LabResultsPage() {
 
   const record = useMemo(() => {
     const resultRecord = results.records[0]?.data;
-    if (resultRecord) return { ...DEMO_RESULT, ...resultRecord };
+    if (resultRecord) return { ...EMPTY_RESULT, ...resultRecord };
     const order = orders.records.find((item) => ['SAMPLE COLLECTED', 'PROCESSING', 'RESULT ENTERED'].includes(item.data?.status));
-    return order ? resultFromOrder(order) : DEMO_RESULT;
+    return order ? resultFromOrder(order) : EMPTY_RESULT;
   }, [orders.records, results.records]);
 
   const [parameters, setParameters] = useState(record.parameters || PARAMETERS);
@@ -107,6 +107,10 @@ export function LabResultsPage() {
   }
 
   async function save(nextStatus) {
+    if (!record.orderId) {
+      setMessage('Select a lab order before saving results.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -114,7 +118,7 @@ export function LabResultsPage() {
         parameters,
         technicianNotes,
         status: nextStatus,
-        enteredBy: record.enteredBy || 'Tech. Priya',
+        enteredBy: record.enteredBy || '',
       };
       await results.create({ name: `${record.orderId} ${record.testName}`, ...payload });
       const order = orders.records.find((item) => item.data?.orderId === record.orderId);
@@ -133,6 +137,10 @@ export function LabResultsPage() {
   }
 
   async function verify(nextStatus) {
+    if (!record.orderId) {
+      setMessage('Select a lab result before verification.');
+      return;
+    }
     setSaving(true);
     try {
       await results.create({
@@ -255,3 +263,5 @@ export function LabResultsPage() {
     </div>
   );
 }
+
+

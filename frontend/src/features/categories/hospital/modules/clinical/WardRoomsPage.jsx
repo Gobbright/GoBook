@@ -10,11 +10,6 @@ const WARD_TYPES = ['General Ward', 'Semi-Private', 'Private Ward', 'Deluxe', 'I
 const ROOM_TYPES = ['General', 'Semi-Private', 'Private', 'Deluxe', 'ICU', 'NICU', 'PICU', 'Isolation', 'Day Care'];
 const FLOORS = ['Ground Floor', '1st Floor', '2nd Floor', '3rd Floor', '4th Floor'];
 const STATUSES = ['Active', 'Inactive', 'Maintenance'];
-const DEMO_BEDS = [
-  ...Array.from({ length: 30 }, (_, index) => ({ _id: `demo-g-${index}`, data: { name: `G-201/B${String(index + 1).padStart(2, '0')}`, wardName: 'General Ward', roomName: 'G-201', buildingName: 'Main Building', roomType: 'General', floor: '1st Floor', status: index < 22 ? 'Occupied' : 'Available', dailyCharge: 1200, nursingCharge: 300 } })),
-  ...Array.from({ length: 20 }, (_, index) => ({ _id: `demo-p-${index}`, data: { name: `P-${String(201 + index)}`, wardName: 'Private Ward', roomName: `P-${String(201 + index)}`, buildingName: 'Main Building', roomType: 'Private', floor: '2nd Floor', status: index < 16 ? 'Occupied' : 'Available', dailyCharge: 3000, nursingCharge: 500 } })),
-  ...Array.from({ length: 12 }, (_, index) => ({ _id: `demo-icu-${index}`, data: { name: `ICU/IC-${String(index + 1).padStart(2, '0')}`, wardName: 'ICU', roomName: 'ICU', buildingName: 'Main Building', roomType: 'ICU', floor: 'Ground Floor', status: index < 10 ? 'Occupied' : 'Available', dailyCharge: 7000, nursingCharge: 1500 } })),
-];
 
 function normalize(value = '') {
   return String(value || '').trim().toLowerCase();
@@ -76,7 +71,7 @@ export function WardRoomsPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const records = beds.records.length ? beds.records : DEMO_BEDS;
+  const records = beds.records;
   const buildingRecords = useMemo(() => records.filter((record) => {
     const data = record.data || {};
     return (data.buildingName || data.building || 'Main Building') === building;
@@ -261,3 +256,4 @@ export function WardRoomsPage() {
     </div>
   );
 }
+

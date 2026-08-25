@@ -38,11 +38,6 @@ const BILL_STRUCTURES = [
   { value: 'discharge', label: 'Discharge Summary Bill' },
 ];
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Card', 'Bank', 'Credit'];
-const PENDING_SERVICES = [
-  { service: 'Consultation', code: 'OPD-CONS', department: 'OPD', qty: 1, rate: 500, discount: 0, tax: 0, insurance: 0, source: 'OPD' },
-  { service: 'CBC Test', code: 'LAB-CBC', department: 'Laboratory', qty: 1, rate: 800, discount: 0, tax: 0, insurance: 0, source: 'Lab' },
-  { service: 'X-Ray Chest', code: 'RAD-XRAY', department: 'Radiology', qty: 1, rate: 1200, discount: 0, tax: 0, insurance: 0, source: 'Radiology' },
-];
 const EMPTY_SERVICE = { service: '', code: '', department: 'OPD', qty: 1, rate: 0, discount: 0, tax: 0, insurance: 0, source: 'Manual' };
 const INPUT = 'border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none focus:border-blue-500 font-[inherit] bg-white';
 
@@ -78,7 +73,7 @@ function nextBillNo(records) {
   const year = new Date().getFullYear();
   const prefix = `HB-${year}-`;
   const max = records.reduce((highest, record) => {
-    const billNo = record.data?.billNo || '';
+    const billNo = record.data?.billNo || '-';
     if (!billNo.startsWith(prefix)) return highest;
     const number = Number(billNo.slice(prefix.length));
     return Number.isFinite(number) ? Math.max(highest, number) : highest;
@@ -87,12 +82,20 @@ function nextBillNo(records) {
 }
 
 function patientPhone(data = {}) {
-  return data.phone || data.mobile || '';
+  return data.phone || data.mobile || '-';
 }
 
 function visitFor(patient, billType) {
-  const suffix = String(patient?.data?.patientId || '00128').replace(/\D/g, '').slice(-5).padStart(5, '0');
-  return `${billType}-${suffix}`;
+  const suffix = String(patient?.data?.patientId || '').replace(/\D/g, '').slice(-5).padStart(5, '0');
+  return suffix === '00000' ? `${billType}-` : `${billType}-${suffix}`;
+}
+
+function patientDoctor(data = {}) {
+  return data.doctorName || data.doctor || data.consultantName || data.primaryDoctor || '';
+}
+
+function patientDepartment(data = {}) {
+  return data.department || data.speciality || data.specialty || '';
 }
 
 function lineAmount(item) {
@@ -111,7 +114,7 @@ function billTypeFromEstimate(type) {
 }
 
 function normalizeProcedureStatus(status = '') {
-  return String(status || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return String(status || '-').trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
 function businessAddress(settings = {}) {
@@ -171,7 +174,7 @@ export function NewBillPage() {
   const billNo = useMemo(() => nextBillNo(bills.records), [bills.records]);
   const nextReceiptNo = useMemo(() => {
     const max = payments.records.reduce((highest, record) => {
-      const n = Number(String(record.data?.receiptNo || '').replace(/\D/g, ''));
+      const n = Number(String(record.data?.receiptNo || '-').replace(/\D/g, ''));
       return Number.isFinite(n) ? Math.max(highest, n) : highest;
     }, 198);
     return `REC-${String(max + 1).padStart(3, '0')}`;
@@ -191,6 +194,8 @@ export function NewBillPage() {
     .filter((pkg) => pkg.status !== 'Inactive'), [packages.records]);
   const selectedPackage = activePackages.find((pkg) => pkg.id === selectedPackageId) || null;
   const visitNo = selectedPatient ? visitFor(selectedPatient, billType) : `${billType}-00000`;
+  const visitDoctor = patientDoctor(selectedPatient?.data);
+  const visitDepartment = patientDepartment(selectedPatient?.data);
   const subtotal = services.reduce((sum, item) => sum + lineAmount(item), 0);
   const serviceDiscount = services.reduce((sum, item) => sum + Number(item.discount || 0), 0);
   const serviceTax = services.reduce((sum, item) => sum + Number(item.tax || 0), 0);
@@ -244,13 +249,13 @@ export function NewBillPage() {
 
     if (patient) {
       setSelectedPatientId(patient._id);
-      setSearch(patient.data?.name || patient.data?.patientId || '');
+      setSearch(patient.data?.name || patient.data?.patientId || '-');
     } else {
-      setSearch(estimate.patientName || '');
+      setSearch(estimate.patientName || '-');
     }
     setBillType(billTypeFromEstimate(estimate.estimateType));
     setServices((estimate.services || []).map((service) => ({
-      service: service.name || '',
+      service: service.name || '-',
       code: 'EST',
       department: service.department || estimate.estimateType || 'Estimate',
       qty: 1,
@@ -345,18 +350,18 @@ export function NewBillPage() {
         discount: 0,
         tax: 0,
         insurance: 0,
-        source: `Procedure: ${record.data?.opdNo || record.data?.visitNo || ''}`,
+        source: `Procedure: ${record.data?.opdNo || record.data?.visitNo || '-'}`,
         sourceModule: 'hospital/procedures',
         sourceRecordId: record._id,
       })) : [];
-    setServices(pendingProcedureRows.length ? pendingProcedureRows : PENDING_SERVICES.map((item) => ({ ...item })));
+    setServices(pendingProcedureRows);
   }
 
   function applyPackage(packageId) {
     setSelectedPackageId(packageId);
     const pkg = activePackages.find((item) => item.id === packageId);
     if (!pkg) return;
-    const packageServiceNames = new Set((pkg.services || []).map((service) => String(service.name || '').trim().toLowerCase()).filter(Boolean));
+    const packageServiceNames = new Set((pkg.services || []).map((service) => String(service.name || '-').trim().toLowerCase()).filter(Boolean));
     const packageRows = (pkg.services || []).map((service) => ({
       service: service.name,
       code: 'PKG',
@@ -384,7 +389,7 @@ export function NewBillPage() {
       packageName: pkg.packageName,
     };
     setServices((current) => [
-      ...current.filter((item) => !item.packageId && !packageServiceNames.has(String(item.service || '').trim().toLowerCase())),
+      ...current.filter((item) => !item.packageId && !packageServiceNames.has(String(item.service || '-').trim().toLowerCase())),
       ...packageRows,
       packagePriceRow,
     ]);
@@ -398,14 +403,14 @@ export function NewBillPage() {
     }
     await bills.create({
       billNo,
-      patientName: selectedPatient.data?.name || '',
-      patientId: selectedPatient.data?.patientId || '',
+      patientName: selectedPatient.data?.name || '-',
+      patientId: selectedPatient.data?.patientId || '-',
       visitNo,
       billType,
       billStructure,
-      packageId: selectedPackage?.id || '',
-      packageName: selectedPackage?.packageName || '',
-      estimateNo: services.find((item) => item.estimateNo)?.estimateNo || '',
+      packageId: selectedPackage?.id || '-',
+      packageName: selectedPackage?.packageName || '-',
+      estimateNo: services.find((item) => item.estimateNo)?.estimateNo || '-',
       services,
       subtotal,
       discount: totalDiscount,
@@ -430,7 +435,7 @@ export function NewBillPage() {
         receiptNo: nextReceiptNo,
         invoiceNo: billNo,
         invoiceSource: 'hospital/billing',
-        patientName: selectedPatient.data?.name || '',
+        patientName: selectedPatient.data?.name || '-',
         mobile: patientPhone(selectedPatient.data),
         method: paymentMode,
         amount: received,
@@ -522,7 +527,7 @@ export function NewBillPage() {
                       type="button"
                       onClick={() => {
                         setSelectedPatientId(patient._id);
-                        setSearch(patient.data?.name || patient.data?.patientId || '');
+                        setSearch(patient.data?.name || patient.data?.patientId || '-');
                         setShowPatientMenu(false);
                       }}
                     >
@@ -577,7 +582,7 @@ export function NewBillPage() {
                   <strong>{selectedPatient.data?.name || 'Unnamed'} - {selectedPatient.data?.patientId || '-'}</strong>
                   <strong>{visitNo}</strong>
                   <span>{patientPhone(selectedPatient.data) || 'No mobile'}</span>
-                  <span>Dr. Arun Kumar - General Medicine</span>
+                  <span>{[visitDoctor || 'Doctor not selected', visitDepartment].filter(Boolean).join(' - ')}</span>
                 </div>
               ) : (
                 <div className="text-[13px] text-[#64748b]">Search and select a patient to auto-load visit details.</div>
@@ -793,8 +798,8 @@ export function NewBillPage() {
                       </div>
                       <div className="invoice-classic-ledger">
                         <div className="invoice-classic-ledger-heading">Visit Details:</div>
-                        <p>Doctor : Dr. Arun Kumar</p>
-                        <div className="invoice-classic-ledger-row"><span>Department</span><b>=</b><strong>General Medicine</strong></div>
+                        <p>Doctor : {visitDoctor || '-'}</p>
+                        <div className="invoice-classic-ledger-row"><span>Department</span><b>=</b><strong>{visitDepartment || '-'}</strong></div>
                         <div className="invoice-classic-ledger-row"><span>Adding this Invoice Amount</span><b>=</b><strong>+{amount(payable)}</strong></div>
                         <div className="invoice-classic-ledger-row invoice-classic-ledger-total"><span>Balance Due</span><b>=</b><strong>{amount(balance)}</strong></div>
                       </div>
@@ -856,7 +861,7 @@ export function NewBillPage() {
                     <div className="invoice-classic-footer">
                       <span>{bizSettings.phone || '-'}</span>
                       <strong>Generated by GoBook</strong>
-                      <strong>{bizSettings.website || bizSettings.businessWebsite || ''}</strong>
+                      <strong>{bizSettings.website || bizSettings.businessWebsite || '-'}</strong>
                     </div>
                   </div>
                 </section>
@@ -870,10 +875,10 @@ export function NewBillPage() {
                         <img src={`${SERVER_ORIGIN}${bizSettings.logoUrl}`} alt="logo" className="hospital-brand-logo" />
                       ) : <div className="hospital-brand-logo" />}
                       <div className="min-w-0">
-                        <div className="hospital-brand-name">{bizSettings.businessName || ''}</div>
-                        <div className="hospital-brand-type">{bizSettings.businessType || ''}</div>
+                        <div className="hospital-brand-name">{bizSettings.businessName || '-'}</div>
+                        <div className="hospital-brand-type">{bizSettings.businessType || '-'}</div>
                         <div className="hospital-brand-rule" />
-                        <div className="hospital-brand-tag">{bizSettings.tagline || ''}</div>
+                        <div className="hospital-brand-tag">{bizSettings.tagline || '-'}</div>
                       </div>
                     </div>
 
@@ -909,8 +914,8 @@ export function NewBillPage() {
                       <div className="hospital-section-pill">Visit Details</div>
                       <div className="hospital-detail-row"><ReceiptText /><span>Visit Type</span><span>:</span><strong>{billType}</strong></div>
                       <div className="hospital-detail-row"><FileText /><span>Visit No</span><span>:</span><strong>{visitNo}</strong></div>
-                      <div className="hospital-detail-row"><UserRound /><span>Doctor</span><span>:</span><strong>Dr. Arun Kumar</strong></div>
-                      <div className="hospital-detail-row"><Building2 /><span>Department</span><span>:</span><strong>General Medicine</strong></div>
+                      <div className="hospital-detail-row"><UserRound /><span>Doctor</span><span>:</span><strong>{visitDoctor || '-'}</strong></div>
+                      <div className="hospital-detail-row"><Building2 /><span>Department</span><span>:</span><strong>{visitDepartment || '-'}</strong></div>
                       <div className="hospital-detail-row"><CalendarDays /><span>Visit Date</span><span>:</span><strong>{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></div>
                     </div>
 
@@ -943,7 +948,7 @@ export function NewBillPage() {
                           <td>{index + 1}</td>
                           <td className="item-cell">
                             <div className="item-title">{item.service || '-'}</div>
-                            <div className="item-sub">{item.code || item.source || ''}</div>
+                            <div className="item-sub">{item.code || item.source || '-'}</div>
                           </td>
                           <td><strong>{item.department || '-'}</strong></td>
                           <td>{item.qty || 0}</td>
@@ -1007,7 +1012,7 @@ export function NewBillPage() {
                       </div>
                     </div>
                     <div className="hospital-signature">
-                      <div>For {(bizSettings.businessName || '').toUpperCase()}</div>
+                      <div>For {(bizSettings.businessName || '-').toUpperCase()}</div>
                       <div className="hospital-sign-line">Authorised Signatory</div>
                     </div>
                   </div>
@@ -1026,3 +1031,4 @@ export function NewBillPage() {
     </div>
   );
 }
+

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import dns from 'node:dns';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -7,6 +8,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Always resolve .env relative to this file (Backend/src/config -> Backend/.env)
 // so it loads correctly regardless of what directory Hostinger runs the process from.
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+// Some local DNS proxies refuse MongoDB Atlas SRV lookups even though the
+// operating-system resolver can answer them. Allow deployments to provide
+// reliable recursive DNS servers without changing the database URI or data.
+const configuredDnsServers = (process.env.DNS_SERVERS ?? '')
+  .split(',')
+  .map((server) => server.trim())
+  .filter(Boolean);
+if (configuredDnsServers.length > 0) dns.setServers(configuredDnsServers);
 
 function require(name) {
   const val = process.env[name];
@@ -35,6 +45,9 @@ export const env = {
   adminLoginPassword: process.env.ADMIN_LOGIN_PASSWORD ?? 'admin@123',
   adminJwtExpiresIn: process.env.ADMIN_JWT_EXPIRES_IN ?? '8h',
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
+
+  // When false, registration skips Razorpay checkout and activates the account directly.
+  paymentRequired: process.env.PAYMENT_REQUIRED !== 'false',
 
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID ?? '',

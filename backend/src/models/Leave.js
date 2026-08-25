@@ -14,6 +14,14 @@ const leaveSchema = new Schema({
   applied:    { type: String, default: '' },
   reason:     { type: String, default: '' },
   recordedBy: { type: String, default: '', trim: true },
+  attachment: {
+    originalName: { type: String, default: '', trim: true },
+    fileName:     { type: String, default: '', trim: true },
+    url:          { type: String, default: '', trim: true },
+    size:         { type: Number, default: 0 },
+    mimeType:     { type: String, default: '', trim: true },
+    uploadedAt:   { type: Date },
+  },
 }, { timestamps: true });
 
 leaveSchema.index({ userId: 1, leaveId: 1 }, { unique: true });

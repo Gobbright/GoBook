@@ -172,7 +172,7 @@ export function GstDashboard() {
     { label: `File GSTR-1${currentPeriod ? ` for ${currentPeriod}` : ''}`, href: '/gstr-1', urgent: true },
     { label: `File GSTR-3B${currentPeriod ? ` for ${currentPeriod}` : ''}`, href: '/gstr-3b', urgent: true },
     { label: 'Reconcile GSTR-2B', href: '/gst-reconciliation', urgent: false },
-    { label: 'Download GST Reports', href: '/gst-reports', urgent: false },
+    { label: 'Download GST Reports', href: '/reports', urgent: false },
   ];
 
   return (
@@ -253,7 +253,7 @@ export function GstDashboard() {
         </div>
         <a
           className="inline-flex items-center justify-center px-4 py-2 text-[13px] font-semibold text-white bg-blue-600 border border-blue-600 rounded-md hover:bg-blue-700 no-underline"
-          href={nextFiling?.href || '#gst-reports'}
+          href={nextFiling?.href || '/reports'}
         >
           {nextFiling ? 'Open Return' : 'View Reports'}
         </a>

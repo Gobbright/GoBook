@@ -6,28 +6,9 @@ import { todayISO } from '../../../shared/recordUi/dateUtils.js';
 const DISCHARGE_TYPES = ['Normal', 'Against Medical Advice / LAMA', 'Transfer to Another Hospital', 'Absconded', 'Deceased'];
 const CONDITIONS = ['Stable', 'Improved', 'Critical', 'Referred', 'Deceased'];
 const CHECKLIST = ['Doctor clearance', 'Nursing clearance', 'Pharmacy clearance', 'Diagnostics completed', 'Final bill prepared', 'Payment cleared', 'Documents handed over'];
-const DEMO_ADMISSION = {
-  _id: 'demo-ipd-182',
-  data: {
-    patientName: 'Raj Kumar',
-    patientId: 'GBH-00128',
-    ipdNo: 'IPD-2026-00182',
-    admissionDate: '2026-08-05',
-    doctorName: 'Dr. Arun Kumar',
-    departmentName: 'General Medicine',
-    wardName: 'General Ward',
-    roomName: 'G-201',
-    bedNumber: 'B01',
-    diagnosis: 'Viral Fever with Dehydration',
-    status: 'Ready for Discharge',
-  },
-};
-const DEMO_BEDS = [
-  { _id: 'demo-bed-b01', data: { name: 'B01', wardName: 'General Ward', roomName: 'G-201', status: 'Occupied', patientName: 'Raj Kumar', ipdNo: 'IPD-2026-00182' } },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function stayDays(admissionDate, dischargeDate) {
@@ -128,7 +109,7 @@ export function DischargeWorkflowPage() {
     { medicine: 'ORS Sachet', frequency: '1-1-1', duration: '3 Days' },
   ]);
   const [followUpRequired, setFollowUpRequired] = useState(true);
-  const [followUpDoctor, setFollowUpDoctor] = useState('Dr. Arun Kumar');
+  const [followUpDoctor, setFollowUpDoctor] = useState('');
   const [followUpDate, setFollowUpDate] = useState(addDays(todayISO(), 7));
   const [followUpInstructions, setFollowUpInstructions] = useState('Review after 7 days');
   const [checks, setChecks] = useState(() => Object.fromEntries(CHECKLIST.map((item) => [item, true])));
@@ -136,14 +117,14 @@ export function DischargeWorkflowPage() {
   const [saving, setSaving] = useState(false);
 
   const activeAdmissions = useMemo(() => {
-    const source = admissions.records.length ? admissions.records : [DEMO_ADMISSION];
+    const source = admissions.records;
     return source.filter((record) => !['draft', 'discharged'].includes(normalize(record.data?.status)));
   }, [admissions.records]);
 
-  const selectedAdmission = activeAdmissions[0] || DEMO_ADMISSION;
+  const selectedAdmission = activeAdmissions[0] || null;
   const data = useMemo(() => selectedAdmission?.data || {}, [selectedAdmission]);
   const currentBed = useMemo(() => {
-    const source = beds.records.length ? beds.records : DEMO_BEDS;
+    const source = beds.records;
     return source.find((record) => bedMatches(record, selectedAdmission)) || null;
   }, [beds.records, selectedAdmission]);
   const stay = stayDays(data.admissionDate, dischargeDate);
@@ -166,9 +147,9 @@ export function DischargeWorkflowPage() {
     try {
       const payload = {
         name: `${data.patientName || 'Patient'} discharge`,
-        patientName: data.patientName || 'Raj Kumar',
-        patientId: data.patientId || '',
-        ipdNo: data.ipdNo || data.admissionNo || 'IPD-2026-00182',
+        patientName: data.patientName || '-',
+        patientId: data.patientId || '-',
+        ipdNo: data.ipdNo || data.admissionNo || '-',
         admissionDate: data.admissionDate,
         dischargeDate,
         stayDays: stay,
@@ -188,7 +169,7 @@ export function DischargeWorkflowPage() {
         status,
       };
       await discharge.create(payload);
-      if (!String(selectedAdmission._id).startsWith('demo-')) {
+      if (selectedAdmission._id) {
         await admissions.update(selectedAdmission._id, {
           ...data,
           dischargeDate,
@@ -201,7 +182,7 @@ export function DischargeWorkflowPage() {
           status: status === 'Discharged' ? 'Discharged' : 'Ready for Discharge',
         });
       }
-      if (status === 'Discharged' && currentBed && !String(currentBed._id).startsWith('demo-')) {
+      if (status === 'Discharged' && currentBed) {
         await beds.update(currentBed._id, {
           ...currentBed.data,
           status: 'Cleaning',
@@ -234,8 +215,8 @@ export function DischargeWorkflowPage() {
         <div>DISCHARGE PATIENT</div>
 
         <div className="mt-8 grid max-w-[560px] grid-cols-[minmax(0,1fr)_180px] gap-x-8">
-          <div>{data.patientName || 'Raj Kumar'}</div>
-          <div>{data.ipdNo || data.admissionNo || 'IPD-2026-00182'}</div>
+          <div>{data.patientName || '-'}</div>
+          <div>{data.ipdNo || data.admissionNo || '-'}</div>
           <div>Admission: {fmt(data.admissionDate || '2026-08-05')}</div>
           <div />
           <div>Discharge: {fmt(dischargeDate)}</div>
@@ -244,7 +225,7 @@ export function DischargeWorkflowPage() {
         </div>
 
         <div className="mt-8">
-          <div>{data.doctorName || 'Dr. Arun Kumar'}</div>
+          <div>{data.doctorName || '-'}</div>
           <div>{data.departmentName || 'General Medicine'}</div>
         </div>
 
@@ -399,3 +380,5 @@ export function DischargeWorkflowPage() {
     </div>
   );
 }
+
+

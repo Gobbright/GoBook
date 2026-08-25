@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 
 import { DATA_COLLECTIONS, DATA_COLLECTIONS_BY_KEY } from './registry.js';
 import { httpError } from '../../utils/httpError.js';
+import { branchForNewRecord, branchScopedAggregateMatch, branchScopedQuery } from '../../utils/branchScope.js';
 
 export const uploadBackupFile = multer({
   storage: multer.memoryStorage(),
@@ -89,19 +90,20 @@ function deleteDateQuery(collection, window) {
   return clauses.length === 1 ? clauses[0] : { $or: clauses };
 }
 
-function applyOwner(doc, req, collection) {
+async function applyOwner(doc, req, collection) {
   const next = { ...doc };
   next[collection.ownerField] = ownerValue(req, collection.ownerField);
   if (collection.model.schema.path('businessId') && req.user.businessId) next.businessId = req.user.businessId;
   if (collection.model.schema.path('createdBy')) next.createdBy = req.user.id;
   if (collection.model.schema.path('updatedBy')) next.updatedBy = req.user.id;
+  if (collection.model.schema.path('branch')) next.branch = await branchForNewRecord(req, next.branch);
   delete next.__v;
   for (const field of collection.sensitiveFields || []) delete next[field];
   return next;
 }
 
 async function importDocument(req, collection, originalDoc) {
-  const doc = applyOwner(originalDoc, req, collection);
+  const doc = await applyOwner(originalDoc, req, collection);
   const id = doc._id && Types.ObjectId.isValid(doc._id) ? doc._id : null;
 
   if (collection.key === 'businessSettings') {
@@ -128,12 +130,26 @@ async function importDocument(req, collection, originalDoc) {
 
 export async function getDataSummary(req, res, next) {
   try {
-    const collections = await Promise.all(DATA_COLLECTIONS.map(async (collection) => ({
-      key: collection.key,
-      label: collection.label,
-      count: await collection.model.countDocuments(ownerQuery(req, collection)),
-      deletable: collection.deletable !== false,
-    })));
+    const collections = await Promise.all(DATA_COLLECTIONS.map(async (collection) => {
+      const query = await branchScopedQuery(req, collection);
+      const summary = {
+        key: collection.key,
+        label: collection.label,
+        count: await collection.model.countDocuments(query),
+        deletable: collection.deletable !== false,
+      };
+
+      if (collection.key === 'moduleRecords') {
+        summary.modules = await collection.model.aggregate([
+          { $match: await branchScopedAggregateMatch(req, collection) },
+          { $group: { _id: '$moduleKey', count: { $sum: 1 } } },
+          { $sort: { _id: 1 } },
+          { $project: { _id: 0, key: '$_id', count: 1 } },
+        ]);
+      }
+
+      return summary;
+    }));
     res.json({ collections });
   } catch (err) {
     next(err);
@@ -149,7 +165,7 @@ export async function exportData(req, res, next) {
     for (const key of keys) {
       const collection = DATA_COLLECTIONS_BY_KEY.get(key);
       if (!collection) continue;
-      const records = await collection.model.find(ownerQuery(req, collection)).lean();
+      const records = await collection.model.find(await branchScopedQuery(req, collection)).lean();
       data[key] = records.map((record) => removeSensitiveFields(record, collection));
       summary.push({ key, label: collection.label, count: data[key].length });
     }
@@ -194,7 +210,7 @@ export async function importData(req, res, next) {
       if (!collection || !Array.isArray(records)) continue;
 
       if (replace && collection.deletable !== false) {
-        const deleted = await collection.model.deleteMany(ownerQuery(req, collection));
+        const deleted = await collection.model.deleteMany(await branchScopedQuery(req, collection));
         result.deletedBeforeImport += deleted.deletedCount || 0;
       }
 
@@ -225,7 +241,7 @@ export async function deleteByPeriod(req, res, next) {
     for (const key of keys) {
       const collection = DATA_COLLECTIONS_BY_KEY.get(key);
       if (!collection || collection.deletable === false) continue;
-      const query = { ...ownerQuery(req, collection), ...deleteDateQuery(collection, window) };
+      const query = { ...(await branchScopedQuery(req, collection)), ...deleteDateQuery(collection, window) };
       const deleted = await collection.model.deleteMany(query);
       const count = deleted.deletedCount || 0;
       result.deleted += count;

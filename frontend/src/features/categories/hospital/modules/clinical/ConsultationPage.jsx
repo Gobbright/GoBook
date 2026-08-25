@@ -12,7 +12,7 @@ const DEFAULT_COMPLAINTS = [
 ];
 
 function normalizeStatus(status = '') {
-  const normalized = String(status || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  const normalized = String(status || '-').trim().toUpperCase().replace(/\s+/g, ' ');
   const map = { 'IN CONSULTATION': 'IN CONSULTATION', CALLED: 'CALLED', WAITING: 'WAITING', COMPLETED: 'COMPLETED' };
   return map[normalized] || normalized;
 }
@@ -21,7 +21,7 @@ function nextOpdNo(records) {
   const year = new Date().getFullYear();
   const prefix = `OPD-${year}-`;
   const max = records.reduce((highest, record) => {
-    const raw = record.data?.opdNo || record.data?.visitNo || '';
+    const raw = record.data?.opdNo || record.data?.visitNo || '-';
     if (!String(raw).startsWith(prefix)) return highest;
     const n = Number(String(raw).slice(prefix.length));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
@@ -30,7 +30,7 @@ function nextOpdNo(records) {
 }
 
 function phoneOf(data = {}) {
-  return data.patientPhone || data.phone || data.mobile || '';
+  return data.patientPhone || data.phone || data.mobile || '-';
 }
 
 function patientLabel(data = {}) {
@@ -100,9 +100,9 @@ export function ConsultationPage() {
 
   const patientData = patient?.data || {};
   const appointmentData = activeAppointment?.data || {};
-  const patientName = appointmentData.patientName || patientData.name || 'Raj Kumar';
-  const patientId = appointmentData.patientId || patientData.patientId || 'GBH-00128';
-  const doctorName = appointmentData.doctorName || 'Dr. Arun Kumar';
+  const patientName = appointmentData.patientName || patientData.name || '-';
+  const patientId = appointmentData.patientId || patientData.patientId || '-';
+  const doctorName = appointmentData.doctorName || '-';
   const tokenNo = appointmentData.tokenNo || 'A-08';
   const opdNo = appointmentData.opdNo || appointmentData.visitNo || nextOpdNo(opd.records);
 
@@ -112,11 +112,11 @@ export function ConsultationPage() {
       .filter((record) => record.data?.category === 'Allergies')
       .map((record) => record.data?.allergy)
       .filter(Boolean);
-    const basics = String(patientData.knownAllergies || '').split(',').map((item) => item.trim()).filter(Boolean);
+    const basics = String(patientData.knownAllergies || '-').split(',').map((item) => item.trim()).filter(Boolean);
     return [...new Set([...structured, ...basics])];
   }, [patientData.knownAllergies, patientHistory]);
   const previousVisits = useMemo(() => opd.records.filter((record) => record.data?.patientName === patientName), [opd.records, patientName]);
-  const labReports = useMemo(() => documents.records.filter((record) => record.data?.patientName === patientName && /lab|laboratory|report/i.test(record.data?.documentType || record.data?.name || '')), [documents.records, patientName]);
+  const labReports = useMemo(() => documents.records.filter((record) => record.data?.patientName === patientName && /lab|laboratory|report/i.test(record.data?.documentType || record.data?.name || '-')), [documents.records, patientName]);
   const bmi = useMemo(() => {
     const weight = Number(vitals.weight);
     const height = Number(vitals.height) / 100;
@@ -142,7 +142,7 @@ export function ConsultationPage() {
         name: `Consultation - ${patientName}`,
         opdNo,
         visitNo: opdNo,
-        appointmentId: appointmentData.appointmentId || '',
+        appointmentId: appointmentData.appointmentId || '-',
         patientName,
         patientId,
         doctorName,
@@ -261,7 +261,7 @@ export function ConsultationPage() {
               <label className="text-[12px] font-extrabold uppercase text-[#536173]">Doctor Notes<textarea className={`${TEXTAREA} mt-1`} value={notes.doctorNotes} onChange={(event) => setNotes({ ...notes, doctorNotes: event.target.value })} /></label>
               <label className="inline-flex h-10 w-fit items-center gap-2 rounded-md border border-[#dbe4ef] bg-white px-3 text-[13px] font-semibold text-[#374151] cursor-pointer">
                 <FileImage size={14} />Attach File/Image
-                <input type="file" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0]?.name || '')} />
+                <input type="file" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0]?.name || '-')} />
               </label>
               {attachment && <div className="text-[12px] font-semibold text-[#64748b]">Attached: {attachment}</div>}
             </div>
@@ -315,3 +315,4 @@ export function ConsultationPage() {
 function CheckIcon() {
   return <ClipboardPlus size={14} />;
 }
+

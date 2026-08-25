@@ -15,6 +15,8 @@ import {
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { AutocompleteInput } from '../../../../../components/forms/AutocompleteInput.jsx';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { apiClient } from '../../../../../services/apiClient.js';
+import { getCurrentUser } from '../../../../../services/authService.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-4 py-3 border-b border-[#edf2f7]';
@@ -43,6 +45,8 @@ export function AccountingReportsPage() {
   const [outstandingType, setOutstandingType] = useState('receivables');
   const [voucherTypes, setVoucherTypes] = useState([]);
   const [ledgers, setLedgers] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [branch, setBranch] = useState('');
   const [dayBook, setDayBook] = useState({ vouchers: [], summary: [], totals: {} });
   const [ledgerStatement, setLedgerStatement] = useState({ ledger: {}, entries: [], totals: {} });
   const [register, setRegister] = useState({ rows: [], vouchers: [] });
@@ -52,6 +56,12 @@ export function AccountingReportsPage() {
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
+  const currentUser = getCurrentUser();
+  const isSuperAdmin = currentUser?.isSuperAdmin || currentUser?.accountType === 'owner' || currentUser?.role === 'Super Admin';
+  const branchOptions = useMemo(() => [
+    { value: '', label: 'All Branches' },
+    ...branches.map((item) => ({ value: item.code || item.name, label: `${item.name}${item.code ? ` (${item.code})` : ''}` })),
+  ], [branches]);
 
   const selectedRows = useMemo(() => {
     if (activeTab === 'day-book') return dayBook.vouchers;
@@ -63,18 +73,25 @@ export function AccountingReportsPage() {
   }, [activeTab, billWise.rows, costCenters.rows, dayBook.vouchers, ledgerStatement.entries, outstanding.rows, register.rows]);
 
   useEffect(() => {
-    Promise.all([getVoucherTypes(), getLedgerAccounts()])
+    Promise.all([getVoucherTypes(), getLedgerAccounts({ branch })])
       .then(([typeData, ledgerData]) => {
         setVoucherTypes(typeData.types ?? []);
         const accounts = ledgerData.accounts ?? [];
         setLedgers(accounts);
-        setLedgerName((current) => current || accounts[0]?.name || '');
+        setLedgerName((current) => (accounts.some((account) => account.name === current) ? current : accounts[0]?.name || ''));
       })
       .catch(() => {});
-  }, []);
+  }, [branch]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    apiClient('/settings/branches')
+      .then((data) => setBranches(data.branches || []))
+      .catch(() => setBranches([]));
+  }, [isSuperAdmin]);
 
   function reportParams() {
-    return { from, to, voucherType, status };
+    return { from, to, voucherType, status, branch };
   }
 
   async function loadReports() {
@@ -84,7 +101,7 @@ export function AccountingReportsPage() {
       const [dayBookData, registerData, outstandingData, billWiseData, costCenterData] = await Promise.all([
         getAccountingDayBook(params),
         getVoucherRegister(params),
-        getOutstandingStatement({ type: outstandingType }),
+        getOutstandingStatement({ type: outstandingType, branch }),
         getBillWiseStatement({ ...params, type: outstandingType }),
         getCostCenterStatement(params),
       ]);
@@ -112,7 +129,7 @@ export function AccountingReportsPage() {
     setResetting(true);
     setResetMessage('');
     try {
-      const result = await resetAccountingFromInvoices();
+      const result = await resetAccountingFromInvoices({ branch });
       const rebuilt = result.rebuilt || {};
       const skipped = result.errors?.length ? ` (${result.errors.length} skipped)` : '';
       setResetMessage(`Accounting rebuilt: ${rebuilt.invoices || 0} invoices and ${rebuilt.payments || 0} payments posted${skipped}.`);
@@ -126,7 +143,7 @@ export function AccountingReportsPage() {
 
   useEffect(() => {
     loadReports().catch(() => {});
-  }, [from, to, voucherType, status, outstandingType, ledgerName]);
+  }, [from, to, voucherType, status, outstandingType, ledgerName, branch]);
 
   const exportColumns = {
     'day-book': [
@@ -182,6 +199,14 @@ export function AccountingReportsPage() {
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">Day book, ledger statement, voucher register, and outstanding balances</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isSuperAdmin && (
+            <SelectDropdown
+              value={branch}
+              onChange={setBranch}
+              options={branchOptions}
+              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none min-w-44"
+            />
+          )}
           <ExportButtons title="Accounting Reports" filename={`accounting-${activeTab}`} rows={selectedRows} columns={exportColumns[activeTab]} />
           <button type="button" onClick={handleResetFromInvoices} disabled={loading || resetting} className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#1d4ed8] bg-white rounded-md cursor-pointer hover:bg-blue-50 border border-[#bfdbfe] font-[inherit] disabled:opacity-60">
             <RefreshCw size={14} />

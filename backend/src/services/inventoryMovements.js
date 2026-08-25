@@ -17,6 +17,16 @@ function escapeRegex(str) {
   return clean(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function variantName(variant = {}) {
+  return clean(variant.size || variant.modelName);
+}
+
+function findProductVariant(product, value) {
+  const name = clean(value);
+  if (!name) return null;
+  return (product?.variants ?? []).find((variant) => variantName(variant) === name) || null;
+}
+
 async function nextStockNo(Model, userId, field, prefix) {
   const last = await Model.findOne({ userId }, { [field]: 1 }, { sort: { createdAt: -1 } }).lean();
   let seq = 1;
@@ -112,6 +122,7 @@ async function collectMovableItems(invoice, userId) {
       qty,
       rate: Number(item.rate ?? product.rate ?? 0) || 0,
       description: clean(item.description || product.description),
+      variantName: clean(item.size),
     });
   }
   return rows;
@@ -138,6 +149,7 @@ async function collectRowsFromMovements(movements, userId) {
       qty,
       rate: Number(movement.totalValue || 0) / qty,
       description: clean(movement.productName || product.description),
+      variantName: clean(movement.variantName),
     });
   }
   return rows;
@@ -155,13 +167,30 @@ async function applyRows(rows, direction, { allowNegative = false } = {}) {
     if (!allowNegative && nextStock < 0) {
       throw httpError(409, `Insufficient stock for ${row.product.description}. Available ${row.product.stock || 0}, required ${row.qty}`);
     }
+    const variant = findProductVariant(row.product, row.variantName);
+    if (variant) {
+      const nextVariantStock = Number(variant.stock || 0) + direction * row.qty;
+      if (!allowNegative && nextVariantStock < 0) {
+        throw httpError(409, `Insufficient stock for ${row.product.description} (${row.variantName}). Available ${variant.stock || 0}, required ${row.qty}`);
+      }
+    }
   }
 
   for (const row of rows) {
-    await Product.updateOne(
-      { _id: row.product._id },
-      { $inc: { stock: direction * row.qty } },
-    );
+    const variant = findProductVariant(row.product, row.variantName);
+    if (variant) {
+      const matchBy = clean(variant.size) ? { 'variant.size': clean(variant.size) } : { 'variant.modelName': clean(variant.modelName) };
+      await Product.updateOne(
+        { _id: row.product._id },
+        { $inc: { stock: direction * row.qty, 'variants.$[variant].stock': direction * row.qty } },
+        { arrayFilters: [matchBy] },
+      );
+    } else {
+      await Product.updateOne(
+        { _id: row.product._id },
+        { $inc: { stock: direction * row.qty } },
+      );
+    }
   }
 }
 
@@ -208,6 +237,7 @@ export async function postInventoryForDocument(invoice, userId) {
         date,
         productId: row.product._id,
         productName: row.product.description,
+        variantName: row.variantName,
         to: invoice.customer?.name || 'Customer',
         itemCount: 1,
         totalQty: row.qty,
@@ -227,6 +257,7 @@ export async function postInventoryForDocument(invoice, userId) {
         date,
         productId: row.product._id,
         productName: row.product.description,
+        variantName: row.variantName,
         supplier: invoice.customer?.name || 'Vendor',
         itemCount: 1,
         totalQty: row.qty,

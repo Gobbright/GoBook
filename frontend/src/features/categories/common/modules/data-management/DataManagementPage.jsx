@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { BarChart3, Download, RefreshCw, Trash2, Upload } from 'lucide-react';
 
 import {
   deleteDataByPeriod,
@@ -7,7 +7,9 @@ import {
   getDataManagementSummary,
   importDataBackup,
 } from '../../../../../services/dataManagementService.js';
+import { apiClient } from '../../../../../services/apiClient.js';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { getCurrentUser } from '../../../../../services/authService.js';
 
 const MONTHS = [
   { value: '', label: 'Full Year' },
@@ -78,15 +80,23 @@ function CollectionSelector({ collections, selected, onToggle, onSelectAll, onCl
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {collections.map((collection) => (
-          <label key={collection.key} className="flex items-center justify-between gap-3 border border-[#edf2f7] rounded-md px-3 py-2 cursor-pointer hover:bg-[#f8fafc]">
-            <span className="flex items-center gap-2 min-w-0">
+          <label key={collection.key} className="flex items-start justify-between gap-3 border border-[#edf2f7] rounded-md px-3 py-2 cursor-pointer hover:bg-[#f8fafc]">
+            <span className="flex items-start gap-2 min-w-0">
               <input
                 type="checkbox"
                 checked={selected.includes(collection.key)}
                 onChange={() => onToggle(collection.key)}
-                className="w-4 h-4 accent-blue-600 flex-none"
+                className="mt-0.5 w-4 h-4 accent-blue-600 flex-none"
               />
-              <span className="text-[13px] text-[#111827] truncate">{collection.label}</span>
+              <span className="min-w-0">
+                <span className="block text-[13px] text-[#111827] truncate">{collection.label}</span>
+                {collection.modules?.length > 0 && (
+                  <span className="mt-1 block text-[11px] leading-relaxed text-[#64748b]">
+                    {collection.modules.slice(0, 4).map((module) => `${module.key} (${module.count})`).join(', ')}
+                    {collection.modules.length > 4 ? `, +${collection.modules.length - 4} more modules` : ''}
+                  </span>
+                )}
+              </span>
             </span>
             <span className="text-[12px] text-[#536173] bg-[#f1f5f9] rounded px-2 py-0.5 flex-none">{collection.count}</span>
           </label>
@@ -96,10 +106,46 @@ function CollectionSelector({ collections, selected, onToggle, onSelectAll, onCl
   );
 }
 
+function ReportSummaryPanel({ summary }) {
+  const categories = summary?.categories || [];
+  const reports = summary?.reports || [];
+  if (categories.length === 0 && reports.length === 0) return null;
+
+  return (
+    <div className="bg-white border border-[#dfe7f1] rounded-lg p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div>
+          <h2 className="m-0 text-[15px] font-semibold text-[#111827]">Reports Data</h2>
+          <p className="m-0 mt-0.5 text-[12.5px] text-[#536173]">Live report counts generated from the same database records.</p>
+        </div>
+        <a href="/reports" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium bg-white border border-[#dbe4ef] rounded-md text-[#374151] no-underline hover:bg-gray-50">
+          <BarChart3 size={14} /> Reports
+        </a>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {categories.map((category) => (
+          <div key={category.label} className="flex items-center justify-between gap-3 border border-[#edf2f7] rounded-md px-3 py-2">
+            <span className="text-[13px] text-[#111827] truncate">{category.label}</span>
+            <span className="text-[12px] text-[#536173] bg-[#f1f5f9] rounded px-2 py-0.5 flex-none">{category.count}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 text-[12px] text-[#536173]">
+        {reports.length} report section{reports.length === 1 ? '' : 's'} available from current DB data.
+      </div>
+    </div>
+  );
+}
+
 export function DataManagementPage({ tool = 'export' }) {
   const activeTool = PAGE_COPY[tool] ? tool : 'export';
   const copy = PAGE_COPY[activeTool];
+  const currentUser = getCurrentUser();
+  const isSuperAdmin = currentUser?.isSuperAdmin || currentUser?.accountType === 'owner' || currentUser?.role === 'Super Admin';
   const [collections, setCollections] = useState([]);
+  const [reportSummary, setReportSummary] = useState({ categories: [], reports: [] });
+  const [branches, setBranches] = useState([]);
+  const [branch, setBranch] = useState('');
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState('');
@@ -119,12 +165,20 @@ export function DataManagementPage({ tool = 'export' }) {
     [collections, selected],
   );
   const statValue = activeTool === 'delete' ? selectedDeletable.length : totalRecords;
+  const branchOptions = useMemo(() => [
+    { value: '', label: 'All Branches' },
+    ...branches.map((item) => ({ value: item.code || item.name, label: `${item.name}${item.code ? ` (${item.code})` : ''}` })),
+  ], [branches]);
 
   async function loadSummary() {
     setLoading(true);
     try {
-      const data = await getDataManagementSummary();
+      const [data, reportsData] = await Promise.all([
+        getDataManagementSummary({ branch }),
+        apiClient(`/more-modules/reports-summary${branch ? `?branch=${encodeURIComponent(branch)}` : ''}`).catch(() => ({ categories: [], reports: [] })),
+      ]);
       setCollections(data.collections || []);
+      setReportSummary({ categories: reportsData.categories || [], reports: reportsData.reports || [] });
       setSelected((current) => current.length ? current.filter((key) => data.collections?.some((c) => c.key === key)) : (data.collections || []).map((c) => c.key));
     } catch (err) {
       setResult({ error: true, message: err.message || 'Unable to load data summary' });
@@ -135,7 +189,14 @@ export function DataManagementPage({ tool = 'export' }) {
 
   useEffect(() => {
     loadSummary();
-  }, []);
+  }, [branch]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    apiClient('/settings/branches')
+      .then((data) => setBranches(data.branches || []))
+      .catch(() => setBranches([]));
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     setResult(null);
@@ -149,7 +210,7 @@ export function DataManagementPage({ tool = 'export' }) {
     setWorking('export');
     setResult(null);
     try {
-      await downloadDataBackup(selected);
+      await downloadDataBackup(selected, { branch });
       setResult({ message: `Backup exported for ${selectedCount || 'all'} collection${selectedCount === 1 ? '' : 's'}.` });
     } catch (err) {
       setResult({ error: true, message: err.message || 'Export failed' });
@@ -171,7 +232,7 @@ export function DataManagementPage({ tool = 'export' }) {
     setWorking('import');
     setResult(null);
     try {
-      const data = await importDataBackup({ file, mode: importMode, collections: selected });
+      const data = await importDataBackup({ file, mode: importMode, collections: selected, branch });
       setResult({
         message: `Import complete: ${data.imported || 0} added, ${data.updated || 0} updated, ${data.skipped || 0} skipped${data.deletedBeforeImport ? `, ${data.deletedBeforeImport} old records removed first` : ''}.`,
         errors: data.errors || [],
@@ -196,7 +257,7 @@ export function DataManagementPage({ tool = 'export' }) {
     setWorking('delete');
     setResult(null);
     try {
-      const data = await deleteDataByPeriod({ year, month, collections: selectedDeletable });
+      const data = await deleteDataByPeriod({ year, month, collections: selectedDeletable, branch });
       setResult({ message: `Deleted ${data.deleted || 0} record${data.deleted === 1 ? '' : 's'} for ${periodLabel}.` });
       loadSummary();
     } catch (err) {
@@ -306,6 +367,14 @@ export function DataManagementPage({ tool = 'export' }) {
         >
           <RefreshCw size={15} /> Refresh
         </button>
+        {isSuperAdmin && (
+          <SelectDropdown
+            value={branch}
+            onChange={setBranch}
+            options={branchOptions}
+            buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none min-w-44"
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
@@ -333,6 +402,7 @@ export function DataManagementPage({ tool = 'export' }) {
             onSelectAll={() => setSelected(collections.map((collection) => collection.key))}
             onClear={() => setSelected([])}
           />
+          <ReportSummaryPanel summary={reportSummary} />
           <ResultAlert result={result} />
         </div>
         <div>{renderActionPanel()}</div>

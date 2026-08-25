@@ -12,7 +12,7 @@ import { PendingSignup } from '../../models/PendingSignup.js';
 import { PendingGoogleLogin } from '../../models/PendingGoogleLogin.js';
 import { httpError } from '../../utils/httpError.js';
 import { buildBrandedEmail, sendMail } from '../../utils/mailer.js';
-import { createRegistrationOrder } from '../../services/registrationPayments.js';
+import { createRegistrationOrder, completeFreeSignup } from '../../services/registrationPayments.js';
 import { getActivePlan, PLAN_TIERS } from '../../services/subscriptionPlans.js';
 
 const SALT_ROUNDS = 10;
@@ -29,11 +29,17 @@ const SUBSCRIPTION_PLANS = PLAN_TIERS;
 const googleClient = env.googleClientId ? new OAuth2Client(env.googleClientId) : null;
 
 export function signToken(user) {
+  const isSuperAdmin = user.accountType === 'owner' || user.role === 'Super Admin';
   return jwt.sign(
     {
       sub: user._id.toString(),
       email: user.email,
       role: user.role,
+      accountType: user.accountType || (isSuperAdmin ? 'owner' : 'member'),
+      isSuperAdmin,
+      permissions: user.permissions || {},
+      branch: user.branch || '',
+      subscriptionPlan: user.subscriptionPlan || '',
       businessId: user.businessId?.toString(),
       category: user.category || 'retail',
     },
@@ -43,11 +49,15 @@ export function signToken(user) {
 }
 
 export function toSafeUser(user) {
+  const isSuperAdmin = user.accountType === 'owner' || user.role === 'Super Admin';
   return {
     id: user._id,
     name: user.name,
     email: user.email,
     role: user.role,
+    accountType: user.accountType || (isSuperAdmin ? 'owner' : 'member'),
+    isSuperAdmin,
+    permissions: user.permissions || { modules: [], actions: {} },
     branch: user.branch,
     phone: user.phone,
     businessId: user.businessId,
@@ -334,6 +344,12 @@ export async function verifyRegistrationOtp(req, res, next) {
 
     pending.otpAttempts = 0;
     pending.otpVerifiedAt = new Date();
+
+    if (!env.paymentRequired) {
+      const user = await completeFreeSignup(pending);
+      return res.status(201).json({ token: signToken(user), user: toSafeUser(user), message: 'Account created' });
+    }
+
     const checkout = await createRegistrationOrder(pending);
     res.json({
       paymentRequired: true,
@@ -504,6 +520,13 @@ export async function completeGoogleOnboarding(req, res, next) {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
+    if (!env.paymentRequired) {
+      await BusinessSettings.deleteMany({ userId: user._id });
+      await AppUser.deleteOne({ _id: user._id, onboardingCompleted: false });
+      const finalUser = await completeFreeSignup(pending);
+      return res.status(201).json({ token: signToken(finalUser), user: toSafeUser(finalUser), message: 'Account created' });
+    }
+
     const checkout = await createRegistrationOrder(pending);
     await BusinessSettings.deleteMany({ userId: user._id });
     await AppUser.deleteOne({ _id: user._id, onboardingCompleted: false });

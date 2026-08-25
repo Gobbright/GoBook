@@ -7,32 +7,11 @@ const INPUT = 'h-10 w-full rounded-md border border-[#dbe4ef] bg-white px-3 text
 const TEXTAREA = 'min-h-24 w-full rounded-md border border-[#dbe4ef] bg-white px-3 py-2 text-[13px] font-[inherit] text-[#111827] outline-none focus:border-blue-500';
 const STATUSES = ['Pending Reports', 'Draft', 'Verified', 'Final'];
 const MODALITIES = ['All Modalities', 'X-Ray', 'CT', 'MRI', 'Ultrasound'];
-const RADIOLOGISTS = ['All Radiologists', 'Dr. Ravi Kumar', 'Dr. Meena S', 'Dr. Arun Kumar'];
+const RADIOLOGISTS = ['All Radiologists'];
 
-const DEMO_REPORTS = [
-  {
-    _id: 'demo-scan-rad-0251',
-    data: {
-      orderId: 'RAD-0251',
-      patientName: 'Raj Kumar',
-      patientId: 'GBH-00128',
-      scan: 'Chest X-Ray',
-      view: 'PA View',
-      modality: 'X-Ray',
-      orderedBy: 'Dr. Arun Kumar',
-      scanDate: '07 Aug 2026',
-      clinicalIndication: 'Persistent cough for 5 days',
-      findings: 'Lungs are clear. No focal consolidation, pleural effusion or pneumothorax.',
-      impression: 'No active cardiopulmonary abnormality.',
-      recommendation: 'Clinical correlation advised.',
-      radiologist: 'Dr. Ravi Kumar',
-      status: 'Pending Reports',
-    },
-  },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function Button({ children, icon: Icon, onClick, tone = 'white', disabled = false }) {
@@ -64,15 +43,19 @@ function reportFromOrder(order) {
   return {
     _id: order._id,
     data: {
-      ...DEMO_REPORTS[0].data,
-      orderId: data.orderId || DEMO_REPORTS[0].data.orderId,
-      patientName: data.patientName || DEMO_REPORTS[0].data.patientName,
-      patientId: data.patientId || DEMO_REPORTS[0].data.patientId,
-      scan: data.scan || data.name || DEMO_REPORTS[0].data.scan,
-      modality: data.modality || DEMO_REPORTS[0].data.modality,
-      orderedBy: data.orderedBy || DEMO_REPORTS[0].data.orderedBy,
-      clinicalIndication: data.clinicalIndication || DEMO_REPORTS[0].data.clinicalIndication,
-      radiologist: data.radiologist || DEMO_REPORTS[0].data.radiologist,
+      orderId: data.orderId || '',
+      patientName: data.patientName || '',
+      patientId: data.patientId || '',
+      scan: data.scan || data.name || '',
+      modality: data.modality || '',
+      view: data.view || '',
+      orderedBy: data.orderedBy || data.doctorName || '',
+      scanDate: data.scanDate || data.date || '',
+      clinicalIndication: data.clinicalIndication || data.notes || '',
+      findings: data.findings || '',
+      impression: data.impression || '',
+      recommendation: data.recommendation || '',
+      radiologist: data.radiologist || '',
       status: data.reportStatus || 'Pending Reports',
     },
   };
@@ -91,9 +74,7 @@ export function ScanReportsPage() {
 
   const reportRecords = reports.records.length
     ? reports.records
-    : radiologyOrders.records.length
-      ? radiologyOrders.records.map(reportFromOrder)
-      : DEMO_REPORTS;
+    : radiologyOrders.records.map(reportFromOrder);
 
   const filteredReports = useMemo(() => {
     const q = normalize(search);
@@ -107,13 +88,13 @@ export function ScanReportsPage() {
     });
   }, [modality, radiologist, reportRecords, search, status]);
 
-  const selected = reportRecords.find((record) => record._id === selectedId) || filteredReports[0] || reportRecords[0];
-  const selectedData = selected?.data || DEMO_REPORTS[0].data;
+  const selected = reportRecords.find((record) => record._id === selectedId) || filteredReports[0] || reportRecords[0] || null;
+  const selectedData = selected?.data || {};
   const [form, setForm] = useState({
-    findings: selectedData.findings,
-    impression: selectedData.impression,
-    recommendation: selectedData.recommendation,
-    radiologist: selectedData.radiologist,
+    findings: selectedData.findings || '',
+    impression: selectedData.impression || '',
+    recommendation: selectedData.recommendation || '',
+    radiologist: selectedData.radiologist || '',
   });
 
   function chooseReport(record) {
@@ -122,7 +103,7 @@ export function ScanReportsPage() {
       findings: record.data?.findings || '',
       impression: record.data?.impression || '',
       recommendation: record.data?.recommendation || '',
-      radiologist: record.data?.radiologist || 'Dr. Ravi Kumar',
+      radiologist: record.data?.radiologist || '',
     });
   }
 
@@ -131,6 +112,10 @@ export function ScanReportsPage() {
   }
 
   async function saveReport(nextStatus) {
+    if (!selected) {
+      setMessage('Select a radiology order before saving a report.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -139,8 +124,8 @@ export function ScanReportsPage() {
         status: nextStatus,
         finalizedAt: nextStatus === 'Final' ? new Date().toISOString() : selectedData.finalizedAt,
       };
-      if (String(selected?._id || '').startsWith('demo-') || !reports.records.find((record) => record._id === selected._id)) {
-        await reports.create({ name: `${payload.orderId} ${payload.scan}`, ...payload });
+      if (!reports.records.find((record) => record._id === selected._id)) {
+        await reports.create({ name: `${payload.orderId || 'Radiology report'} ${payload.scan || ''}`.trim(), ...payload });
       } else {
         await reports.update(selected._id, payload);
       }
@@ -185,7 +170,9 @@ export function ScanReportsPage() {
         <div className="grid lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="border-b border-[#edf2f7] p-4 lg:border-b-0 lg:border-r">
             <div className="space-y-2">
-              {filteredReports.map((record) => {
+              {filteredReports.length === 0 ? (
+                <div className="rounded-md border border-dashed border-[#dbe4ef] p-4 text-[13px] font-semibold text-[#64748b]">No scan reports found.</div>
+              ) : filteredReports.map((record) => {
                 const data = record.data || {};
                 return (
                   <button key={record._id} type="button" onClick={() => chooseReport(record)} className={`w-full rounded-md border p-3 text-left transition ${selected?._id === record._id ? 'border-blue-500 bg-blue-50' : 'border-[#dbe4ef] bg-white hover:bg-gray-50'}`}>
@@ -202,6 +189,10 @@ export function ScanReportsPage() {
           </aside>
 
           <div className="p-5">
+            {!selected ? (
+              <div className="rounded-md border border-dashed border-[#dbe4ef] p-5 text-[13px] font-semibold text-[#64748b]">Select a radiology order to enter scan findings.</div>
+            ) : (
+            <>
             <div className="mb-5 rounded-lg border border-[#dbe4ef] bg-[#f8fbff] p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -232,9 +223,13 @@ export function ScanReportsPage() {
               <Button onClick={() => saveReport('Draft')} disabled={saving}>Save Draft</Button>
               <Button tone="green" icon={CheckCircle2} onClick={() => saveReport('Final')} disabled={saving}>Verify & Finalize</Button>
             </div>
+            </>
+            )}
           </div>
         </div>
       </section>
     </div>
   );
 }
+
+

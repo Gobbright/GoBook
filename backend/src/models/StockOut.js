@@ -2,10 +2,12 @@ import { Schema, model } from 'mongoose';
 
 const stockOutSchema = new Schema({
   userId:      { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  branch:      { type: String, trim: true, default: '', index: true },
   stockOutNo:  { type: String, required: true, trim: true },
   date:        { type: Date, required: true },
   productId:   { type: Schema.Types.ObjectId, ref: 'Product' },
   productName: { type: String, default: '', trim: true },
+  variantName: { type: String, default: '', trim: true },
   to:          { type: String, required: true, trim: true },
   itemCount:   { type: Number, default: 0, min: 0 },
   totalQty:   { type: Number, default: 0, min: 0 },

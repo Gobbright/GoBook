@@ -14,7 +14,7 @@ const EMPTY_DASHBOARD = {
   growthScore: { score: 0, monthRevenue: 0, lastMonthRevenue: 0, growthPct: 0 },
 };
 
-export function useDashboard() {
+export function useDashboard(params = {}) {
   const [dashboard, setDashboard] = useState(EMPTY_DASHBOARD);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -24,7 +24,7 @@ export function useDashboard() {
 
     async function loadDashboard() {
       try {
-        const summary = await getDashboardSummary();
+        const summary = await getDashboardSummary(params);
 
         if (isMounted) {
           setDashboard(summary);
@@ -47,7 +47,7 @@ export function useDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [params.branch]);
 
   return { ...dashboard, isLoading, error };
 }

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, Outlet as RouterOutlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { AppShell } from '../app/AppShell.jsx';
+import { canAccessPath } from '../constants/navigation.js';
 import { AdminErrorBoundary } from '../features/admin/components/AdminErrorBoundary.jsx';
 import { isAdminAuthenticated } from '../features/admin/adminService.js';
 import { getCurrentUser, isAuthenticated } from '../services/authService.js';
@@ -91,6 +92,9 @@ export function ProtectedShell() {
   }
   if (user?.needsOnboarding && location.pathname !== '/google-onboarding') {
     return <Navigate to="/google-onboarding" replace />;
+  }
+  if (user && !canAccessPath(location.pathname, user)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

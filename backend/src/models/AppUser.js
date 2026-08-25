@@ -37,6 +37,19 @@ const appUserSchema = new Schema({
   subscriptionExpiresAt: { type: Date },
   lastSubscriptionPaymentId: { type: Schema.Types.ObjectId, ref: 'SubscriptionPayment' },
   onboardingCompleted: { type: Boolean, default: false },
+  accountType:  { type: String, enum: ['owner', 'member'], default: 'owner', index: true },
+  parentUserId: { type: Schema.Types.ObjectId, ref: 'AppUser', index: true },
+  permissions: {
+    modules: { type: [String], default: [] },
+    actions: {
+      view:   { type: Boolean, default: true },
+      create: { type: Boolean, default: true },
+      edit:   { type: Boolean, default: true },
+      delete: { type: Boolean, default: false },
+      export: { type: Boolean, default: false },
+      manageUsers: { type: Boolean, default: false },
+    },
+  },
   role:         { type: String, trim: true, default: 'Sales Executive' },
   branch:       { type: String, trim: true, default: '' },
   phone:        { type: String, trim: true, default: '' },
@@ -50,6 +63,7 @@ const appUserSchema = new Schema({
 
 appUserSchema.index({ email: 1 }, { unique: true });
 appUserSchema.index({ googleId: 1 }, { sparse: true });
+appUserSchema.index({ businessId: 1, accountType: 1 });
 
 export const AppUser = model('AppUser', appUserSchema);
 

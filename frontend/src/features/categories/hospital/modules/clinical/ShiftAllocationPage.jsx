@@ -15,7 +15,7 @@ const WARDS = ['General Ward', 'Private Ward', 'ICU', 'NICU', 'PICU', 'Maternity
 const ROLES = ['Ward Nurse', 'Senior Nurse', 'Staff Nurse', 'Duty Doctor', 'Resident Doctor', 'Charge Nurse'];
 const EMPTY_FORM = {
   staffType: 'Nurse',
-  staffName: 'Priya S',
+  staffName: '',
   date: todayISO(),
   shift: 'Morning',
   departmentName: 'General Medicine',
@@ -23,17 +23,9 @@ const EMPTY_FORM = {
   role: 'Ward Nurse',
   status: 'Assigned',
 };
-const DEMO_SHIFTS = [
-  { _id: 'demo-shift-1', data: { staffType: 'Nurse', staffName: 'Priya S', role: 'Senior Nurse', departmentName: 'General Medicine', wardName: 'General Ward', date: todayISO(), shift: 'Morning', status: 'Assigned' } },
-  { _id: 'demo-shift-2', data: { staffType: 'Nurse', staffName: 'Anu M', role: 'Staff Nurse', departmentName: 'General Medicine', wardName: 'General Ward', date: todayISO(), shift: 'Morning', status: 'Assigned' } },
-  { _id: 'demo-shift-3', data: { staffType: 'Nurse', staffName: 'Kavitha R', role: 'Staff Nurse', departmentName: 'General Medicine', wardName: 'General Ward', date: todayISO(), shift: 'Morning', status: 'Assigned' } },
-  { _id: 'demo-shift-4', data: { staffType: 'Nurse', staffName: 'Meena S', role: 'Senior Nurse', departmentName: 'General Medicine', wardName: 'General Ward', date: todayISO(), shift: 'Evening', status: 'Assigned' } },
-  { _id: 'demo-shift-5', data: { staffType: 'Nurse', staffName: 'Raji K', role: 'Staff Nurse', departmentName: 'General Medicine', wardName: 'General Ward', date: todayISO(), shift: 'Evening', status: 'Assigned' } },
-  { _id: 'demo-shift-6', data: { staffType: 'Nurse', staffName: 'Deepa S', role: 'Staff Nurse', departmentName: 'General Medicine', wardName: 'General Ward', date: todayISO(), shift: 'Night', status: 'Assigned' } },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function Button({ children, icon: Icon, onClick, tone = 'white', disabled = false }) {
@@ -73,18 +65,18 @@ export function ShiftAllocationPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const records = shifts.records.length ? shifts.records : DEMO_SHIFTS;
+  const records = shifts.records;
   const departmentOptions = useMemo(() => {
     const existing = names(departments.records);
-    return existing.length ? existing : ['General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics'];
+    return existing;
   }, [departments.records]);
   const nurseOptions = useMemo(() => {
     const existing = names(nurses.records);
-    return existing.length ? existing : ['Priya S', 'Anu M', 'Kavitha R', 'Meena S', 'Raji K', 'Deepa S'];
+    return existing;
   }, [nurses.records]);
   const doctorOptions = useMemo(() => {
     const existing = names(doctors.records);
-    return existing.length ? existing : ['Dr. Arun Kumar', 'Dr. Ravi Kumar', 'Dr. Priya'];
+    return existing;
   }, [doctors.records]);
   const staffOptions = form.staffType === 'Doctor' ? doctorOptions : nurseOptions;
 
@@ -221,3 +213,5 @@ export function ShiftAllocationPage() {
     </div>
   );
 }
+
+

@@ -136,6 +136,9 @@ export const api = {
   updateCustomer: (id, payload) => request('PUT', `/sales/customers/${id}`, payload),
   deleteCustomer: (id)       => request('DELETE', `/sales/customers/${id}`),
   importCustomers: (formData) => upload('/crm/customers/import', formData),
+  listVendors:    (search)   => request('GET',    `/more-modules/vendors${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  createVendor:   (payload)  => request('POST',   '/more-modules/vendors', payload),
+  updateVendor:   (id, payload) => request('PUT', `/more-modules/vendors/${id}`, payload),
 
   // ── Products ──────────────────────────────────────────────────────────────
   listProducts:  (search)    => request('GET',    `/sales/products${search ? `?search=${encodeURIComponent(search)}` : ''}`),

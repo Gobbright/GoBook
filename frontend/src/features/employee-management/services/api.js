@@ -113,9 +113,33 @@ async function mutate(path, options) {
   return data;
 }
 
+async function upload(path, formData, { method = 'POST' } = {}) {
+  const headers = await authHeader(path);
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: formData,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error?.name === 'TimeoutError') {
+      throw new Error('Server response timed out. Please try again.', { cause: error });
+    }
+    throw new Error('Backend not running. Start backend on port 5000 and try again.', { cause: error });
+  }
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error(data?.message || 'Upload failed');
+  clearGetCache();
+  return data;
+}
+
 export const api = {
   get: cachedGet,
   post: (path, body, options = {}) => mutate(path, { method: 'POST', body, ...options }),
   put: (path, body) => mutate(path, { method: 'PUT', body }),
   delete: (path) => mutate(path, { method: 'DELETE' }),
+  upload,
 };

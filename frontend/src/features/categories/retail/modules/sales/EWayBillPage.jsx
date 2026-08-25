@@ -238,7 +238,7 @@ export function EWayBillPage() {
         </div>
         <a
           href="/billing/e-way-bill/new"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-[13px] font-semibold rounded-md hover:bg-blue-700 no-underline transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-700 text-white text-[13px] font-semibold rounded-md hover:bg-slate-800 no-underline transition-colors"
         >
           <Plus size={15} /> Generate E-Way Bill
         </a>
@@ -364,7 +364,7 @@ export function EWayBillPage() {
           </span>
           <div className="flex items-center gap-1">
             <button type="button" className="px-3 py-1.5 border border-[#dbe4ef] rounded text-[13px] text-[#374151] bg-white hover:bg-gray-50 cursor-pointer inline-flex items-center gap-1 font-[inherit]"><ChevronLeft size={14} /> Prev</button>
-            <button type="button" className="px-3 py-1.5 border border-blue-600 rounded text-[13px] font-semibold text-white bg-blue-600 cursor-pointer font-[inherit]">1</button>
+            <button type="button" className="px-3 py-1.5 border border-slate-700 rounded text-[13px] font-semibold text-white bg-slate-700 cursor-pointer font-[inherit]">1</button>
             <button type="button" className="px-3 py-1.5 border border-[#dbe4ef] rounded text-[13px] text-[#374151] bg-white hover:bg-gray-50 cursor-pointer inline-flex items-center gap-1 font-[inherit]">Next <ChevronRight size={14} /></button>
           </div>
         </div>
@@ -446,7 +446,7 @@ const cx = {
   input:        'border border-[#dbe4ef] rounded-lg px-3.5 py-2.5 text-[14px] text-[#111827] w-full outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-[inherit] transition-colors',
   select:       'border border-[#dbe4ef] rounded-lg px-3.5 py-2.5 text-[14px] text-[#111827] w-full outline-none bg-white font-[inherit] focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors',
   btnOutline:   'inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-lg cursor-pointer hover:bg-gray-50 font-[inherit] transition-colors',
-  btnPrimary:   'inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-white bg-blue-600 border border-blue-600 rounded-lg cursor-pointer hover:bg-blue-700 font-[inherit] transition-colors',
+  btnPrimary:   'inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-white bg-slate-700 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-800 font-[inherit] transition-colors',
   section:      'bg-white border border-[#dfe7f1] rounded-xl mb-5 shadow-sm',
   sectionHead:  'px-7 py-5 border-b border-[#edf2f7] flex items-center gap-3',
   sectionTitle: 'text-[15px] font-semibold text-[#111827]',
@@ -740,7 +740,7 @@ export function EWayBillFormPage({ ewbId }) {
             {saveLoading ? 'Saving…' : 'Save Record'}
           </button>
           <button
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white bg-blue-600 border border-blue-600 rounded-md cursor-pointer hover:bg-blue-700 font-[inherit] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white bg-slate-700 border border-slate-700 rounded-md cursor-pointer hover:bg-slate-800 font-[inherit] disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={gspLoading || saveLoading}
             type="button"
             onClick={handleGenerateGSP}
@@ -852,7 +852,7 @@ export function EWayBillFormPage({ ewbId }) {
                       </button>
                     ))}
                     <div className="border-t border-[#edf2f7] mt-1 pt-1">
-                      <button className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] text-blue-600 font-medium hover:bg-blue-50 cursor-pointer border-0 bg-transparent font-[inherit]" type="button">
+                      <button className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] text-[#475569] font-medium hover:bg-[#f8fafc] cursor-pointer border-0 bg-transparent font-[inherit]" type="button">
                         <UserPlus size={13} /> Add New Customer
                       </button>
                     </div>
@@ -894,7 +894,7 @@ export function EWayBillFormPage({ ewbId }) {
 
           {/* EWB Meta */}
           <div className="flex flex-col gap-3">
-            <span className="inline-block text-xs font-bold uppercase text-blue-700 bg-[#eef5ff] rounded-md px-2.5 py-1.5 self-start mb-1">E-Way Bill</span>
+            <span className="inline-block text-xs font-bold uppercase text-[#475569] bg-[#f8fafc] rounded-md px-2.5 py-1.5 self-start mb-1">E-Way Bill</span>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">E-Way Bill No.</label>
@@ -1104,7 +1104,7 @@ export function EWayBillFormPage({ ewbId }) {
                   + {p.label}
                 </button>
               ))}
-              <button type="button" className="flex items-center gap-1 text-[12px] text-blue-600 border border-blue-200 rounded-md px-2.5 py-1 bg-blue-50 hover:bg-blue-100 cursor-pointer font-[inherit]" onClick={() => addCharge(null)}>
+              <button type="button" className="flex items-center gap-1 text-[12px] text-[#475569] border border-[#dbe4ef] rounded-md px-2.5 py-1 bg-white hover:bg-gray-50 cursor-pointer font-[inherit]" onClick={() => addCharge(null)}>
                 <Plus size={11} /> Custom Charge
               </button>
             </div>
@@ -1173,7 +1173,7 @@ export function EWayBillFormPage({ ewbId }) {
       {/* -- F-Key Shortcut Bar -- */}
       <div
         className="fixed bottom-0 left-0 right-0 md:left-60 z-30 select-none hidden md:block"
-        style={{ background: '#062844', borderTop: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 -4px 16px rgba(0,0,0,0.25)' }}
+        style={{ background: '#ffffff', borderTop: '1px solid #dde6f2', boxShadow: '0 -4px 16px rgba(15,23,42,0.08)' }}
       >
         <div className="flex items-stretch" style={{ height: 50 }}>
           {[
@@ -1194,16 +1194,16 @@ export function EWayBillFormPage({ ewbId }) {
               type="button"
               onClick={action}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 px-0.5 min-w-0 font-[inherit] border-0 bg-transparent cursor-pointer transition-colors"
-              style={{ borderRight: idx < arr.length - 1 ? '1px solid rgba(255,255,255,0.08)' : 'none' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+              style={{ borderRight: idx < arr.length - 1 ? '1px solid #e2e8f0' : 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-              onMouseDown={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.3)'; }}
-              onMouseUp={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+              onMouseDown={e => { e.currentTarget.style.background = '#e2e8f0'; }}
+              onMouseUp={e => { e.currentTarget.style.background = '#f8fafc'; }}
             >
-              <span className="rounded-sm text-white" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', background: '#1d4ed8', paddingInline: 5, lineHeight: '16px' }}>
+              <span className="rounded-sm text-white" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', background: '#475569', paddingInline: 5, lineHeight: '16px' }}>
                 {key}
               </span>
-              <span style={{ fontSize: 11, color: 'rgba(200,223,242,0.9)', lineHeight: 1.2, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 11, color: '#475569', lineHeight: 1.2, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {label}
               </span>
             </button>

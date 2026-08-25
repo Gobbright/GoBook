@@ -1,11 +1,12 @@
 import { Product } from '../../../../models/Product.js';
 import { httpError } from '../../../../utils/httpError.js';
+import { branchForNewRecord, branchScopedQuery } from '../../../../utils/branchScope.js';
 
 // GET /api/sales/products?search=
 export async function listProducts(req, res, next) {
   try {
     const { search } = req.query;
-    const filter = { userId: req.user.id };
+    const filter = await branchScopedQuery(req, { model: Product, ownerField: 'userId' });
     if (search) {
       filter.$or = [
         { description: new RegExp(search, 'i') },
@@ -24,7 +25,7 @@ export async function listProducts(req, res, next) {
 // GET /api/sales/products/:id
 export async function getProduct(req, res, next) {
   try {
-    const product = await Product.findOne({ _id: req.params.id, userId: req.user.id }).lean();
+    const product = await Product.findOne(await branchScopedQuery(req, { model: Product, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!product) return next(httpError(404, 'Product not found'));
     res.json(product);
   } catch (err) {
@@ -35,7 +36,7 @@ export async function getProduct(req, res, next) {
 // POST /api/sales/products
 export async function createProduct(req, res, next) {
   try {
-    const product = await Product.create({ ...req.body, userId: req.user.id });
+    const product = await Product.create({ ...req.body, userId: req.user.id, branch: await branchForNewRecord(req, req.body.branch) });
     res.status(201).json(product);
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, `Product code "${req.body.code}" already exists`));
@@ -47,8 +48,8 @@ export async function createProduct(req, res, next) {
 export async function updateProduct(req, res, next) {
   try {
     const product = await Product.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      { $set: req.body },
+      await branchScopedQuery(req, { model: Product, ownerField: 'userId' }, { _id: req.params.id }),
+      { $set: { ...req.body, branch: await branchForNewRecord(req, req.body.branch) } },
       { new: true, runValidators: true },
     ).lean();
     if (!product) return next(httpError(404, 'Product not found'));
@@ -61,7 +62,7 @@ export async function updateProduct(req, res, next) {
 // DELETE /api/sales/products/:id
 export async function deleteProduct(req, res, next) {
   try {
-    const product = await Product.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
+    const product = await Product.findOneAndDelete(await branchScopedQuery(req, { model: Product, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!product) return next(httpError(404, 'Product not found'));
     res.json({ message: 'Product deleted' });
   } catch (err) {

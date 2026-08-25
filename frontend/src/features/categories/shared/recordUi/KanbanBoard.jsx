@@ -1,6 +1,6 @@
 export function KanbanBoard({ columns, records, statusKey, renderCard }) {
   return (
-    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
+    <div className="record-kanban-board grid gap-4" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
       {columns.map((col) => {
         const items = records.filter((r) => (r.data?.[statusKey] || columns[0]) === col);
         return (

@@ -2,6 +2,8 @@ import { Schema, model } from 'mongoose';
 
 const ledgerAccountSchema = new Schema({
   userId:  { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  businessId: { type: Schema.Types.ObjectId, ref: 'Business', index: true },
+  branch:  { type: String, trim: true, default: '', index: true },
   name:    { type: String, required: true, trim: true },
   group:   { type: String, required: true, trim: true },
   opening: { type: Number, default: 0 },

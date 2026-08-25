@@ -1,111 +1,74 @@
-import { useState } from 'react';
-import { Pencil, Save, X } from 'lucide-react';
-import { DataTable } from '../../../components/common/DataTable.jsx';
-import { PageHeader } from '../../../components/common/PageHeader.jsx';
+import { useMemo, useState } from 'react';
+import { Edit3, MoreVertical, Save, X } from 'lucide-react';
+
 import { useLoad } from '../../../hooks/useLoad.js';
-import { payrollService } from '../../../services/payrollService.js';
-import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { adminService } from '../../../services/adminService.js';
+import { PayrollNav, money } from './PayrollNav.jsx';
 
-const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-
-function SalaryEditor({ record, onClose, onSaved }) {
-  const [form, setForm] = useState({
-    basic: String(record.basic ?? 0),
-    allowances: String(record.allowances ?? 0),
-    deductions: String(record.deductions ?? 0),
-    status: record.status || 'Pending',
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const net = Math.max(0, Number(form.basic || 0) + Number(form.allowances || 0) - Number(form.deductions || 0));
-
-  function update(key, value) {
-    setForm((current) => ({ ...current, [key]: value }));
-  }
-
-  async function submit(event) {
-    event.preventDefault();
-    setError('');
-    const payload = {
-      basic: Number(form.basic),
-      allowances: Number(form.allowances),
-      deductions: Number(form.deductions),
-      status: form.status,
-    };
-    if (Object.values(payload).slice(0, 3).some((value) => !Number.isFinite(value) || value < 0)) {
-      setError('Enter valid non-negative salary amounts');
-      return;
-    }
-    setSaving(true);
-    try {
-      const saved = await payrollService.update(record._id, payload);
-      onSaved(saved);
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="employee-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="employee-modal" role="dialog" aria-modal="true" aria-labelledby="salary-editor-title">
-        <div className="employee-modal-head">
-          <div>
-            <h2 id="salary-editor-title">Edit Salary</h2>
-            <p>{record.name} - {record.employeeId} - {record.month}</p>
-          </div>
-          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close salary editor" title="Close"><X size={18} /></button>
-        </div>
-        <form className="form-grid" onSubmit={submit}>
-          <div className="field"><label htmlFor="salary-basic">Basic Salary</label><input id="salary-basic" type="number" min="0" step="1" value={form.basic} onChange={(event) => update('basic', event.target.value)} required /></div>
-          <div className="field"><label htmlFor="salary-allowances">Allowances</label><input id="salary-allowances" type="number" min="0" step="1" value={form.allowances} onChange={(event) => update('allowances', event.target.value)} required /></div>
-          <div className="field"><label htmlFor="salary-deductions">Deductions</label><input id="salary-deductions" type="number" min="0" step="1" value={form.deductions} onChange={(event) => update('deductions', event.target.value)} required /></div>
-          <div className="field"><label htmlFor="salary-status">Status</label><SelectDropdown value={form.status} onChange={(v) => update('status', v)} options={[{ value: 'Pending', label: 'Pending' }, { value: 'Paid', label: 'Paid' }]} /></div>
-          <div className="salary-net field-full"><span>Net Salary</span><strong>{money.format(net)}</strong></div>
-          {error && <p className="error field-full">{error}</p>}
-          <div className="employee-modal-actions field-full"><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn primary" type="submit" disabled={saving}><Save size={15} />{saving ? 'Saving...' : 'Save Salary'}</button></div>
-        </form>
-      </section>
-    </div>
-  );
-}
+const earningRows = (basic) => [
+  ['Basic Salary', basic],
+  ['House Rent Allowance (HRA)', Math.round(basic * 0.32)],
+  ['Special Allowance', Math.round(basic * 0.2)],
+  ['Conveyance Allowance', 1600],
+  ['Medical Allowance', 1000],
+  ['Other Allowances', 0],
+];
+const deductionRows = (basic) => [
+  ['Provident Fund (PF)', Math.round(basic * 0.12)],
+  ['Employee State Insurance (ESI)', Math.round(basic * 0.02)],
+  ['Professional Tax', 200],
+  ['TDS', Math.round(basic * 0.07)],
+  ['Other Deduction', 500],
+  ['Loan Deduction', 0],
+];
 
 export default function Salary() {
-  const { data, loading, error, setData } = useLoad(payrollService.adminPayroll, []);
-  const [editing, setEditing] = useState(null);
-  const columns = [
-    { key: 'month', label: 'Month' },
-    { key: 'employeeId', label: 'Employee ID' },
-    { key: 'name', label: 'Name' },
-    { key: 'basic', label: 'Basic', render: (row) => money.format(row.basic || 0) },
-    { key: 'allowances', label: 'Allowances', render: (row) => money.format(row.allowances || 0) },
-    { key: 'deductions', label: 'Deductions', render: (row) => money.format(row.deductions || 0) },
-    { key: 'net', label: 'Net', render: (row) => money.format(row.net || 0) },
-    { key: 'status', label: 'Status' },
-  ];
+  const { data, loading, error, setData } = useLoad(adminService.employees, []);
+  const employees = data?.data || [];
+  const [employeeId, setEmployeeId] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [salary, setSalary] = useState('');
+  const selected = employees.find((employee) => employee.employeeId === employeeId) || employees[0];
+  const basic = Number((editing ? salary : '') || selected?.basicSalary || 0);
+  const earnings = useMemo(() => earningRows(basic), [basic]);
+  const deductions = useMemo(() => deductionRows(basic), [basic]);
+  const gross = earnings.reduce((sum, [, value]) => sum + Number(value || 0), 0);
+  const totalDeductions = deductions.reduce((sum, [, value]) => sum + Number(value || 0), 0);
+  const net = Math.max(0, gross - totalDeductions);
 
-  function handleSaved(saved) {
-    setData((current) => ({
-      ...current,
-      data: (current?.data || []).map((record) => record._id === saved._id ? saved : record),
-    }));
-    setEditing(null);
+  async function saveStructure(event) {
+    event.preventDefault();
+    if (!selected) return;
+    const nextSalary = Number(salary || 0);
+    await adminService.updateEmployee(selected._id, { basicSalary: nextSalary });
+    setData((current) => ({ data: (current?.data || []).map((employee) => employee._id === selected._id ? { ...employee, basicSalary: nextSalary } : employee) }));
+    setSalary('');
+    setEditing(false);
   }
 
   return (
-    <>
-      {editing && <SalaryEditor record={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />}
-      <PageHeader title="Payroll Salary" subtitle="Review and edit employee salary records" />
+    <div className="hr-screen">
+      <div className="hr-page-head">
+        <div><h1>Salary Structure</h1><p>Manage employee salary structures</p></div>
+        <div className="hr-actions"><button className="hr-btn primary" type="button" onClick={() => { setSalary(String(selected?.basicSalary || 0)); setEditing(true); }}><Edit3 size={14} /> Edit Structure</button><button className="hr-icon-btn" type="button"><MoreVertical size={15} /></button></div>
+      </div>
+      <PayrollNav current="/employee-management/payroll" />
       {error && <p className="error">{error}</p>}
-      {loading ? <div className="card">Loading...</div> : (
-        <DataTable
-          columns={columns}
-          rows={data?.data || []}
-          empty="No payroll records found"
-          actions={(record) => <button className="icon-btn" type="button" title="Edit" aria-label="Edit salary" onClick={() => setEditing(record)}><Pencil size={15} /></button>}
-        />
+      <section className="hr-card payroll-person-head">
+        <div className="hr-employee-cell"><span>{selected?.name?.[0] || 'E'}</span><div><strong>{selected?.name || 'No employee selected'}</strong><small>{selected?.employeeId || '-'} - {selected?.designation || '-'}<br />{selected?.dept || '-'}</small></div></div>
+        <select className="attendance-select" value={selected?.employeeId || ''} onChange={(e) => { setEmployeeId(e.target.value); setSalary(''); }}><option value="">Select employee</option>{employees.map((employee) => <option key={employee._id} value={employee.employeeId}>{employee.name} ({employee.employeeId})</option>)}</select>
+      </section>
+      {loading ? <section className="hr-card">Loading salary structure...</section> : (
+        <>
+          <div className="payroll-structure-grid">
+            <section className="hr-card payroll-table-card"><h2>Earnings</h2>{earnings.map(([label, value]) => <p key={label}><span>{label}</span><strong>{money(value)}</strong></p>)}<b><span>Gross Salary</span><strong>{money(gross)}</strong></b></section>
+            <section className="hr-card payroll-table-card"><h2>Deductions</h2>{deductions.map(([label, value]) => <p key={label}><span>{label}</span><strong>{money(value)}</strong></p>)}<b className="danger"><span>Total Deductions</span><strong>{money(totalDeductions)}</strong></b></section>
+          </div>
+          <section className="payroll-net-card">Net Salary <strong>{money(net)}</strong></section>
+          <div className="leave-total-grid">{[['Gross Salary', money(gross)], ['Total Deductions', money(totalDeductions)], ['Net Salary', money(net)], ['Effective From', '01 Aug 2026']].map(([label, value]) => <section className="hr-card" key={label}><span>{label}</span><strong>{value}</strong></section>)}</div>
+        </>
       )}
-    </>
+      {editing && <div className="employee-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditing(false)}><form className="employee-modal employee-confirm-modal" onSubmit={saveStructure}><div className="employee-modal-head"><h2>Edit Salary Structure</h2><button className="icon-btn" type="button" onClick={() => setEditing(false)}><X size={17} /></button></div><label className="hr-field">Basic Salary<input type="number" min="0" value={salary} onChange={(event) => setSalary(event.target.value)} /></label><div className="employee-modal-actions"><button className="btn" type="button" onClick={() => setEditing(false)}>Cancel</button><button className="btn primary"><Save size={14} />Save</button></div></form></div>}
+    </div>
   );
 }

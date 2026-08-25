@@ -8,6 +8,8 @@ export const attendanceService = {
   adminDate: (date) => api.get(`/admin/attendance/today${date ? `?date=${date}` : ''}`),
   adminToday: () => api.get('/admin/attendance/today'),
   adminMonthly: (month) => api.get(`/admin/attendance/monthly${month ? `?month=${month}` : ''}`),
+  adminMark: (payload) => api.post('/admin/attendance/mark', payload),
   corrections: () => api.get('/admin/attendance/corrections'),
+  createCorrectionAdmin: (payload) => api.post('/admin/attendance/corrections', payload),
   updateCorrection: (id, payload) => api.put(`/admin/attendance/corrections/${id}`, payload),
 };

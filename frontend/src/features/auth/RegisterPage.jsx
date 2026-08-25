@@ -333,6 +333,10 @@ export function RegisterPage() {
     setSubmitting(true);
     try {
       const verification = await verifyRegisterOtp({ email: form.email, otp });
+      if (verification.token && verification.user) {
+        redirectTo('/dashboard');
+        return;
+      }
       if (!verification.paymentRequired || !verification.checkout) throw new Error('Payment order was not created');
       const payment = await openRazorpayCheckout(verification.checkout);
       await verifyRegistrationPayment(payment);

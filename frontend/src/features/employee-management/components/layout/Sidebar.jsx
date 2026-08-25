@@ -6,9 +6,9 @@ const icons = { Dashboard: LayoutDashboard, Employees: Users, Attendance: Calend
 const adminGroups = [
   { title: 'Dashboard', items: [['Dashboard', '/employee-management/dashboard']] },
   { title: 'Employees', items: [['Employees', '/employee-management/employees']] },
-  { title: 'Attendance', items: [['Attendance', '/employee-management/attendance'], ['Corrections', '/employee-management/attendance/corrections']] },
-  { title: 'Leave', items: [['Requests', '/employee-management/leave'], ['Balance', '/employee-management/leave/balance'], ['Types', '/employee-management/leave/types']] },
-  { title: 'Payroll', items: [['Salary', '/employee-management/payroll'], ['Payslips', '/employee-management/payroll/payslips']] },
+  { title: 'Attendance', items: [['Daily Attendance', '/employee-management/attendance'], ['Attendance Register', '/employee-management/attendance/monthly'], ['Corrections', '/employee-management/attendance/corrections'], ['Reports', '/employee-management/attendance/reports']] },
+  { title: 'Leave', items: [['Leave Requests', '/employee-management/leave'], ['Leave Types', '/employee-management/leave/types'], ['Leave Balance', '/employee-management/leave/balance'], ['Leave Calendar', '/employee-management/leave/calendar'], ['Leave Reports', '/employee-management/leave/reports']] },
+  { title: 'Payroll', items: [['Salary Structure', '/employee-management/payroll'], ['Payroll Processing', '/employee-management/payroll/processing'], ['Payslips', '/employee-management/payroll/payslips'], ['Deductions', '/employee-management/payroll/deductions'], ['Payroll Reports', '/employee-management/payroll/reports']] },
   { title: 'Notices', items: [['Send Notice', '/employee-management/notices']] },
   { title: 'Holidays', items: [['Holidays', '/employee-management/holidays'], ['Add Holiday', '/employee-management/holidays/add']] },
 ];

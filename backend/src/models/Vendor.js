@@ -10,6 +10,11 @@ const vendorSchema = new Schema({
   status:   { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
   gstin:    { type: String, trim: true, uppercase: true, default: '' },
   address:  { type: String, trim: true, default: '' },
+  bankName:          { type: String, trim: true, default: '' },
+  accountHolderName: { type: String, trim: true, default: '' },
+  accountNumber:     { type: String, trim: true, default: '' },
+  ifscCode:          { type: String, trim: true, uppercase: true, default: '' },
+  bankBranch:        { type: String, trim: true, default: '' },
 }, { timestamps: true });
 
 vendorSchema.index({ name: 'text', contact: 1 });

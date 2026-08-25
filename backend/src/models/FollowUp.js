@@ -2,6 +2,7 @@ import { Schema, model } from 'mongoose';
 
 const followUpSchema = new Schema({
   userId:    { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  branch:    { type: String, trim: true, default: '', index: true },
   person:    { type: String, required: true, trim: true },
   regarding: { type: String, trim: true, default: '' },
   date:      { type: String, default: '' },

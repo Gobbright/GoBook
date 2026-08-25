@@ -28,7 +28,9 @@ const attendanceSchema = new Schema({
   checkInLocation:  { type: attendanceLocationSchema, default: null },
   checkOutLocation: { type: attendanceLocationSchema, default: null },
   hours:      { type: String, default: '--' },
-  status:     { type: String, enum: ['Present', 'Late', 'Absent', 'On Leave'], default: 'Absent' },
+  shift:      { type: String, default: '', trim: true },
+  remarks:    { type: String, default: '', trim: true },
+  status:     { type: String, enum: ['Present', 'Late', 'Absent', 'On Leave', 'WFH', 'On Duty', 'Half Day', 'Weekly Off', 'Holiday'], default: 'Absent' },
 }, { timestamps: true });
 
 attendanceSchema.index({ userId: 1, date: 1, dept: 1 });

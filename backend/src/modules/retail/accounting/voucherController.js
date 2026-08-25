@@ -6,6 +6,7 @@ import {
   updateAccountingVoucher,
   VOUCHER_TYPES,
 } from '../../../services/accountingVouchers.js';
+import { branchScopedQuery } from '../../../utils/branchScope.js';
 import { httpError } from '../../../utils/httpError.js';
 
 export function listVoucherTypes(_req, res) {
@@ -33,7 +34,7 @@ export async function listVouchers(req, res, next) {
       page = 1,
       limit = 50,
     } = req.query;
-    const filter = { userId: req.user.id };
+    const filter = await branchScopedQuery(req, { model: AccountingVoucher, ownerField: 'userId' });
     if (voucherType && voucherType !== 'All') filter.voucherType = voucherType;
     if (status && status !== 'All') filter.status = status;
     if (from || to) {
@@ -68,7 +69,9 @@ export async function listVouchers(req, res, next) {
 
 export async function getVoucher(req, res, next) {
   try {
-    const voucher = await AccountingVoucher.findOne({ _id: req.params.id, userId: req.user.id }).lean();
+    const voucher = await AccountingVoucher.findOne(
+      await branchScopedQuery(req, { model: AccountingVoucher, ownerField: 'userId' }, { _id: req.params.id }),
+    ).lean();
     if (!voucher) return next(httpError(404, 'Voucher not found'));
     res.json({ voucher });
   } catch (err) {

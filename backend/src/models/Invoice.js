@@ -30,6 +30,7 @@ const customFieldSchema = new Schema({
 const invoiceSchema = new Schema({
   userId:       { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   businessId:   { type: Schema.Types.ObjectId, ref: 'Business', index: true },
+  branch:       { type: String, trim: true, default: '', index: true },
   number:       { type: String, required: true, trim: true },
   documentType: { type: String, default: 'invoice' },
 
@@ -42,6 +43,11 @@ const invoiceSchema = new Schema({
     city:    { type: String, default: '' },
     state:   { type: String, default: '' },
     pincode: { type: String, default: '' },
+    bankName:          { type: String, default: '' },
+    accountHolderName: { type: String, default: '' },
+    accountNumber:     { type: String, default: '' },
+    ifscCode:          { type: String, default: '' },
+    bankBranch:        { type: String, default: '' },
   },
 
   meta: {

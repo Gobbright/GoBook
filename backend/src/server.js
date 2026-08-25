@@ -34,7 +34,9 @@ app.use((_req, res, next) => {
   next();
 });
 
-const productionOrigins = new Set([env.clientUrl, ...env.allowedOrigins]);
+const configuredOrigins = new Set([env.clientUrl, ...env.allowedOrigins].filter(Boolean));
+const localNetworkOrigin = /^http:\/\/((localhost|127\.0\.0\.1)|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?$/;
+const productionOrigins = configuredOrigins;
 const corsOrigin = env.nodeEnv === 'production'
   ? (origin, callback) => {
       if (!origin || productionOrigins.has(origin)) {
@@ -43,7 +45,13 @@ const corsOrigin = env.nodeEnv === 'production'
       }
       callback(new Error(`CORS blocked origin: ${origin}`));
     }
-  : /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+  : (origin, callback) => {
+      if (!origin || configuredOrigins.has(origin) || localNetworkOrigin.test(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked origin: ${origin}`));
+    };
 
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json({

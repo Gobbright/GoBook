@@ -7,12 +7,12 @@ function upload(path, formData) {
   });
 }
 
-export function getLedgerAccounts() {
-  return apiClient('/accounting/ledger');
+export function getLedgerAccounts(params = {}) {
+  return apiClient(`/accounting/ledger${buildVoucherQuery(params)}`);
 }
 
-export function resetAccountingFromInvoices() {
-  return apiClient('/accounting/reset-from-invoices', { method: 'POST' });
+export function resetAccountingFromInvoices(params = {}) {
+  return apiClient(`/accounting/reset-from-invoices${buildVoucherQuery(params)}`, { method: 'POST' });
 }
 
 export function createLedgerAccount(account) {
@@ -130,20 +130,20 @@ export function getCostCenterStatement(params = {}) {
   return apiClient(`/accounting/reports/cost-centers${buildVoucherQuery(params)}`);
 }
 
-export function getTrialBalance() {
-  return apiClient('/accounting/trial-balance');
+export function getTrialBalance(params = {}) {
+  return apiClient(`/accounting/trial-balance${buildVoucherQuery(params)}`);
 }
 
-export function getPnlStatement() {
-  return apiClient('/accounting/pnl');
+export function getPnlStatement(params = {}) {
+  return apiClient(`/accounting/pnl${buildVoucherQuery(params)}`);
 }
 
-export function getBalanceSheet() {
-  return apiClient('/accounting/balance-sheet');
+export function getBalanceSheet(params = {}) {
+  return apiClient(`/accounting/balance-sheet${buildVoucherQuery(params)}`);
 }
 
-export function getCashBook() {
-  return apiClient('/accounting/cash-book');
+export function getCashBook(params = {}) {
+  return apiClient(`/accounting/cash-book${buildVoucherQuery(params)}`);
 }
 
 export function createCashBookEntry(entry) {
@@ -164,9 +164,8 @@ export function deleteCashBookEntry(id) {
   return apiClient(`/accounting/cash-book/${id}`, { method: 'DELETE' });
 }
 
-export function getBankBook(bank) {
-  const query = bank ? `?bank=${encodeURIComponent(bank)}` : '';
-  return apiClient(`/accounting/bank-book${query}`);
+export function getBankBook(bank, params = {}) {
+  return apiClient(`/accounting/bank-book${buildVoucherQuery({ ...params, bank })}`);
 }
 
 export function getBankReconciliation(params = {}) {

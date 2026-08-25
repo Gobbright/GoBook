@@ -7,6 +7,7 @@ import { JournalEntry } from '../../../models/JournalEntry.js';
 import { LedgerAccount } from '../../../models/LedgerAccount.js';
 import { Payment } from '../../../models/Payment.js';
 import { postInvoiceAccounting, postPaymentAccounting } from '../../../services/accountingPostings.js';
+import { branchForNewRecord, branchScopedQuery } from '../../../utils/branchScope.js';
 import { httpError } from '../../../utils/httpError.js';
 import { asNumber, asText, enumValue, importSummary, parseExcelRows } from '../../../utils/excelImport.js';
 
@@ -90,9 +91,9 @@ function withBankRunningBalances(entries) {
   });
 }
 
-function voucherReportFilter(req) {
+async function voucherReportFilter(req) {
   const { from, to, voucherType, status = 'Posted' } = req.query;
-  const filter = { userId: req.user.id };
+  const filter = await branchScopedQuery(req, { model: AccountingVoucher, ownerField: 'userId' });
   if (status && status !== 'All') filter.status = status;
   if (voucherType && voucherType !== 'All') filter.voucherType = voucherType;
   if (from || to) {
@@ -109,10 +110,52 @@ function rounded(value) {
 
 const CURRENT_BILL_DOCUMENT_TYPES = ['invoice', 'bill-of-supply'];
 
+async function ledgerAccountsFilter(req, extra = {}) {
+  return branchScopedQuery(req, { model: LedgerAccount, ownerField: 'userId' }, extra);
+}
+
+async function journalEntriesFilter(req, extra = {}) {
+  return branchScopedQuery(req, { model: JournalEntry, ownerField: 'userId' }, extra);
+}
+
+async function cashBookFilter(req, extra = {}) {
+  return branchScopedQuery(req, { model: CashBookEntry, ownerField: 'userId' }, extra);
+}
+
+async function bankBookFilter(req, extra = {}) {
+  return branchScopedQuery(req, { model: BankBookEntry, ownerField: 'userId' }, extra);
+}
+
+async function branchValueForRecord(req) {
+  return branchForNewRecord(req, req.body?.branch || req.query?.branch || req.user.branch || '');
+}
+
+async function ledgerBalancesFromVouchers(req) {
+  const vouchers = await AccountingVoucher.find(await voucherReportFilter(req)).sort({ date: 1, createdAt: 1 }).lean();
+  const map = new Map();
+  for (const voucher of vouchers) {
+    for (const line of voucher.lines || []) {
+      const key = line.ledgerName;
+      const current = map.get(key) || {
+        name: line.ledgerName,
+        group: line.ledgerGroup,
+        opening: 0,
+        debit: 0,
+        credit: 0,
+      };
+      current.group = current.group || line.ledgerGroup;
+      if (line.side === 'debit') current.debit = rounded(current.debit + line.amount);
+      if (line.side === 'credit') current.credit = rounded(current.credit + line.amount);
+      map.set(key, current);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
+}
+
 export async function listLedgerAccounts(req, res, next) {
   try {
     const { search, group } = req.query;
-    const filter = { userId: req.user.id };
+    const filter = await ledgerAccountsFilter(req);
     if (search) filter.name = new RegExp(search, 'i');
     if (group && group !== 'All Groups') filter.group = group;
 
@@ -127,12 +170,13 @@ export async function createLedgerAccount(req, res, next) {
   try {
     const { name } = req.body ?? {};
     const userId = req.user.id;
+    const branch = await branchValueForRecord(req);
     if (name) {
-      const existing = await LedgerAccount.findOne({ userId, name });
+      const existing = await LedgerAccount.findOne(await ledgerAccountsFilter(req, { userId, name }));
       if (existing) return next(httpError(409, `Ledger account "${name}" already exists`));
     }
     const payload = normalizeAmountFields(req.body ?? {}, ['opening', 'debit', 'credit']);
-    const account = await LedgerAccount.create({ ...payload, userId });
+    const account = await LedgerAccount.create({ ...payload, userId, businessId: req.user.businessId, branch });
     res.status(201).json({ account });
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, 'Ledger account name already exists'));
@@ -143,6 +187,7 @@ export async function createLedgerAccount(req, res, next) {
 export async function importLedgerAccounts(req, res, next) {
   try {
     const userId = req.user.id;
+    const branch = await branchValueForRecord(req);
     const rows = await parseExcelRows(req.file, LEDGER_IMPORT_COLUMNS, 'Account Name, Group, Opening, Debit, Credit');
     const summary = importSummary();
 
@@ -157,6 +202,8 @@ export async function importLedgerAccounts(req, res, next) {
 
       const data = {
         userId,
+        businessId: req.user.businessId,
+        branch,
         name,
         group,
         opening: asNumber(record.opening, 0),
@@ -165,7 +212,7 @@ export async function importLedgerAccounts(req, res, next) {
         color: asText(record.color) || '#2563eb',
       };
 
-      const existing = await LedgerAccount.findOne({ userId, name });
+      const existing = await LedgerAccount.findOne(await ledgerAccountsFilter(req, { userId, name }));
       if (existing) {
         await LedgerAccount.findByIdAndUpdate(existing._id, { $set: data }, { runValidators: true });
         summary.updated++;
@@ -185,8 +232,9 @@ export async function importLedgerAccounts(req, res, next) {
 export async function updateLedgerAccount(req, res, next) {
   try {
     const payload = normalizeAmountFields(req.body ?? {}, ['opening', 'debit', 'credit']);
+    if (req.body?.branch !== undefined) payload.branch = await branchValueForRecord(req);
     const account = await LedgerAccount.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      await ledgerAccountsFilter(req, { _id: req.params.id }),
       { $set: payload },
       { new: true, runValidators: true },
     ).lean();
@@ -199,7 +247,7 @@ export async function updateLedgerAccount(req, res, next) {
 
 export async function deleteLedgerAccount(req, res, next) {
   try {
-    const account = await LedgerAccount.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
+    const account = await LedgerAccount.findOneAndDelete(await ledgerAccountsFilter(req, { _id: req.params.id })).lean();
     if (!account) return next(httpError(404, 'Ledger account not found'));
     res.json({ message: 'Ledger account deleted' });
   } catch (err) {
@@ -210,7 +258,7 @@ export async function deleteLedgerAccount(req, res, next) {
 export async function listJournalEntries(req, res, next) {
   try {
     const { status } = req.query;
-    const filter = { userId: req.user.id };
+    const filter = await journalEntriesFilter(req);
     if (status && status !== 'All') filter.status = status;
     const entries = await JournalEntry.find(filter).sort({ date: -1, createdAt: -1 }).lean();
     res.json({ entries });
@@ -223,12 +271,13 @@ export async function createJournalEntry(req, res, next) {
   try {
     const { entryNo } = req.body ?? {};
     const userId = req.user.id;
+    const branch = await branchValueForRecord(req);
     if (entryNo) {
-      const existing = await JournalEntry.findOne({ userId, entryNo });
+      const existing = await JournalEntry.findOne(await journalEntriesFilter(req, { userId, entryNo }));
       if (existing) return next(httpError(409, `Journal entry "${entryNo}" already exists`));
     }
     const payload = normalizeAmountFields(req.body ?? {}, ['debit', 'credit']);
-    const entry = await JournalEntry.create({ ...payload, userId });
+    const entry = await JournalEntry.create({ ...payload, userId, businessId: req.user.businessId, branch });
     res.status(201).json({ entry });
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, 'Journal entry number already exists'));
@@ -239,6 +288,7 @@ export async function createJournalEntry(req, res, next) {
 export async function importJournalEntries(req, res, next) {
   try {
     const userId = req.user.id;
+    const branch = await branchValueForRecord(req);
     const rows = await parseExcelRows(req.file, JOURNAL_IMPORT_COLUMNS, 'Date, Entry No, Particulars, Debit, Credit');
     const summary = importSummary();
 
@@ -262,6 +312,8 @@ export async function importJournalEntries(req, res, next) {
 
       const data = {
         userId,
+        businessId: req.user.businessId,
+        branch,
         date,
         entryNo,
         particulars,
@@ -270,7 +322,7 @@ export async function importJournalEntries(req, res, next) {
         status: enumValue(record.status, ['Draft', 'Posted'], 'Posted'),
       };
 
-      const existing = await JournalEntry.findOne({ userId, entryNo });
+      const existing = await JournalEntry.findOne(await journalEntriesFilter(req, { userId, entryNo }));
       if (existing) {
         await JournalEntry.findByIdAndUpdate(existing._id, { $set: data }, { runValidators: true });
         summary.updated++;
@@ -290,8 +342,9 @@ export async function importJournalEntries(req, res, next) {
 export async function updateJournalEntry(req, res, next) {
   try {
     const payload = normalizeAmountFields(req.body ?? {}, ['debit', 'credit']);
+    if (req.body?.branch !== undefined) payload.branch = await branchValueForRecord(req);
     const entry = await JournalEntry.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      await journalEntriesFilter(req, { _id: req.params.id }),
       { $set: payload },
       { new: true, runValidators: true },
     ).lean();
@@ -304,7 +357,7 @@ export async function updateJournalEntry(req, res, next) {
 
 export async function deleteJournalEntry(req, res, next) {
   try {
-    const entry = await JournalEntry.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
+    const entry = await JournalEntry.findOneAndDelete(await journalEntriesFilter(req, { _id: req.params.id })).lean();
     if (!entry) return next(httpError(404, 'Journal entry not found'));
     res.json({ message: 'Journal entry deleted' });
   } catch (err) {
@@ -314,7 +367,7 @@ export async function deleteJournalEntry(req, res, next) {
 
 export async function getTrialBalance(req, res, next) {
   try {
-    const accounts = await LedgerAccount.find({ userId: req.user.id }).sort({ group: 1, name: 1 }).lean();
+    const accounts = await ledgerBalancesFromVouchers(req);
     res.json({
       accounts: accounts.map((account) => {
         const closing = closingOf(account);
@@ -334,7 +387,7 @@ export async function getTrialBalance(req, res, next) {
 
 export async function getPnlStatement(req, res, next) {
   try {
-    const accounts = await LedgerAccount.find({ userId: req.user.id }).sort({ name: 1 }).lean();
+    const accounts = await ledgerBalancesFromVouchers(req);
     const income = accounts
       .filter((account) => /income|sales/i.test(account.group))
       .map((account) => ({ label: account.name, amount: Math.abs(closingOf(account)) }));
@@ -350,7 +403,7 @@ export async function getPnlStatement(req, res, next) {
 
 export async function getBalanceSheet(req, res, next) {
   try {
-    const accounts = await LedgerAccount.find({ userId: req.user.id }).sort({ name: 1 }).lean();
+    const accounts = await ledgerBalancesFromVouchers(req);
     const assets = accounts
       .filter((account) => /asset|cash|bank|debtor|stock/i.test(account.group))
       .map((account) => ({ label: account.name, amount: Math.abs(closingOf(account)) }));
@@ -366,7 +419,7 @@ export async function getBalanceSheet(req, res, next) {
 
 export async function getDayBook(req, res, next) {
   try {
-    const filter = voucherReportFilter(req);
+    const filter = await voucherReportFilter(req);
     const vouchers = await AccountingVoucher.find(filter).sort({ date: 1, createdAt: 1 }).lean();
     const summaryByType = new Map();
 
@@ -403,11 +456,11 @@ export async function getLedgerStatement(req, res, next) {
     if (!ledgerName) return next(httpError(400, 'ledgerName is required'));
 
     const filter = {
-      ...voucherReportFilter(req),
+      ...(await voucherReportFilter(req)),
       'lines.ledgerName': ledgerName,
     };
     const [ledger, vouchers] = await Promise.all([
-      LedgerAccount.findOne({ userId: req.user.id, name: ledgerName }).lean(),
+      LedgerAccount.findOne(await ledgerAccountsFilter(req, { name: ledgerName })).lean(),
       AccountingVoucher.find(filter).sort({ date: 1, createdAt: 1 }).lean(),
     ]);
 
@@ -458,7 +511,7 @@ export async function getLedgerStatement(req, res, next) {
 
 export async function getVoucherRegister(req, res, next) {
   try {
-    const filter = voucherReportFilter(req);
+    const filter = await voucherReportFilter(req);
     const vouchers = await AccountingVoucher.find(filter).sort({ voucherType: 1, date: 1 }).lean();
     const rows = [];
     const byType = new Map();
@@ -487,7 +540,7 @@ export async function getOutstandingStatement(req, res, next) {
   try {
     const type = req.query.type === 'payables' ? 'payables' : 'receivables';
     const groupPattern = type === 'payables' ? /sundry creditors|creditor/i : /sundry debtors|debtor/i;
-    const accounts = await LedgerAccount.find({ userId: req.user.id }).sort({ name: 1 }).lean();
+    const accounts = await ledgerBalancesFromVouchers(req);
     const rows = accounts
       .filter((account) => groupPattern.test(account.group || ''))
       .map((account) => {
@@ -518,9 +571,9 @@ export async function getBillWiseStatement(req, res, next) {
   try {
     const type = req.query.type === 'payables' ? 'payables' : 'receivables';
     const groupPattern = type === 'payables' ? /sundry creditors|creditor/i : /sundry debtors|debtor/i;
-    const accounts = await LedgerAccount.find({ userId: req.user.id }).lean();
+    const accounts = await ledgerBalancesFromVouchers(req);
     const partyNames = new Set(accounts.filter((account) => groupPattern.test(account.group || '')).map((account) => account.name));
-    const vouchers = await AccountingVoucher.find(voucherReportFilter(req)).sort({ date: 1, createdAt: 1 }).lean();
+    const vouchers = await AccountingVoucher.find(await voucherReportFilter(req)).sort({ date: 1, createdAt: 1 }).lean();
     const billMap = new Map();
 
     for (const voucher of vouchers) {
@@ -571,7 +624,7 @@ export async function getBillWiseStatement(req, res, next) {
 
 export async function getCostCenterStatement(req, res, next) {
   try {
-    const vouchers = await AccountingVoucher.find(voucherReportFilter(req)).sort({ date: 1, createdAt: 1 }).lean();
+    const vouchers = await AccountingVoucher.find(await voucherReportFilter(req)).sort({ date: 1, createdAt: 1 }).lean();
     const centerMap = new Map();
 
     for (const voucher of vouchers) {
@@ -620,7 +673,7 @@ export async function getCostCenterStatement(req, res, next) {
 
 export async function listCashBookEntries(req, res, next) {
   try {
-    const entries = await CashBookEntry.find({ userId: req.user.id }).sort({ date: 1, createdAt: 1 }).lean();
+    const entries = await CashBookEntry.find(await cashBookFilter(req)).sort({ date: 1, createdAt: 1 }).lean();
     res.json({ entries: withCashRunningBalances(entries) });
   } catch (err) {
     next(err);
@@ -630,7 +683,12 @@ export async function listCashBookEntries(req, res, next) {
 export async function createCashBookEntry(req, res, next) {
   try {
     const payload = normalizeAmountFields(req.body ?? {}, ['receipt', 'payment', 'balance']);
-    const entry = await CashBookEntry.create({ ...payload, userId: req.user.id });
+    const entry = await CashBookEntry.create({
+      ...payload,
+      userId: req.user.id,
+      businessId: req.user.businessId,
+      branch: await branchValueForRecord(req),
+    });
     res.status(201).json({ entry });
   } catch (err) {
     next(err);
@@ -640,8 +698,9 @@ export async function createCashBookEntry(req, res, next) {
 export async function updateCashBookEntry(req, res, next) {
   try {
     const payload = normalizeAmountFields(req.body ?? {}, ['receipt', 'payment', 'balance']);
+    if (req.body?.branch !== undefined) payload.branch = await branchValueForRecord(req);
     const entry = await CashBookEntry.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      await cashBookFilter(req, { _id: req.params.id }),
       { $set: payload },
       { new: true, runValidators: true },
     ).lean();
@@ -654,7 +713,7 @@ export async function updateCashBookEntry(req, res, next) {
 
 export async function deleteCashBookEntry(req, res, next) {
   try {
-    const entry = await CashBookEntry.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
+    const entry = await CashBookEntry.findOneAndDelete(await cashBookFilter(req, { _id: req.params.id })).lean();
     if (!entry) return next(httpError(404, 'Cash book entry not found'));
     res.json({ message: 'Cash book entry deleted' });
   } catch (err) {
@@ -664,10 +723,10 @@ export async function deleteCashBookEntry(req, res, next) {
 
 export async function listBankBookEntries(req, res, next) {
   try {
-    const userId = req.user.id;
-    const banks = await BankBookEntry.distinct('bank', { userId });
+    const baseFilter = await bankBookFilter(req);
+    const banks = await BankBookEntry.distinct('bank', baseFilter);
     const bank = req.query.bank || banks[0] || '';
-    const filter = { userId, ...(bank ? { bank } : {}) };
+    const filter = { ...baseFilter, ...(bank ? { bank } : {}) };
     const entries = await BankBookEntry.find(filter).sort({ date: 1, createdAt: 1 }).lean();
     const first = entries[0] ?? {};
 
@@ -686,11 +745,11 @@ export async function listBankBookEntries(req, res, next) {
 
 export async function getBankReconciliation(req, res, next) {
   try {
-    const userId = req.user.id;
-    const banks = await BankBookEntry.distinct('bank', { userId });
+    const baseFilter = await bankBookFilter(req);
+    const banks = await BankBookEntry.distinct('bank', baseFilter);
     const bank = req.query.bank || banks[0] || '';
     const { from, to, status = 'All' } = req.query;
-    const filter = { userId, ...(bank ? { bank } : {}) };
+    const filter = { ...baseFilter, ...(bank ? { bank } : {}) };
     if (from || to) {
       filter.date = {};
       if (from) filter.date.$gte = from;
@@ -739,7 +798,7 @@ export async function updateBankReconciliation(req, res, next) {
       reconciledAt: reconciled ? new Date() : null,
     };
     const entry = await BankBookEntry.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      await bankBookFilter(req, { _id: req.params.id }),
       { $set: payload },
       { new: true, runValidators: true },
     ).lean();
@@ -753,7 +812,12 @@ export async function updateBankReconciliation(req, res, next) {
 export async function createBankBookEntry(req, res, next) {
   try {
     const payload = normalizeAmountFields(req.body ?? {}, ['deposit', 'withdrawal', 'balance']);
-    const entry = await BankBookEntry.create({ ...payload, userId: req.user.id });
+    const entry = await BankBookEntry.create({
+      ...payload,
+      userId: req.user.id,
+      businessId: req.user.businessId,
+      branch: await branchValueForRecord(req),
+    });
     res.status(201).json({ entry });
   } catch (err) {
     next(err);
@@ -763,8 +827,9 @@ export async function createBankBookEntry(req, res, next) {
 export async function updateBankBookEntry(req, res, next) {
   try {
     const payload = normalizeAmountFields(req.body ?? {}, ['deposit', 'withdrawal', 'balance']);
+    if (req.body?.branch !== undefined) payload.branch = await branchValueForRecord(req);
     const entry = await BankBookEntry.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
+      await bankBookFilter(req, { _id: req.params.id }),
       { $set: payload },
       { new: true, runValidators: true },
     ).lean();
@@ -777,7 +842,7 @@ export async function updateBankBookEntry(req, res, next) {
 
 export async function deleteBankBookEntry(req, res, next) {
   try {
-    const entry = await BankBookEntry.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
+    const entry = await BankBookEntry.findOneAndDelete(await bankBookFilter(req, { _id: req.params.id })).lean();
     if (!entry) return next(httpError(404, 'Bank book entry not found'));
     res.json({ message: 'Bank book entry deleted' });
   } catch (err) {
@@ -787,7 +852,12 @@ export async function deleteBankBookEntry(req, res, next) {
 
 export async function resetAccountingFromInvoices(req, res, next) {
   try {
-    const userId = req.user.id;
+    const postingFilter = await branchScopedQuery(req, { model: AccountingPosting, ownerField: 'userId' });
+    const voucherFilter = await voucherReportFilter({ ...req, query: { ...req.query, status: 'All' } });
+    const journalFilter = await journalEntriesFilter(req);
+    const cashFilter = await cashBookFilter(req);
+    const bankFilter = await bankBookFilter(req);
+    const ledgerFilter = await ledgerAccountsFilter(req);
 
     const [
       postingResult,
@@ -797,18 +867,17 @@ export async function resetAccountingFromInvoices(req, res, next) {
       bankBookResult,
       ledgerResult,
     ] = await Promise.all([
-      AccountingPosting.deleteMany({ userId }),
-      AccountingVoucher.deleteMany({ userId }),
-      JournalEntry.deleteMany({ userId }),
-      CashBookEntry.deleteMany({ userId }),
-      BankBookEntry.deleteMany({ userId }),
-      LedgerAccount.deleteMany({ userId }),
+      AccountingPosting.deleteMany(postingFilter),
+      AccountingVoucher.deleteMany(voucherFilter),
+      JournalEntry.deleteMany(journalFilter),
+      CashBookEntry.deleteMany(cashFilter),
+      BankBookEntry.deleteMany(bankFilter),
+      LedgerAccount.deleteMany(ledgerFilter),
     ]);
 
-    const invoices = await Invoice.find({
-      userId,
+    const invoices = await Invoice.find(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, {
       documentType: { $in: CURRENT_BILL_DOCUMENT_TYPES },
-    }).sort({ createdAt: 1, _id: 1 });
+    })).sort({ createdAt: 1, _id: 1 });
 
     const invoiceMap = new Map(invoices.map((invoice) => [String(invoice._id), invoice]));
     const invoiceIds = invoices.map((invoice) => invoice._id);
@@ -830,7 +899,9 @@ export async function resetAccountingFromInvoices(req, res, next) {
     }
 
     if (invoiceIds.length) {
-      const payments = await Payment.find({ userId, invoiceId: { $in: invoiceIds } }).sort({ createdAt: 1, _id: 1 });
+      const payments = await Payment.find(await branchScopedQuery(req, { model: Payment, ownerField: 'userId' }, {
+        invoiceId: { $in: invoiceIds },
+      })).sort({ createdAt: 1, _id: 1 });
       for (const payment of payments) {
         try {
           const posting = await postPaymentAccounting(payment, invoiceMap.get(String(payment.invoiceId)), req.user);
@@ -870,13 +941,12 @@ export async function resetAccountingFromInvoices(req, res, next) {
 
 export async function getAccountingSummary(req, res, next) {
   try {
-    const userId = req.user.id;
     const [ledgerCount, journalCount, voucherCount, cashBookCount, bankBookCount] = await Promise.all([
-      LedgerAccount.countDocuments({ userId }),
-      JournalEntry.countDocuments({ userId }),
-      AccountingVoucher.countDocuments({ userId }),
-      CashBookEntry.countDocuments({ userId }),
-      BankBookEntry.countDocuments({ userId }),
+      LedgerAccount.countDocuments(await ledgerAccountsFilter(req)),
+      JournalEntry.countDocuments(await journalEntriesFilter(req)),
+      AccountingVoucher.countDocuments(await voucherReportFilter({ ...req, query: { ...req.query, status: 'All' } })),
+      CashBookEntry.countDocuments(await cashBookFilter(req)),
+      BankBookEntry.countDocuments(await bankBookFilter(req)),
     ]);
 
     res.json({

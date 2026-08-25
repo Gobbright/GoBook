@@ -135,6 +135,7 @@ export async function normalizeVoucherPayload(body, reqUser, existing = null) {
   return {
     userId: reqUser.id,
     businessId: reqUser.businessId || body.businessId || existing?.businessId,
+    branch: cleanText(body.branch || existing?.branch || reqUser.branch),
     voucherType: body.voucherType || existing?.voucherType || 'Journal',
     voucherNo: cleanText(body.voucherNo || existing?.voucherNo),
     financialYear,

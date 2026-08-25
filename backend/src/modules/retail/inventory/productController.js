@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import multer from 'multer';
 
 import { Product } from '../../../models/Product.js';
+import { ProductBrand } from '../../../models/ProductBrand.js';
 import { ProductCategory } from '../../../models/ProductCategory.js';
 import { StockIn } from '../../../models/StockIn.js';
 import { StockOut } from '../../../models/StockOut.js';
@@ -216,12 +217,19 @@ function normalizeProductPayload(body = {}) {
   if ('variants' in body) {
     const rawVariants = Array.isArray(body.variants) ? body.variants : [];
     payload.variants = rawVariants
-      .map((v) => ({
-        size: String(v?.size ?? '').trim(),
-        stock: Number(v?.stock),
-        minStockLevel: Number(v?.minStockLevel) || 0,
-      }))
-      .filter((v) => v.size);
+      .map((v) => {
+        const size = String(v?.size ?? '').trim();
+        const modelName = String(v?.modelName ?? v?.model ?? '').trim();
+        return {
+          size,
+          modelName,
+          rate: Number(v?.rate) || 0,
+          barcode: String(v?.barcode ?? '').trim(),
+          stock: Number(v?.stock),
+          minStockLevel: Number(v?.minStockLevel) || 0,
+        };
+      })
+      .filter((v) => v.size || v.modelName);
 
     if (payload.variants.length) {
       payload.stock = payload.variants.reduce((sum, v) => sum + (Number.isFinite(v.stock) ? v.stock : 0), 0);
@@ -241,7 +249,6 @@ function normalizeProductPayload(body = {}) {
       if (keepFields.has(field)) continue;
       payload[field] = field === 'expiryDate' ? null : field === 'prescriptionRequired' ? false : '';
     }
-    if (payload.itemGroup !== 'Textile') payload.variants = [];
   }
 
   return payload;
@@ -271,11 +278,13 @@ function validateProductPayload(payload, { partial = false } = {}) {
   if ('variants' in payload && payload.variants.length) {
     const seen = new Set();
     for (const v of payload.variants) {
-      if (!v.size) return 'Each size row needs a size name';
-      if (!Number.isFinite(v.stock) || v.stock < 0) return `Stock for size "${v.size}" must be 0 or more`;
-      if (!Number.isFinite(v.minStockLevel) || v.minStockLevel < 0) return `Min stock level for size "${v.size}" must be 0 or more`;
-      const key = v.size.toLowerCase();
-      if (seen.has(key)) return `Duplicate size "${v.size}"`;
+      const label = v.size || v.modelName;
+      if (!label) return 'Each model row needs a model or size name';
+      if (!Number.isFinite(v.stock) || v.stock < 0) return `Stock for "${label}" must be 0 or more`;
+      if (!Number.isFinite(v.minStockLevel) || v.minStockLevel < 0) return `Min stock level for "${label}" must be 0 or more`;
+      if (!Number.isFinite(v.rate) || v.rate < 0) return `Sale price for "${label}" must be 0 or more`;
+      const key = `${String(v.size || '').trim().toLowerCase()}|${String(v.modelName || '').trim().toLowerCase()}`;
+      if (seen.has(key)) return `Duplicate model "${label}"`;
       seen.add(key);
     }
   }
@@ -363,12 +372,15 @@ async function createProductStockMovement(userId, product, qtyDiff, reason = 'St
 function stripStockFromUpdatePayload(payload, oldProduct) {
   delete payload.stock;
   if (payload.variants) {
-    const oldStockBySize = new Map(
-      (oldProduct?.variants ?? []).map((v) => [String(v.size).trim().toLowerCase(), v.stock]),
+    const oldStockByVariant = new Map(
+      (oldProduct?.variants ?? []).map((v) => [
+        `${String(v.size || '').trim().toLowerCase()}|${String(v.modelName || '').trim().toLowerCase()}`,
+        v.stock,
+      ]),
     );
     payload.variants = payload.variants.map((v) => ({
       ...v,
-      stock: oldStockBySize.get(String(v.size).trim().toLowerCase()) ?? 0,
+      stock: oldStockByVariant.get(`${String(v.size || '').trim().toLowerCase()}|${String(v.modelName || '').trim().toLowerCase()}`) ?? 0,
     }));
   }
   return payload;
@@ -486,8 +498,16 @@ export async function getCategories(req, res, next) {
 // GET /api/inventory/products/brands
 export async function getBrands(req, res, next) {
   try {
-    const brands = await Product.distinct('brand', { userId: req.user.id });
-    res.json(brands.filter(Boolean).sort());
+    const userId = req.user.id;
+    const [defined, usedOnProducts] = await Promise.all([
+      ProductBrand.find({ userId, status: 'Active' }, { name: 1 }).lean(),
+      Product.distinct('brand', { userId }),
+    ]);
+    const names = new Set(defined.map((brand) => brand.name));
+    for (const name of usedOnProducts) {
+      if (name) names.add(name);
+    }
+    res.json([...names].filter(Boolean).sort());
   } catch (err) {
     next(err);
   }

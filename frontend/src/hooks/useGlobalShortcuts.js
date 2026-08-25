@@ -45,6 +45,12 @@ export function useGlobalShortcuts({ onOpenPalette } = {}) {
       if (!title) return;
       if (isTypingTarget(document.activeElement)) return;
 
+      if (key === 't') {
+        e.preventDefault();
+        navigate('/business-settings');
+        return;
+      }
+
       const user = storedUser || {};
       const sections = getSidebarSections(user.category || 'other', user);
       const section = sections.find((s) => s.title === title);

@@ -2,6 +2,8 @@ import { Schema, model } from 'mongoose';
 
 const cashBookEntrySchema = new Schema({
   userId:      { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  businessId:  { type: Schema.Types.ObjectId, ref: 'Business', index: true },
+  branch:      { type: String, trim: true, default: '', index: true },
   date:        { type: String, required: true, trim: true },
   particulars: { type: String, required: true, trim: true },
   vchType:     { type: String, required: true, trim: true },

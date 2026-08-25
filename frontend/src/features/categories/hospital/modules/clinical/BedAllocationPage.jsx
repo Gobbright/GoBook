@@ -6,21 +6,9 @@ import { todayISO } from '../../../shared/recordUi/dateUtils.js';
 
 const INPUT = 'h-10 w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[13px] font-[inherit] text-[#111827] outline-none focus:border-blue-500';
 const BED_STATUSES = ['Available', 'Reserved', 'Occupied', 'Cleaning', 'Maintenance', 'Blocked'];
-const DEMO_BEDS = [
-  { _id: 'demo-g201-b01', data: { name: 'B01', wardName: 'General Ward', roomName: 'G-201', floor: '2nd Floor', status: 'Occupied', patientName: 'Raj Kumar', ipdNo: 'IPD-2026-00182', dailyCharge: 1500, nursingCharge: 300 } },
-  { _id: 'demo-g201-b02', data: { name: 'B02', wardName: 'General Ward', roomName: 'G-201', floor: '2nd Floor', status: 'Available', dailyCharge: 1500, nursingCharge: 300 } },
-  { _id: 'demo-g202-b01', data: { name: 'B01', wardName: 'General Ward', roomName: 'G-202', floor: '2nd Floor', status: 'Cleaning', dailyCharge: 1500, nursingCharge: 300 } },
-  { _id: 'demo-g202-b02', data: { name: 'B02', wardName: 'General Ward', roomName: 'G-202', floor: '2nd Floor', status: 'Occupied', patientName: 'Priya S', ipdNo: 'IPD-2026-00181', dailyCharge: 1500, nursingCharge: 300 } },
-  { _id: 'demo-p105-b01', data: { name: 'B01', wardName: 'Private Ward', roomName: 'P-105', floor: '2nd Floor', status: 'Available', dailyCharge: 3000, nursingCharge: 500 } },
-  { _id: 'demo-icu-b01', data: { name: 'IC-04', wardName: 'ICU', roomName: 'ICU', floor: 'Ground Floor', status: 'Maintenance', dailyCharge: 7000, nursingCharge: 1500 } },
-];
-const DEMO_PATIENTS = [
-  { _id: 'demo-ipd-182', data: { patientName: 'Raj Kumar', patientId: 'GBH-00128', ipdNo: 'IPD-2026-00182', status: 'Admitted' } },
-  { _id: 'demo-ipd-180', data: { patientName: 'Karthik R', patientId: 'GBH-00180', ipdNo: 'IPD-2026-00180', status: 'Admitted' } },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function statusOf(value = '') {
@@ -37,7 +25,7 @@ function money(value) {
 }
 
 function displayIpd(value = '') {
-  const n = String(value || '').match(/(\d{3,})$/)?.[1];
+  const n = String(value || '-').match(/(\d{3,})$/)?.[1];
   return n ? `IPD-${n.slice(-4)}` : value;
 }
 
@@ -49,7 +37,7 @@ function bedName(data = {}) {
 
 function roomName(data = {}) {
   if (data.roomName || data.roomNumber || data.room) return data.roomName || data.roomNumber || data.room;
-  const raw = String(data.name || '');
+  const raw = String(data.name || '-');
   return raw.includes('/') ? raw.split('/')[0] : 'G-201';
 }
 
@@ -103,8 +91,8 @@ export function BedAllocationPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const bedRecords = beds.records.length ? beds.records : DEMO_BEDS;
-  const admissionRecords = admissions.records.length ? admissions.records : DEMO_PATIENTS;
+  const bedRecords = beds.records;
+  const admissionRecords = admissions.records;
   const wardOptions = useMemo(() => optionSet(bedRecords.map((record) => record.data?.wardName || record.data?.ward), ['General Ward', 'Private Ward', 'ICU']), [bedRecords]);
   const floorOptions = useMemo(() => optionSet(bedRecords.map((record) => record.data?.floor), ['Ground Floor', '1st Floor', '2nd Floor', '3rd Floor']), [bedRecords]);
 
@@ -130,14 +118,14 @@ export function BedAllocationPage() {
   }), [admissionRecords]);
 
   const selectedBed = filteredBeds.find((record) => record._id === selectedBedId) || null;
-  const selectedAdmission = admissionRecords.find((record) => record._id === selectedAdmissionId) || waitingAdmissions[0] || DEMO_PATIENTS[0];
+  const selectedAdmission = admissionRecords.find((record) => record._id === selectedAdmissionId) || waitingAdmissions[0] || null;
   const selectedBedData = selectedBed?.data || {};
   const selectedAdmissionData = selectedAdmission?.data || {};
   const canConfirm = selectedBed && isAllocatable(selectedBedData.status) && selectedAdmission;
 
   async function openAllocate(record) {
     setSelectedBedId(record._id);
-    setSelectedAdmissionId((waitingAdmissions[0] || selectedAdmission)?._id || '');
+    setSelectedAdmissionId((waitingAdmissions[0] || selectedAdmission)?._id || '-');
     setMessage('');
   }
 
@@ -151,14 +139,14 @@ export function BedAllocationPage() {
       const payload = {
         ...selectedBedData,
         status: 'Occupied',
-        patientName: selectedAdmissionData.patientName || 'Raj Kumar',
-        patientId: selectedAdmissionData.patientId || '',
-        ipdNo: selectedAdmissionData.ipdNo || selectedAdmissionData.admissionNo || '',
+        patientName: selectedAdmissionData.patientName || '-',
+        patientId: selectedAdmissionData.patientId || '-',
+        ipdNo: selectedAdmissionData.ipdNo || selectedAdmissionData.admissionNo || '-',
         allocationDate: todayISO(),
         allocationTime: new Date().toTimeString().slice(0, 5),
       };
-      if (!String(selectedBed._id).startsWith('demo-')) await beds.update(selectedBed._id, payload);
-      if (selectedAdmission && !String(selectedAdmission._id).startsWith('demo-')) {
+      await beds.update(selectedBed._id, payload);
+      if (selectedAdmission) {
         await admissions.update(selectedAdmission._id, {
           ...selectedAdmissionData,
           wardName: selectedBedData.wardName || ward,
@@ -172,9 +160,9 @@ export function BedAllocationPage() {
       await procedures.create({
         name: `Bed ${bedName(selectedBedData)} daily room charge`,
         procedure: `Bed ${bedName(selectedBedData)} daily room charge`,
-        patientName: selectedAdmissionData.patientName || 'Raj Kumar',
-        patientId: selectedAdmissionData.patientId || '',
-        ipdNo: selectedAdmissionData.ipdNo || selectedAdmissionData.admissionNo || '',
+        patientName: selectedAdmissionData.patientName || '-',
+        patientId: selectedAdmissionData.patientId || '-',
+        ipdNo: selectedAdmissionData.ipdNo || selectedAdmissionData.admissionNo || '-',
         department: 'IPD',
         date: todayISO(),
         charge: Number(selectedBedData.dailyCharge || 0) + Number(selectedBedData.nursingCharge || 0),
@@ -265,11 +253,11 @@ export function BedAllocationPage() {
             <div className="grid gap-4">
               <label className="text-[12px] font-extrabold uppercase text-[#536173]">Patient<select className={`${INPUT} mt-1`} value={selectedAdmissionId} onChange={(event) => setSelectedAdmissionId(event.target.value)}>
                 {waitingAdmissions.map((record) => <option key={record._id} value={record._id}>{record.data?.patientName || 'Patient'} - {record.data?.ipdNo || record.data?.admissionNo || 'IPD'}</option>)}
-                {waitingAdmissions.length === 0 && <option value={selectedAdmission?._id}>{selectedAdmissionData.patientName || 'Raj Kumar'} - {selectedAdmissionData.ipdNo || 'IPD-2026-00182'}</option>}
+                {waitingAdmissions.length === 0 && <option value={selectedAdmission?._id}>{selectedAdmissionData.patientName || '-'} - {selectedAdmissionData.ipdNo || '-'}</option>}
               </select></label>
 
               <div className="rounded-md border border-[#edf2f7] bg-[#f8fbff] p-4">
-                <div className="mb-3 flex items-center gap-2 text-[14px] font-extrabold text-[#071936]"><UserRound size={16} />{selectedAdmissionData.patientName || 'Raj Kumar'} - {selectedAdmissionData.ipdNo || 'IPD-2026-00182'}</div>
+                <div className="mb-3 flex items-center gap-2 text-[14px] font-extrabold text-[#071936]"><UserRound size={16} />{selectedAdmissionData.patientName || '-'} - {selectedAdmissionData.ipdNo || '-'}</div>
                 <div className="grid gap-2 text-[13px] font-semibold text-[#334155]">
                   <div className="flex justify-between"><span>Selected Bed</span><strong>{ward} / {roomName(selectedBedData)} / {bedName(selectedBedData)}</strong></div>
                   <div className="flex justify-between"><span>Daily Room Charge</span><strong>{money(selectedBedData.dailyCharge)}</strong></div>
@@ -295,3 +283,5 @@ export function BedAllocationPage() {
     </div>
   );
 }
+
+

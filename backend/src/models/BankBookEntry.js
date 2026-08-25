@@ -2,6 +2,8 @@ import { Schema, model } from 'mongoose';
 
 const bankBookEntrySchema = new Schema({
   userId:      { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  businessId:  { type: Schema.Types.ObjectId, ref: 'Business', index: true },
+  branch:      { type: String, trim: true, default: '', index: true },
   bank:        { type: String, required: true, trim: true },
   accountNo:   { type: String, trim: true, default: '' },
   ifsc:        { type: String, trim: true, uppercase: true, default: '' },

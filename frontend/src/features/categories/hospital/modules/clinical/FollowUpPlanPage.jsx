@@ -10,7 +10,7 @@ const PERIODS = ['3 Days', '5 Days', '7 Days', '10 Days', '14 Days', '30 Days'];
 const TESTS = ['CBC', 'Blood Sugar', 'X-Ray'];
 
 function normalizeStatus(status = '') {
-  return String(status || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return String(status || '-').trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
 function addDays(dateValue, days) {
@@ -20,14 +20,14 @@ function addDays(dateValue, days) {
 }
 
 function daysFromPeriod(value) {
-  return Number(String(value || '').replace(/\D/g, '')) || 7;
+  return Number(String(value || '-').replace(/\D/g, '')) || 7;
 }
 
 function nextOpdNo(records) {
   const year = new Date().getFullYear();
   const prefix = `OPD-${year}-`;
   const max = records.reduce((highest, record) => {
-    const raw = record.data?.opdNo || record.data?.visitNo || '';
+    const raw = record.data?.opdNo || record.data?.visitNo || '-';
     if (!String(raw).startsWith(prefix)) return highest;
     const n = Number(String(raw).slice(prefix.length));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
@@ -39,7 +39,7 @@ function nextAppointmentId(records) {
   const year = new Date().getFullYear();
   const prefix = `APT-${year}-`;
   const max = records.reduce((highest, record) => {
-    const raw = record.data?.appointmentId || '';
+    const raw = record.data?.appointmentId || '-';
     if (!String(raw).startsWith(prefix)) return highest;
     const n = Number(String(raw).slice(prefix.length));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
@@ -48,7 +48,7 @@ function nextAppointmentId(records) {
 }
 
 function phoneOf(data = {}) {
-  return data.patientPhone || data.phone || data.mobile || '';
+  return data.patientPhone || data.phone || data.mobile || '-';
 }
 
 function money(value) {
@@ -78,7 +78,7 @@ export function FollowUpPlanPage() {
   const [required, setRequired] = useState('Yes');
   const [period, setPeriod] = useState('7 Days');
   const [suggestedDate, setSuggestedDate] = useState(() => addDays(todayISO(), 7));
-  const [doctor, setDoctor] = useState('Dr. Arun Kumar');
+  const [doctor, setDoctor] = useState('');
   const [consultationType, setConsultationType] = useState('Follow-up');
   const [fee, setFee] = useState(300);
   const [reason, setReason] = useState('Review fever and CBC results');
@@ -117,8 +117,8 @@ export function FollowUpPlanPage() {
   const patientData = patient?.data || {};
   const visitData = activeVisit?.data || {};
   const appointmentData = activeAppointment?.data || {};
-  const patientName = visitData.patientName || appointmentData.patientName || patientData.name || 'Raj Kumar';
-  const patientId = visitData.patientId || appointmentData.patientId || patientData.patientId || 'GBH-00128';
+  const patientName = visitData.patientName || appointmentData.patientName || patientData.name || '-';
+  const patientId = visitData.patientId || appointmentData.patientId || patientData.patientId || '-';
   const currentOpdNo = visitData.opdNo || visitData.visitNo || appointmentData.opdNo || 'OPD-2026-00452';
   const doctorName = visitData.doctorName || appointmentData.doctorName || doctor;
   const nextOpd = nextOpdNo(opd.records);
@@ -130,7 +130,7 @@ export function FollowUpPlanPage() {
       ...schedules.records.map((record) => record.data?.doctorName).filter(Boolean),
       ...appointments.records.map((record) => record.data?.doctorName).filter(Boolean),
     ])].filter(Boolean);
-    return names.length ? names : ['Dr. Arun Kumar'];
+    return names;
   }, [appointments.records, doctorName, schedules.records]);
 
   useEffect(() => {
@@ -306,3 +306,4 @@ export function FollowUpPlanPage() {
     </div>
   );
 }
+

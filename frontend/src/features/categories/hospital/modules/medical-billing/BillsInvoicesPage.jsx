@@ -44,8 +44,8 @@ function normalizeServiceBill(record) {
     source: 'hospital/billing',
     invoiceNo: data.billNo || data.invoiceNo || 'INV-DRAFT',
     patient: data.patientName || 'Patient',
-    patientId: data.patientId || '',
-    mobile: data.mobile || data.phone || '',
+    patientId: data.patientId || '-',
+    mobile: data.mobile || data.phone || '-',
     type: data.billType || 'OPD',
     total,
     subtotal: Number(data.subtotal || 0),
@@ -57,10 +57,10 @@ function normalizeServiceBill(record) {
     status: statusOf(data),
     date: data.date || record.createdAt,
     visitNo: data.visitNo || '-',
-    doctor: data.doctorName || 'Dr. Arun Kumar',
+    doctor: data.doctorName || '-',
     department: data.department || 'General Medicine',
     items: data.services || [],
-    payments: paid > 0 ? [{ date: data.date, mode: data.paymentMode || 'Cash', amount: paid, reference: data.reference || '' }] : [],
+    payments: paid > 0 ? [{ date: data.date, mode: data.paymentMode || 'Cash', amount: paid, reference: data.reference || '-' }] : [],
     raw: data,
   };
 }
@@ -74,8 +74,8 @@ function normalizePharmacyBill(record) {
     source: 'hospital/pharmacy-billing',
     invoiceNo: data.billNo || 'PH-DRAFT',
     patient: data.patientName || data.customer?.name || 'Walk-in',
-    patientId: data.patientId || data.customer?.patientId || '',
-    mobile: data.customer?.phone || data.mobile || '',
+    patientId: data.patientId || data.customer?.patientId || '-',
+    mobile: data.customer?.phone || data.mobile || '-',
     type: 'Pharmacy',
     total,
     subtotal: Number(data.subtotal || 0),
@@ -138,7 +138,7 @@ function Button({ children, onClick, tone = 'white', disabled = false }) {
 }
 
 function InvoiceDetails({ invoice, onClose, onReceivePayment, onCancel }) {
-  const phone = String(invoice.mobile || '').replace(/\D/g, '');
+  const phone = String(invoice.mobile || '-').replace(/\D/g, '');
   const shareText = encodeURIComponent(`Invoice ${invoice.invoiceNo} for ${invoice.patient}: ${money(invoice.total)}`);
 
   return (
@@ -370,3 +370,4 @@ export function BillsInvoicesPage() {
     </div>
   );
 }
+

@@ -137,7 +137,19 @@ function genBarcode() {
   return Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
 }
 
+function optionName(value) {
+  return String(value?.name ?? value?.label ?? value ?? '').trim();
+}
+
+function optionNames(values = []) {
+  return [...new Set((Array.isArray(values) ? values : []).map(optionName).filter(Boolean))].sort();
+}
+
 function formatINR(v) { return '₹ ' + Number(v).toLocaleString('en-IN'); }
+
+function variantDisplayName(variant = {}) {
+  return String(variant.size || variant.modelName || '').trim();
+}
 
 const EditIcon = () => (
   <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13">
@@ -177,7 +189,8 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
   const isTextile = isRetail && !isService && form.itemGroup === 'Textile';
   const isElectronics = isRetail && !isService && form.itemGroup === 'Electronics';
   const genericGroupFields = !isService ? (GROUP_FIELDS[form.itemGroup] || []) : [];
-  const isMultiSize = isTextile && (form.variants || []).length > 0;
+  const isMultiVariant = !isService && (form.variants || []).length > 0;
+  const variantKind = isTextile ? 'size' : 'model';
   const variantTotalStock = (form.variants || []).reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
   const nameInputRef = useRef(null);
   const modalRef = useFocusTrap({ onClose, initialFocusRef: nameInputRef });
@@ -205,7 +218,7 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
         if (ownedFields.includes(field)) continue;
         cleared[field] = field === 'prescriptionRequired' ? false : '';
       }
-      return { ...f, ...cleared, itemGroup: grp, variants: grp === 'Textile' ? f.variants : [] };
+      return { ...f, ...cleared, itemGroup: grp };
     });
   }
 
@@ -214,7 +227,13 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
       ...f,
       variants: (f.variants || []).length
         ? f.variants
-        : [{ size: f.size || '', stock: Number(f.stock) || 0, minStockLevel: Number(f.minStockLevel) || 0 }],
+        : [{
+            size: f.itemGroup === 'Textile' ? f.size || '' : '',
+            modelName: f.itemGroup === 'Textile' ? '' : f.modelNumber || '',
+            rate: Number(f.rate) || 0,
+            stock: Number(f.stock) || 0,
+            minStockLevel: Number(f.minStockLevel) || 0,
+          }],
     }));
   }
 
@@ -228,7 +247,10 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
   }
 
   function addVariantRow() {
-    setForm((f) => ({ ...f, variants: [...(f.variants || []), { size: '', stock: 0, minStockLevel: 0 }] }));
+    setForm((f) => ({
+      ...f,
+      variants: [...(f.variants || []), { size: '', modelName: '', rate: Number(f.rate) || 0, stock: 0, minStockLevel: 0 }],
+    }));
   }
 
   function updateVariant(idx, field, value) {
@@ -265,13 +287,18 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.description.trim()) return setErr(`${isService ? 'Service' : 'Product'} name is required`);
-    if (!form.rate || Number(form.rate) < 0) return setErr('Valid sale price is required');
-    if (isMultiSize) {
-      const rows = form.variants.filter((v) => v.size.trim());
-      if (!rows.length) return setErr('Add at least one size row');
-      const sizesLower = rows.map((v) => v.size.trim().toLowerCase());
-      if (new Set(sizesLower).size !== sizesLower.length) return setErr('Size names must be unique');
-      if (rows.some((v) => Number(v.stock) < 0)) return setErr('Stock quantity must be 0 or more for every size');
+    const variantRows = isMultiVariant ? form.variants.filter((v) => variantDisplayName(v)) : [];
+    const firstVariantRate = variantRows.find((v) => Number(v.rate) > 0)?.rate;
+    const baseRate = Number(form.rate || firstVariantRate || 0);
+    if (form.rate && Number(form.rate) < 0) return setErr('Valid sale price is required');
+    if ((!isMultiVariant || !firstVariantRate) && (!form.rate || Number(form.rate) < 0)) return setErr('Valid sale price is required');
+    if (isMultiVariant) {
+      const rows = variantRows;
+      if (!rows.length) return setErr(`Add at least one ${variantKind} row`);
+      const keys = rows.map((v) => `${String(v.size || '').trim().toLowerCase()}|${String(v.modelName || '').trim().toLowerCase()}`);
+      if (new Set(keys).size !== keys.length) return setErr(`${variantKind === 'size' ? 'Size' : 'Model'} names must be unique`);
+      if (rows.some((v) => Number(v.stock) < 0)) return setErr(`Stock quantity must be 0 or more for every ${variantKind}`);
+      if (rows.some((v) => Number(v.rate) < 0)) return setErr(`Sale price must be 0 or more for every ${variantKind}`);
     }
     setSaving(true);
     setErr('');
@@ -280,13 +307,20 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
         ...form,
         itemType: isService ? 'Service' : 'Product',
         code: form.code?.trim() || nextCode || '',
-        rate: Number(form.rate),
-        stock: isService ? 0 : Number(form.stock),
+        rate: baseRate,
+        stock: isService ? 0 : (isMultiVariant ? variantTotalStock : Number(form.stock)),
         minStockLevel: isService ? 0 : Number(form.minStockLevel),
-        variants: isMultiSize
+        variants: isMultiVariant
           ? form.variants
-              .filter((v) => v.size.trim())
-              .map((v) => ({ size: v.size.trim(), stock: Number(v.stock) || 0, minStockLevel: Number(v.minStockLevel) || 0 }))
+              .filter((v) => variantDisplayName(v))
+              .map((v) => ({
+                size: String(v.size || '').trim(),
+                modelName: String(v.modelName || '').trim(),
+                rate: Number(v.rate) || 0,
+                barcode: String(v.barcode || '').trim(),
+                stock: Number(v.stock) || 0,
+                minStockLevel: Number(v.minStockLevel) || 0,
+              }))
           : [],
         gstRate: Number(form.gstRate),
       };
@@ -372,7 +406,7 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
             )}
             {isTextile && (
               <>
-                {!isMultiSize && (
+                {!isMultiVariant && (
                   <div>
                     <label className={LABEL}>Size</label>
                     <AutocompleteInput value={form.size || ''} onChange={(v) => set('size', v)} options={sizes} placeholder="e.g. M, L, XL" />
@@ -450,8 +484,8 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
               <SelectDropdown value={form.unit} onChange={(v) => set('unit', v)} options={UNITS} />
             </div>
             <div>
-              <label className={LABEL}>Sale Price (₹) *</label>
-              <input className={INPUT} type="number" min="0" step="0.01" value={form.rate} onChange={(e) => set('rate', e.target.value)} placeholder="0.00" />
+              <label className={LABEL}>Sale Price (₹){isMultiVariant ? '' : ' *'}</label>
+              <input className={INPUT} type="number" min="0" step="0.01" value={form.rate} onChange={(e) => set('rate', e.target.value)} placeholder={isMultiVariant ? 'Optional when model prices are entered' : '0.00'} />
             </div>
             <div>
               <label className={LABEL}>GST Rate (%)</label>
@@ -461,16 +495,16 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
                 options={GST_RATES.map((r) => ({ value: r, label: `${r}%` }))}
               />
             </div>
-            {!isService && isTextile && (
+            {!isService && isRetail && (
               <div className="sm:col-span-2">
                 <label className={LABEL}>Stock Tracking</label>
                 <div className={TOGGLE_WRAP} onKeyDown={(e) => handleToggleArrowKeys(e, selectStockMode)}>
-                  <button type="button" className={toggleBtnClass(!isMultiSize)} onClick={() => selectStockMode(0)}>Single Size</button>
-                  <button type="button" className={toggleBtnClass(isMultiSize)} onClick={() => selectStockMode(1)}>Multiple Sizes</button>
+                  <button type="button" className={toggleBtnClass(!isMultiVariant)} onClick={() => selectStockMode(0)}>{isTextile ? 'Single Size' : 'Single Model'}</button>
+                  <button type="button" className={toggleBtnClass(isMultiVariant)} onClick={() => selectStockMode(1)}>{isTextile ? 'Multiple Sizes' : 'Multiple Models'}</button>
                 </div>
               </div>
             )}
-            {!isService && !isMultiSize && (
+            {!isService && !isMultiVariant && (
               <>
                 <div>
                   <label className={LABEL}>{mode === 'add' ? 'Opening Stock' : 'Current Stock'}</label>
@@ -494,25 +528,38 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
                 </div>
               </>
             )}
-            {!isService && isMultiSize && (
+            {!isService && isMultiVariant && (
               <div className="sm:col-span-2 border border-[#dbe4ef] rounded-md p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[12px] font-medium text-[#374151]">Sizes & Quantity</span>
+                  <span className="text-[12px] font-medium text-[#374151]">{isTextile ? 'Sizes & Quantity' : 'Models & Quantity'}</span>
                   <span className="text-[12px] text-[#536173]">Total stock: {variantTotalStock}</span>
                 </div>
-                <div className="flex gap-2 text-[11px] font-medium text-[#536173] mb-1 px-0.5">
-                  <div className="flex-1">Size</div>
-                  <div className="w-20">Qty</div>
-                  <div className="w-24">Min Stock</div>
+                <div className={`${isTextile ? 'grid grid-cols-[1fr_80px_96px_36px]' : 'hidden sm:grid sm:grid-cols-[1.8fr_88px_80px_96px_36px]'} gap-2 text-[11px] font-medium text-[#536173] mb-1 px-0.5`}>
+                  <div>{isTextile ? 'Size' : 'Model Name'}</div>
+                  {!isTextile && <div>Sale Price</div>}
+                  <div>Qty</div>
+                  <div>Min Stock</div>
                   <div className="w-9" />
                 </div>
                 <div className="flex flex-col gap-2">
                   {form.variants.map((v, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <div className="flex-1">
-                        <input className={INPUT} value={v.size} onChange={(e) => updateVariant(idx, 'size', e.target.value)} placeholder="e.g. M" list="size-list" />
-                      </div>
-                      <div className="w-20">
+                    <div key={idx} className={`grid ${isTextile ? 'grid-cols-[1fr_80px_96px_36px]' : 'grid-cols-2 sm:grid-cols-[1.8fr_88px_80px_96px_36px]'} gap-2 items-end`}>
+                      {isTextile ? (
+                        <input className={INPUT} value={v.size || ''} onChange={(e) => updateVariant(idx, 'size', e.target.value)} placeholder="e.g. M" list="size-list" />
+                      ) : (
+                        <>
+                          <label className="col-span-2 sm:col-span-1">
+                            <span className="sm:hidden block text-[10px] font-semibold uppercase text-[#536173] mb-1">Model Name</span>
+                            <input className={INPUT} value={v.modelName || ''} onChange={(e) => updateVariant(idx, 'modelName', e.target.value)} placeholder="e.g. Crystal UHD, QLED" />
+                          </label>
+                          <label>
+                            <span className="sm:hidden block text-[10px] font-semibold uppercase text-[#536173] mb-1">Sale Price</span>
+                            <input className={INPUT} type="number" min="0" step="0.01" value={v.rate ?? ''} onChange={(e) => updateVariant(idx, 'rate', e.target.value)} placeholder={form.rate || '0.00'} />
+                          </label>
+                        </>
+                      )}
+                      <label>
+                        {!isTextile && <span className="sm:hidden block text-[10px] font-semibold uppercase text-[#536173] mb-1">Qty</span>}
                         <input
                           className={`${INPUT} ${mode === 'edit' ? 'bg-[#f8fafc] text-[#94a3b8] cursor-not-allowed' : ''}`}
                           type="number"
@@ -521,17 +568,18 @@ function ProductModal({ mode, initial, nextCode, initialBarcode = '', categories
                           disabled={mode === 'edit'}
                           onChange={(e) => updateVariant(idx, 'stock', e.target.value)}
                         />
-                      </div>
-                      <div className="w-24">
+                      </label>
+                      <label>
+                        {!isTextile && <span className="sm:hidden block text-[10px] font-semibold uppercase text-[#536173] mb-1">Min Stock</span>}
                         <input className={INPUT} type="number" min="0" value={v.minStockLevel} onChange={(e) => updateVariant(idx, 'minStockLevel', e.target.value)} />
-                      </div>
-                      <button type="button" onClick={() => removeVariant(idx)} className="w-9 h-9 flex items-center justify-center rounded hover:bg-red-50 text-red-400 bg-transparent border border-[#dbe4ef] cursor-pointer flex-none" title="Remove size">
+                      </label>
+                      <button type="button" onClick={() => removeVariant(idx)} className="w-9 h-9 flex items-center justify-center rounded hover:bg-red-50 text-red-400 bg-transparent border border-[#dbe4ef] cursor-pointer flex-none" title={`Remove ${variantKind}`}>
                         <TrashIcon />
                       </button>
                     </div>
                   ))}
                 </div>
-                <button type="button" onClick={addVariantRow} className="mt-2 px-3 py-1.5 text-[12px] font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-md cursor-pointer hover:bg-blue-100 font-[inherit]">+ Add Size</button>
+                <button type="button" onClick={addVariantRow} className="mt-2 px-3 py-1.5 text-[12px] font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-md cursor-pointer hover:bg-blue-100 font-[inherit]">+ Add {isTextile ? 'Size' : 'Model'}</button>
                 {mode === 'edit' && (
                   <p className="text-[11px] text-[#94a3b8] mt-2">
                     Quantities are set once as opening stock. Add more via <a href="/billing/purchase-entry/new" className="text-blue-600 hover:underline">Purchase Entry</a> or correct via <a href="/stock-in" className="text-blue-600 hover:underline">Stock In / Out</a>.
@@ -601,11 +649,11 @@ export function ProductsPage() {
   }
 
   function loadCategories() {
-    api.invProductCategories().then((cats) => setCategories(['All Categories', ...cats])).catch(() => {});
+    api.invProductCategories().then((cats) => setCategories(['All Categories', ...optionNames(cats)])).catch(() => {});
   }
 
   function loadBrands() {
-    api.invProductBrands().then(setBrands).catch(() => {});
+    api.invProductBrands().then((rows) => setBrands(optionNames(rows))).catch(() => {});
   }
 
   function loadSizes() {
@@ -951,7 +999,21 @@ export function ProductsPage() {
                 <tr><td colSpan={10} className="px-5 py-8 text-center text-[13px] text-[#536173]">No items found</td></tr>
               ) : products.map((row, idx) => (
                 <tr key={row._id} className={`hover:bg-gray-50 ${highlightedIndex === idx ? 'bg-[#eef4fd]' : ''}`}>
-                  <td className={`${TD} font-medium text-[#111827]`}>{row.description}</td>
+                  <td className={`${TD} font-medium text-[#111827]`}>
+                    <div>{row.description}</div>
+                    {Array.isArray(row.variants) && row.variants.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {row.variants.slice(0, 3).map((variant) => (
+                          <span key={variant._id || variantDisplayName(variant)} className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-semibold text-slate-600">
+                            {variantDisplayName(variant)}: {Number(variant.stock || 0)}
+                          </span>
+                        ))}
+                        {row.variants.length > 3 && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-semibold text-slate-600">+{row.variants.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td className={TD}>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${row.itemType === 'Service' ? 'bg-cyan-100 text-cyan-700' : 'bg-blue-100 text-blue-700'}`}>{row.itemType || 'Product'}</span>
                   </td>

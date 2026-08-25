@@ -1,12 +1,12 @@
 import { redirectTo } from '../../routes/navigation.js';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
 
 import { login, startGoogleOtpLogin, verifyGoogleOtpLogin } from '../../services/authService.js';
 import { renderGoogleSignInButton } from '../../services/googleAuth.js';
 import { AuthLayout } from './AuthLayout.jsx';
-import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
+import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, GoogleIcon, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
 import { LaunchExperience } from './LaunchExperience.jsx';
 
 export function LoginPage() {
@@ -17,6 +17,8 @@ export function LoginPage() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [googleButtonReady, setGoogleButtonReady] = useState(false);
+  const [googleButtonError, setGoogleButtonError] = useState('');
   const [googleOtpMode, setGoogleOtpMode] = useState(false);
   const [googleOtp, setGoogleOtp] = useState('');
   const [googleCredential, setGoogleCredential] = useState('');
@@ -26,6 +28,9 @@ export function LoginPage() {
   useEffect(() => {
     if (googleOtpMode || !googleButtonRef.current) return undefined;
     let active = true;
+
+    setGoogleButtonReady(false);
+    setGoogleButtonError('');
 
     renderGoogleSignInButton(
       googleButtonRef.current,
@@ -57,11 +62,26 @@ export function LoginPage() {
         }
       },
       (err) => {
-        if (active) setError(err.message || 'Unable to open Google sign-in.');
+        if (active) {
+          const nextError = err.message || 'Unable to open Google sign-in.';
+          setGoogleButtonError(nextError);
+          setError(nextError);
+        }
       },
-    ).catch((err) => {
-      if (active) setError(err.message || 'Unable to load Google sign-in.');
-    });
+    )
+      .then(() => {
+        window.requestAnimationFrame(() => {
+          if (!active || !googleButtonRef.current) return;
+          setGoogleButtonReady(Boolean(googleButtonRef.current.querySelector('iframe')));
+        });
+      })
+      .catch((err) => {
+        if (active) {
+          const nextError = err.message || 'Unable to load Google sign-in.';
+          setGoogleButtonError(nextError);
+          setError(nextError);
+        }
+      });
 
     return () => {
       active = false;
@@ -129,20 +149,20 @@ export function LoginPage() {
 
   return (
     <LaunchExperience>
-      <AuthLayout compact cardMaxWidth={400}>
-        <div className="text-center mb-4 sm:mb-5">
-          <div className="hidden sm:flex justify-center mb-2.5">
+      <AuthLayout compact cardMaxWidth={500}>
+        <div className="auth-login-heading text-center mb-4 sm:mb-5">
+          <div className="auth-login-card-logo hidden sm:flex justify-center mb-2.5">
             <div className="inline-flex bg-white rounded-xl px-3.5 py-2">
               <img src="/gobook-logo-full.png" alt="GoBook" className="h-8 w-auto object-contain" />
             </div>
           </div>
           <h2 className={`text-[20px] sm:text-[21px] font-bold m-0 mb-1 ${HEADING}`}>Welcome back!</h2>
           <p className={`text-[12px] sm:text-[12.5px] m-0 mb-2 ${SUBTEXT}`}>{googleOtpMode ? 'Verify OTP to continue' : 'Sign in to continue to your account'}</p>
-          <div className="w-10 h-[3px] mx-auto rounded-full" style={{ background: '#4f90ff' }} />
+          <div className="auth-login-indicator" aria-hidden="true"><span /><b /><span /></div>
         </div>
 
         {!googleOtpMode && (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <form onSubmit={handleSubmit} className="auth-login-form flex flex-col gap-3">
             <div>
               <label htmlFor="email" className={LABEL}>Email Address</label>
               <div className="relative">
@@ -168,18 +188,26 @@ export function LoginPage() {
             {error && <div className={`rounded-xl px-4 py-2.5 ${ERROR_BOX}`}><span className={`text-[12.5px] ${ERROR_TEXT}`}>{error}</span></div>}
             {message && <div className="rounded-xl px-4 py-2.5 bg-emerald-50 text-emerald-700 text-[12.5px] border border-emerald-100">{message}</div>}
 
-            <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3 text-white font-bold text-[14px] border-0 cursor-pointer transition-all duration-150 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed mt-1" style={{ background: 'linear-gradient(135deg, #4f90ff 0%, #6366f1 100%)', boxShadow: '0 6px 24px -4px rgba(79,144,255,0.55)' }}>
+            <button type="submit" disabled={submitting} className="auth-cyber-submit w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3 text-white font-bold text-[14px] border-0 cursor-pointer transition-all duration-150 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed mt-1" style={{ background: 'linear-gradient(135deg, #4f90ff 0%, #6366f1 100%)', boxShadow: '0 6px 24px -4px rgba(79,144,255,0.55)' }}>
               <ArrowRight size={18} />{submitting ? 'Signing in...' : 'Sign In'}
             </button>
 
-            <div className="flex items-center gap-3 my-0">
+            <div className="auth-login-divider flex items-center gap-3 my-0">
               <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
               <span className="text-[11.5px] font-medium text-slate-400 dark:text-slate-500">or continue with</span>
               <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
             </div>
 
-            <div className={`relative min-h-10 w-full overflow-hidden rounded-md [&>div]:w-full ${googleSubmitting ? 'pointer-events-none opacity-60' : ''}`}>
-              <div ref={googleButtonRef} className="w-full flex justify-center" />
+            <div className={`auth-cyber-google relative min-h-10 w-full overflow-hidden rounded-md [&>div]:w-full ${googleSubmitting ? 'pointer-events-none opacity-60' : ''} ${googleButtonReady ? 'is-ready' : ''}`}>
+              <button
+                type="button"
+                className="auth-google-fallback"
+                onClick={() => setError(googleButtonError || 'Google sign-in is still loading. Please try again in a moment.')}
+              >
+                <GoogleIcon />
+                <span>Sign in with Google</span>
+              </button>
+              <div ref={googleButtonRef} className="auth-google-native w-full flex justify-center" />
               {googleSubmitting && <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-800/80 text-[13px] font-semibold text-slate-600 dark:text-slate-200">Sending OTP...</div>}
             </div>
           </form>
@@ -206,8 +234,12 @@ export function LoginPage() {
           </form>
         )}
 
-        <p className={`text-center text-[12px] mt-3 mb-0 ${MUTED}`}>Don&apos;t have an account? <Link to="/register" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>Create Account</Link></p>
-        <div className="text-center mt-2"><Link to="/admin-login" className="text-[12px] font-bold no-underline hover:underline" style={{ color: '#334155' }}>Admin Panel</Link></div>
+        <p className={`auth-login-register text-center text-[12px] mt-3 mb-0 ${MUTED}`}>Don&apos;t have an account? <Link to="/register" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>Create Account</Link></p>
+        <div className="auth-admin-panel-row text-center mt-2">
+          <Link to="/admin-login" className="auth-admin-panel-link text-[12px] font-bold no-underline hover:underline" style={{ color: '#334155' }}>
+            <ShieldCheck className="auth-admin-panel-icon" size={15} /> <span>Admin Panel</span>
+          </Link>
+        </div>
       </AuthLayout>
     </LaunchExperience>
   );

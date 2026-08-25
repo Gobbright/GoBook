@@ -21,14 +21,14 @@ const DEFAULT_LINES = [
 ];
 
 function normalizeStatus(status = '') {
-  return String(status || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return String(status || '-').trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
 function nextRxNo(records) {
   const year = new Date().getFullYear();
   const prefix = `RX-${year}-`;
   const max = records.reduce((highest, record) => {
-    const raw = record.data?.prescriptionNo || record.data?.rxNo || '';
+    const raw = record.data?.prescriptionNo || record.data?.rxNo || '-';
     if (!String(raw).startsWith(prefix)) return highest;
     const n = Number(String(raw).slice(prefix.length));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
@@ -56,8 +56,8 @@ function Button({ children, onClick, tone = 'white', disabled = false }) {
 
 function emptyLine(seed = {}) {
   return {
-    medicine: seed.name || '',
-    generic: seed.generic || '',
+    medicine: seed.name || '-',
+    generic: seed.generic || '-',
     dosage: seed.dosage || '500mg',
     frequency: seed.frequency || '1-0-1',
     duration: seed.duration || '5 Days',
@@ -112,9 +112,9 @@ export function PrescriptionPage() {
   const patientData = patient?.data || {};
   const visitData = activeVisit?.data || {};
   const appointmentData = activeAppointment?.data || {};
-  const patientName = visitData.patientName || appointmentData.patientName || patientData.name || 'Raj Kumar';
-  const patientId = visitData.patientId || appointmentData.patientId || patientData.patientId || 'GBH-00128';
-  const doctorName = visitData.doctorName || appointmentData.doctorName || 'Dr. Arun Kumar';
+  const patientName = visitData.patientName || appointmentData.patientName || patientData.name || '-';
+  const patientId = visitData.patientId || appointmentData.patientId || patientData.patientId || '-';
+  const doctorName = visitData.doctorName || appointmentData.doctorName || '-';
   const opdNo = visitData.opdNo || visitData.visitNo || appointmentData.opdNo || 'OPD-2026-00452';
   const diagnosis = visitData.diagnosis || visitData.diagnoses?.[0]?.name || 'Viral Fever';
   const rxNo = nextRxNo(prescriptions.records);
@@ -124,7 +124,7 @@ export function PrescriptionPage() {
       .filter((record) => record.data?.patientName === patientName && record.data?.category === 'Allergies')
       .map((record) => record.data?.allergy)
       .filter(Boolean);
-    const basics = String(patientData.knownAllergies || '').split(',').map((item) => item.trim()).filter(Boolean);
+    const basics = String(patientData.knownAllergies || '-').split(',').map((item) => item.trim()).filter(Boolean);
     return [...new Set([...structured, ...basics])];
   }, [history.records, patientData.knownAllergies, patientName]);
 
@@ -164,7 +164,7 @@ export function PrescriptionPage() {
         rxNo,
         opdNo,
         visitNo: opdNo,
-        appointmentId: visitData.appointmentId || appointmentData.appointmentId || '',
+        appointmentId: visitData.appointmentId || appointmentData.appointmentId || '-',
         patientName,
         patientId,
         doctorName,
@@ -330,3 +330,4 @@ export function PrescriptionPage() {
     </div>
   );
 }
+

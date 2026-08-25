@@ -72,17 +72,17 @@ export function calcDocumentAmounts(doc = {}, includeGst = true) {
   return { taxable, gst, total };
 }
 
-async function ensureLedger(userId, name, group) {
+async function ensureLedger(userId, businessId, branch, name, group) {
   await LedgerAccount.updateOne(
     { userId, name },
-    { $setOnInsert: { userId, name, group, opening: 0, debit: 0, credit: 0, color: '#2563eb' } },
+    { $setOnInsert: { userId, businessId, branch, name, group, opening: 0, debit: 0, credit: 0, color: '#2563eb' } },
     { upsert: true },
   );
 }
 
-async function applyLine(userId, line, multiplier = 1) {
+async function applyLine(userId, businessId, branch, line, multiplier = 1) {
   if (!line.amount || line.amount <= 0) return;
-  await ensureLedger(userId, line.accountName, line.group);
+  await ensureLedger(userId, businessId, branch, line.accountName, line.group);
   await LedgerAccount.updateOne(
     { userId, name: line.accountName },
     { $inc: { [line.side]: money(line.amount * multiplier) } },
@@ -94,7 +94,7 @@ async function reverseExistingPosting({ userId, sourceType, sourceId }) {
   if (!existing) return;
 
   for (const line of existing.lines || []) {
-    await applyLine(userId, line, -1);
+    await applyLine(userId, existing.businessId, existing.branch, line, -1);
   }
 
   if (existing.journalEntryNos?.length) {
@@ -110,7 +110,7 @@ async function reverseExistingPosting({ userId, sourceType, sourceId }) {
   await AccountingPosting.deleteOne({ _id: existing._id, userId });
 }
 
-async function savePosting({ userId, businessId, sourceType, sourceId, sourceNumber, date, narration, lines, bookEntries = [], voucherType = 'Journal', partyName = '' }) {
+async function savePosting({ userId, businessId, branch = '', sourceType, sourceId, sourceNumber, date, narration, lines, bookEntries = [], voucherType = 'Journal', partyName = '' }) {
   await reverseExistingPosting({ userId, sourceType, sourceId });
 
   const validLines = lines.filter((line) => line.amount > 0).map((line) => ({ ...line, amount: money(line.amount) }));
@@ -123,12 +123,14 @@ async function savePosting({ userId, businessId, sourceType, sourceId, sourceNum
 
   try {
     for (const line of validLines) {
-      await applyLine(userId, line, 1);
+      await applyLine(userId, businessId, branch, line, 1);
       appliedLines.push(line);
     }
 
     await JournalEntry.create({
       userId,
+      businessId,
+      branch,
       date: date || new Date().toISOString().slice(0, 10),
       entryNo: voucherNo,
       particulars: narration,
@@ -143,6 +145,8 @@ async function savePosting({ userId, businessId, sourceType, sourceId, sourceNum
       const vchNo = entry.vchNo || voucherNo;
       const common = {
         userId,
+        businessId,
+        branch,
         sourceType,
         sourceId,
         isAuto: true,
@@ -179,6 +183,7 @@ async function savePosting({ userId, businessId, sourceType, sourceId, sourceNum
 
     const voucher = await upsertSourceVoucher({
       businessId,
+      branch,
       voucherType,
       voucherNo,
       date: date || new Date().toISOString().slice(0, 10),
@@ -202,6 +207,7 @@ async function savePosting({ userId, businessId, sourceType, sourceId, sourceNum
     return AccountingPosting.create({
       userId,
       businessId,
+      branch,
       sourceType,
       sourceId,
       sourceNumber,
@@ -215,7 +221,7 @@ async function savePosting({ userId, businessId, sourceType, sourceId, sourceNum
     });
   } catch (err) {
     for (const line of appliedLines) {
-      await applyLine(userId, line, -1);
+      await applyLine(userId, businessId, branch, line, -1);
     }
     await JournalEntry.deleteOne({ userId, entryNo: voucherNo });
     await CashBookEntry.deleteMany({ userId, vchNo: voucherNo, isAuto: true });
@@ -243,6 +249,7 @@ export async function postInvoiceAccounting(invoice, user) {
   return savePosting({
     userId: user.id,
     businessId: user.businessId,
+    branch: invoice.branch || user.branch || '',
     sourceType: 'invoice',
     sourceId: invoice._id,
     sourceNumber: invoice.number,
@@ -270,6 +277,7 @@ export async function postCreditNoteAccounting(note, user) {
   return savePosting({
     userId: user.id,
     businessId: user.businessId,
+    branch: note.branch || user.branch || '',
     sourceType: 'credit-note',
     sourceId: note._id,
     sourceNumber: note.number,
@@ -297,6 +305,7 @@ export async function postSalesReturnAccounting(note, user) {
   return savePosting({
     userId: user.id,
     businessId: user.businessId,
+    branch: note.branch || user.branch || '',
     sourceType: 'sales-return',
     sourceId: note._id,
     sourceNumber: note.number,
@@ -324,6 +333,7 @@ export async function postDebitNoteAccounting(note, user) {
   return savePosting({
     userId: user.id,
     businessId: user.businessId,
+    branch: note.branch || user.branch || '',
     sourceType: 'debit-note',
     sourceId: note._id,
     sourceNumber: note.number,
@@ -352,6 +362,7 @@ export async function postPurchaseEntryAccounting(invoice, user) {
   return savePosting({
     userId: user.id,
     businessId: user.businessId,
+    branch: invoice.branch || user.branch || '',
     sourceType: 'purchase-entry',
     sourceId: invoice._id,
     sourceNumber: invoice.number,
@@ -379,6 +390,7 @@ export async function postSupplierReturnAccounting(note, user) {
   return savePosting({
     userId: user.id,
     businessId: user.businessId,
+    branch: note.branch || user.branch || '',
     sourceType: 'supplier-return',
     sourceId: note._id,
     sourceNumber: note.number,
@@ -408,6 +420,7 @@ export async function postPaymentAccounting(payment, invoice, user) {
   return savePosting({
     userId: user.id,
     businessId: user.businessId,
+    branch: payment.branch || invoice?.branch || user.branch || '',
     sourceType: 'payment',
     sourceId: payment._id,
     sourceNumber: `${payment.invoiceNumber || invoice?.number || 'PAY'}-${String(payment._id).slice(-6)}`,

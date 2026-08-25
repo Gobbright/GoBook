@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 // Replaces `<input list="..."> + <datalist>` — same native-popup text-size
 // problem as <select> (see SelectDropdown.jsx), but for a free-text field with
 // suggestions rather than a closed set of choices.
-export function AutocompleteInput({ value, onChange, options = [], placeholder = '', className = '', inputClassName = '', maxLength, icon = null, onKeyDown, onFocus, ...inputProps }) {
+export function AutocompleteInput({ value, onChange, options = [], placeholder = '', className = '', inputClassName = '', maxLength, icon = null, onKeyDown, onFocus, dropDirection = 'auto', ...inputProps }) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
   const [dropUp, setDropUp] = useState(false);
@@ -32,7 +32,11 @@ export function AutocompleteInput({ value, onChange, options = [], placeholder =
   // below it (it gets silently clipped instead of shown). Flip it above the
   // field whenever there isn't enough space underneath.
   function openDropdown() {
-    if (ref.current) {
+    if (dropDirection === 'down') {
+      setDropUp(false);
+    } else if (dropDirection === 'up') {
+      setDropUp(true);
+    } else if (ref.current) {
       const rect = ref.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       setDropUp(spaceBelow < 240 && rect.top > spaceBelow);

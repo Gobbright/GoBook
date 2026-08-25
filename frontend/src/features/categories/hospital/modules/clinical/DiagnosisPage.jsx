@@ -18,14 +18,14 @@ const SUGGESTIONS = [
 ];
 
 function normalizeStatus(status = '') {
-  return String(status || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return String(status || '-').trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
 function nextOpdNo(records) {
   const year = new Date().getFullYear();
   const prefix = `OPD-${year}-`;
   const max = records.reduce((highest, record) => {
-    const raw = record.data?.opdNo || record.data?.visitNo || '';
+    const raw = record.data?.opdNo || record.data?.visitNo || '-';
     if (!String(raw).startsWith(prefix)) return highest;
     const n = Number(String(raw).slice(prefix.length));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
@@ -93,9 +93,9 @@ export function DiagnosisPage() {
   const patientData = patient?.data || {};
   const visitData = activeVisit?.data || {};
   const appointmentData = activeAppointment?.data || {};
-  const patientName = visitData.patientName || appointmentData.patientName || patientData.name || 'Raj Kumar';
-  const patientId = visitData.patientId || appointmentData.patientId || patientData.patientId || 'GBH-00128';
-  const doctorName = visitData.doctorName || appointmentData.doctorName || 'Dr. Arun Kumar';
+  const patientName = visitData.patientName || appointmentData.patientName || patientData.name || '-';
+  const patientId = visitData.patientId || appointmentData.patientId || patientData.patientId || '-';
+  const doctorName = visitData.doctorName || appointmentData.doctorName || '-';
   const opdNo = visitData.opdNo || visitData.visitNo || appointmentData.opdNo || nextOpdNo(opd.records);
 
   const filteredSuggestions = useMemo(() => {
@@ -105,7 +105,7 @@ export function DiagnosisPage() {
 
   function addDiagnosis(item = {}) {
     const hasPrimary = diagnoses.some((diagnosis) => diagnosis.type === 'Primary');
-    setDiagnoses([...diagnoses, { ...emptyDiagnosis(item.name || '', item.icdCode || ''), type: hasPrimary ? 'Secondary' : 'Primary' }]);
+    setDiagnoses([...diagnoses, { ...emptyDiagnosis(item.name || '-', item.icdCode || '-'), type: hasPrimary ? 'Secondary' : 'Primary' }]);
   }
 
   function updateDiagnosis(index, key, value) {
@@ -124,7 +124,7 @@ export function DiagnosisPage() {
         name: `Diagnosis - ${patientName}`,
         opdNo,
         visitNo: opdNo,
-        appointmentId: visitData.appointmentId || appointmentData.appointmentId || '',
+        appointmentId: visitData.appointmentId || appointmentData.appointmentId || '-',
         patientName,
         patientId,
         doctorName,
@@ -248,3 +248,4 @@ export function DiagnosisPage() {
     </div>
   );
 }
+

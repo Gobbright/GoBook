@@ -7,7 +7,7 @@ import { todayISO } from '../shared/recordUi/dateUtils.js';
 const INPUT = 'h-10 w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[13px] font-[inherit] text-[#111827] outline-none focus:border-blue-500';
 const DEPARTMENTS = ['General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics', 'Gynecology', 'Dermatology'];
 const DOCTORS_BY_DEPARTMENT = {
-  'General Medicine': ['Dr. Arun Kumar', 'Dr. Meera Nair'],
+  'General Medicine': ['', 'Dr. Meera Nair'],
   Cardiology: ['Dr. Suresh Babu', 'Dr. Kavitha Rao'],
   Orthopedics: ['Dr. Naveen Raj'],
   Pediatrics: ['Dr. Anitha Menon'],
@@ -21,14 +21,14 @@ const SLOT_GROUPS = {
 };
 
 function phoneOf(data = {}) {
-  return data.phone || data.mobile || '';
+  return data.phone || data.mobile || '-';
 }
 
 function nextAppointmentId(records) {
   const year = new Date().getFullYear();
   const prefix = `APT-${year}-`;
   const max = records.reduce((highest, record) => {
-    const raw = record.data?.appointmentId || '';
+    const raw = record.data?.appointmentId || '-';
     if (!String(raw).startsWith(prefix)) return highest;
     const n = Number(String(raw).slice(prefix.length));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
@@ -38,7 +38,7 @@ function nextAppointmentId(records) {
 
 function nextReceiptNo(records) {
   const max = records.reduce((highest, record) => {
-    const n = Number(String(record.data?.receiptNo || '').replace(/\D/g, ''));
+    const n = Number(String(record.data?.receiptNo || '-').replace(/\D/g, ''));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
   }, 200);
   return `REC-${String(max + 1).padStart(3, '0')}`;
@@ -54,7 +54,7 @@ function dayName(value) {
 }
 
 function toMinutes(time) {
-  const [hour, minute] = String(time || '').split(':').map(Number);
+  const [hour, minute] = String(time || '-').split(':').map(Number);
   return (hour || 0) * 60 + (minute || 0);
 }
 
@@ -65,7 +65,7 @@ function fromMinutes(total) {
 }
 
 function durationMinutes(label) {
-  return Number(String(label || '').replace(/\D/g, '')) || 15;
+  return Number(String(label || '-').replace(/\D/g, '')) || 15;
 }
 
 function slotsFromSchedule(schedule, date) {
@@ -109,7 +109,7 @@ export function BookAppointmentPage() {
   const [showPatients, setShowPatients] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [department, setDepartment] = useState('General Medicine');
-  const [doctor, setDoctor] = useState('Dr. Arun Kumar');
+  const [doctor, setDoctor] = useState('');
   const [date, setDate] = useState(query.get('date') || todayISO());
   const [slot, setSlot] = useState(query.get('time') || '09:00');
   const [visitType, setVisitType] = useState('Consultation');
@@ -152,7 +152,7 @@ export function BookAppointmentPage() {
 
   function selectPatient(record) {
     setSelectedPatientId(record._id);
-    setSearch(record.data?.name || '');
+    setSearch(record.data?.name || '-');
     setShowPatients(false);
   }
 
@@ -160,7 +160,7 @@ export function BookAppointmentPage() {
     setSearch('');
     setSelectedPatientId('');
     setDepartment('General Medicine');
-    setDoctor('Dr. Arun Kumar');
+    setDoctor('');
     setDate(todayISO());
     setSlot('09:00');
     setVisitType('Consultation');
@@ -186,8 +186,8 @@ export function BookAppointmentPage() {
     const data = selectedPatient.data || {};
     const payload = {
       appointmentId,
-      patientName: data.name || '',
-      patientId: data.patientId || '',
+      patientName: data.name || '-',
+      patientId: data.patientId || '-',
       patientPhone: phoneOf(data),
       doctorName: doctor,
       departmentName: department,
@@ -208,8 +208,8 @@ export function BookAppointmentPage() {
         await payments.create({
           receiptNo: nextReceiptNo(payments.records),
           invoiceNo: appointmentId,
-          patientName: data.name || '',
-          patientId: data.patientId || '',
+          patientName: data.name || '-',
+          patientId: data.patientId || '-',
           mobile: phoneOf(data),
           method: 'Cash',
           amount: Number(fee || 0),
@@ -264,7 +264,7 @@ export function BookAppointmentPage() {
                 const nextDepartment = event.target.value;
                 const scheduledDoctors = activeSchedules.filter((record) => record.data?.departmentName === nextDepartment).map((record) => record.data?.doctorName).filter(Boolean);
                 setDepartment(nextDepartment);
-                setDoctor(scheduledDoctors[0] || DOCTORS_BY_DEPARTMENT[nextDepartment]?.[0] || '');
+                setDoctor(scheduledDoctors[0] || DOCTORS_BY_DEPARTMENT[nextDepartment]?.[0] || '-');
               }}>
                 {departmentOptions.map((item) => <option key={item}>{item}</option>)}
               </select>
@@ -367,3 +367,4 @@ export function BookAppointmentPage() {
     </div>
   );
 }
+

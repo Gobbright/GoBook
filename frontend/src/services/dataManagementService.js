@@ -11,13 +11,20 @@ function filenameFromDisposition(disposition) {
   return match?.[1] || `gobook-backup-${new Date().toISOString().slice(0, 10)}.json`;
 }
 
-export function getDataManagementSummary() {
-  return apiClient('/data-management/summary');
+function branchParam(branch = '') {
+  return branch ? `branch=${encodeURIComponent(branch)}` : '';
 }
 
-export async function downloadDataBackup(collections = []) {
+export function getDataManagementSummary({ branch = '' } = {}) {
+  const query = branchParam(branch);
+  return apiClient(`/data-management/summary${query ? `?${query}` : ''}`);
+}
+
+export async function downloadDataBackup(collections = [], { branch = '' } = {}) {
   const token = getToken();
-  const response = await fetch(`${API_BASE_URL}/data-management/export?collections=${encodeURIComponent(selectedParam(collections))}`, {
+  const query = new URLSearchParams({ collections: selectedParam(collections) });
+  if (branch) query.set('branch', branch);
+  const response = await fetch(`${API_BASE_URL}/data-management/export?${query}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!response.ok) {
@@ -36,17 +43,18 @@ export async function downloadDataBackup(collections = []) {
   URL.revokeObjectURL(url);
 }
 
-export function importDataBackup({ file, mode = 'merge', collections = [] }) {
+export function importDataBackup({ file, mode = 'merge', collections = [], branch = '' }) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('mode', mode);
   formData.append('collections', selectedParam(collections));
+  if (branch) formData.append('branchFilter', branch);
   return apiClient('/data-management/import', { method: 'POST', body: formData });
 }
 
-export function deleteDataByPeriod({ year, month = '', collections = [] }) {
+export function deleteDataByPeriod({ year, month = '', collections = [], branch = '' }) {
   return apiClient('/data-management/period', {
     method: 'DELETE',
-    body: JSON.stringify({ year, month, collections: selectedParam(collections) }),
+    body: JSON.stringify({ year, month, collections: selectedParam(collections), branchFilter: branch }),
   });
 }

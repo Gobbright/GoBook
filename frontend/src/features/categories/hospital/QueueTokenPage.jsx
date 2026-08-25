@@ -10,7 +10,7 @@ const PRIORITIES = ['NORMAL', 'PRIORITY', 'EMERGENCY'];
 const PRIORITY_WEIGHT = { EMERGENCY: 0, PRIORITY: 1, NORMAL: 2 };
 
 function normalizeStatus(status = 'Booked') {
-  const normalized = String(status || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  const normalized = String(status || '-').trim().toUpperCase().replace(/\s+/g, ' ');
   const map = {
     SCHEDULED: 'BOOKED',
     BOOKED: 'BOOKED',
@@ -38,7 +38,7 @@ function storedStatus(status) {
 }
 
 function phoneOf(data = {}) {
-  return data.patientPhone || data.phone || data.mobile || '';
+  return data.patientPhone || data.phone || data.mobile || '-';
 }
 
 function tokenPrefix(doctorName = '') {
@@ -46,7 +46,7 @@ function tokenPrefix(doctorName = '') {
 }
 
 function tokenNumber(token = '', prefix = '') {
-  const raw = String(token || '').toUpperCase().replace(`${prefix}-`, prefix);
+  const raw = String(token || '-').toUpperCase().replace(`${prefix}-`, prefix);
   if (!raw.startsWith(prefix)) return 0;
   const value = Number(raw.slice(prefix.length).replace(/\D/g, ''));
   return Number.isFinite(value) ? value : 0;
@@ -116,7 +116,7 @@ function Stat({ label, value, tone = 'blue' }) {
 export function QueueTokenPage() {
   const appointments = useModuleRecords('hospital/appointments');
   const [department, setDepartment] = useState('General Medicine');
-  const [doctor, setDoctor] = useState('Dr. Arun Kumar');
+  const [doctor, setDoctor] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCheckInId, setSelectedCheckInId] = useState('');
   const [message, setMessage] = useState('');
@@ -145,7 +145,7 @@ export function QueueTokenPage() {
       if (priority !== 0) return priority;
       const token = tokenNumber(a.data?.tokenNo, tokenPrefix(doctor)) - tokenNumber(b.data?.tokenNo, tokenPrefix(doctor));
       if (token !== 0) return token;
-      return (a.data?.time || '').localeCompare(b.data?.time || '');
+      return (a.data?.time || '-').localeCompare(b.data?.time || '-');
     }), [department, doctor, todayRows]);
 
   const current = doctorRows.find((record) => normalizeStatus(record.data?.status) === 'IN CONSULTATION')
@@ -161,7 +161,7 @@ export function QueueTokenPage() {
         if (!q) return true;
         return [data.appointmentId, data.patientName, data.patientId, phoneOf(data)].filter(Boolean).join(' ').toLowerCase().includes(q);
       })
-      .sort((a, b) => (a.data?.time || '').localeCompare(b.data?.time || ''));
+      .sort((a, b) => (a.data?.time || '-').localeCompare(b.data?.time || '-'));
   }, [search, todayRows]);
   const selectedCheckIn = checkInRows.find((record) => record._id === selectedCheckInId) || checkInRows[0] || null;
 
@@ -293,7 +293,7 @@ export function QueueTokenPage() {
                             <div className="flex justify-end gap-1">
                               {normalized === 'WAITING' && <button type="button" title="Call patient" onClick={() => updateQueue(record, { status: 'Called', calledAt: new Date().toISOString() }, `Token ${data.tokenNo || '-'} called.`)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-100 bg-blue-50 text-blue-700 cursor-pointer"><BellRing size={14} /></button>}
                               <button type="button" title="Skip token" onClick={() => updateQueue(record, { status: 'Skipped' }, `Token ${data.tokenNo || '-'} skipped.`)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-amber-100 bg-amber-50 text-amber-700 cursor-pointer"><RotateCcw size={14} /></button>
-                              <button type="button" title="Transfer queue" onClick={() => updateQueue(record, { departmentName: 'General Medicine', doctorName: 'Dr. Arun Kumar' }, `Token ${data.tokenNo || '-'} transferred.`)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[#334155] cursor-pointer"><ArrowRightLeft size={14} /></button>
+                              <button type="button" title="Transfer queue" onClick={() => updateQueue(record, { departmentName: 'General Medicine', doctorName: '' }, `Token ${data.tokenNo || '-'} transferred.`)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[#334155] cursor-pointer"><ArrowRightLeft size={14} /></button>
                               <button type="button" title="Cancel token" onClick={() => updateQueue(record, { status: 'Cancelled' }, `Token ${data.tokenNo || '-'} cancelled.`)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-100 bg-red-50 text-red-700 cursor-pointer"><XCircle size={14} /></button>
                             </div>
                           </td>
@@ -342,7 +342,7 @@ export function QueueTokenPage() {
               <Search size={15} className="text-[#64748b]" />
               <input className="h-10 min-w-0 flex-1 border-0 bg-transparent text-[13px] font-[inherit] outline-none" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Appointment / Patient / Mobile" />
             </div>
-            <select className={INPUT} value={selectedCheckIn?._id || ''} onChange={(event) => setSelectedCheckInId(event.target.value)}>
+            <select className={INPUT} value={selectedCheckIn?._id || '-'} onChange={(event) => setSelectedCheckInId(event.target.value)}>
               {checkInRows.map((record) => <option key={record._id} value={record._id}>{record.data?.patientName || 'Patient'} - {record.data?.appointmentId || record.data?.time || '-'}</option>)}
             </select>
             <div className="mt-4 rounded-md border border-[#dbe4ef] bg-[#f8fbff] p-4">
@@ -387,3 +387,4 @@ export function QueueTokenPage() {
     </div>
   );
 }
+

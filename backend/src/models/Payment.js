@@ -2,6 +2,7 @@
 
 const paymentSchema = new Schema({
   userId:        { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  branch:        { type: String, trim: true, default: '', index: true },
   invoiceId:     { type: Schema.Types.ObjectId, ref: 'Invoice', required: true, index: true },
   invoiceNumber: { type: String, default: '' },
   customerName:  { type: String, default: '' },

@@ -20,21 +20,21 @@ const TEXTAREA = 'min-h-20 w-full rounded-md border border-[#dbe4ef] bg-white px
 const ADMISSION_TYPES = ['Planned', 'Emergency', 'OPD to IPD', 'Day Care', 'Observation'];
 const PRIORITIES = ['Normal', 'Priority', 'Emergency'];
 const DEPARTMENTS = ['General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics', 'Gynecology', 'Emergency'];
-const DOCTORS = ['Dr. Arun Kumar', 'Dr. Priya Raman', 'Dr. Meera Nair', 'Dr. Suresh Babu'];
+const DOCTORS = ['', 'Dr. Priya Raman', 'Dr. Meera Nair', 'Dr. Suresh Babu'];
 const WARD_TYPES = ['General Ward', 'Private Room', 'Semi Private', 'ICU', 'NICU', 'Day Care'];
 const ROOM_PREFERENCES = ['Any Available', 'Near Nursing Station', 'Window Side', 'Single Room', 'Twin Sharing'];
 const RELATIONSHIPS = ['Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Other'];
 const FALLBACK_BEDS = ['GW-101-A', 'GW-101-B', 'GW-102-A', 'PR-201', 'ICU-03'];
 
 function phoneOf(data = {}) {
-  return data.phone || data.mobile || data.patientPhone || '';
+  return data.phone || data.mobile || data.patientPhone || '-';
 }
 
 function nextIpdNo(records) {
   const year = new Date().getFullYear();
   const prefix = `IPD-${year}-`;
   const max = records.reduce((highest, record) => {
-    const raw = record.data?.ipdNo || record.data?.admissionNo || '';
+    const raw = record.data?.ipdNo || record.data?.admissionNo || '-';
     if (!String(raw).startsWith(prefix)) return highest;
     const n = Number(String(raw).slice(prefix.length));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
@@ -43,7 +43,7 @@ function nextIpdNo(records) {
 }
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function optionSet(fallback, values) {
@@ -72,14 +72,14 @@ export function AdmissionPage() {
   const schedules = useModuleRecords('hospital/doctor-schedule');
   const histories = useModuleRecords('hospital/medical-history');
 
-  const [search, setSearch] = useState(query.get('patientName') || '');
+  const [search, setSearch] = useState(query.get('patientName') || '-');
   const [showPatients, setShowPatients] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [admissionType, setAdmissionType] = useState('Planned');
   const [admissionDate, setAdmissionDate] = useState(todayISO());
   const [admissionTime, setAdmissionTime] = useState('10:30');
   const [department, setDepartment] = useState('General Medicine');
-  const [doctor, setDoctor] = useState('Dr. Arun Kumar');
+  const [doctor, setDoctor] = useState('');
   const [reason, setReason] = useState('Fever with dehydration');
   const [diagnosis, setDiagnosis] = useState('Viral Fever');
   const [priority, setPriority] = useState('Normal');
@@ -104,8 +104,8 @@ export function AdmissionPage() {
   }, [patients.records, query, selectedPatientId]);
 
   const patientData = selectedPatient?.data || {};
-  const patientName = patientData.name || query.get('patientName') || 'Raj Kumar';
-  const patientId = patientData.patientId || 'GBH-00128';
+  const patientName = patientData.name || query.get('patientName') || '-';
+  const patientId = patientData.patientId || '-';
   const patientPhone = phoneOf(patientData) || '+91 98765 43210';
   const patientAge = patientData.age || '34';
   const patientGender = patientData.gender || 'Male';
@@ -151,7 +151,7 @@ export function AdmissionPage() {
       .filter((record) => !record.data?.status || record.data?.status === 'Available')
       .map((record) => ({
         id: record._id,
-        label: record.data?.name || record.data?.bedNumber || record.data?.roomName || '',
+        label: record.data?.name || record.data?.bedNumber || record.data?.roomName || '-',
         data: record.data || {},
       }))
       .filter((item) => item.label);
@@ -161,7 +161,7 @@ export function AdmissionPage() {
 
   function selectPatient(record) {
     setSelectedPatientId(record._id);
-    setSearch(record.data?.name || '');
+    setSearch(record.data?.name || '-');
     setShowPatients(false);
   }
 
@@ -170,7 +170,7 @@ export function AdmissionPage() {
     setAdmissionDate(todayISO());
     setAdmissionTime('10:30');
     setDepartment('General Medicine');
-    setDoctor('Dr. Arun Kumar');
+    setDoctor('');
     setReason('Fever with dehydration');
     setDiagnosis('Viral Fever');
     setPriority('Normal');
@@ -386,3 +386,4 @@ export function AdmissionPage() {
     </div>
   );
 }
+

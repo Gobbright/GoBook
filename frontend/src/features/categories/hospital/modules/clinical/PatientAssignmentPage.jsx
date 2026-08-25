@@ -13,23 +13,9 @@ const SHIFTS = {
   Night: ['10:00 PM', '06:00 AM'],
 };
 const RESPONSIBILITIES = ['Primary Nurse', 'Supporting Nurse', 'Medication Nurse', 'Procedure Nurse'];
-const DEMO_INPATIENTS = [
-  { _id: 'demo-ipd-182', data: { patientName: 'Raj Kumar', ipdNo: 'IPD-0182', wardName: 'General Ward', roomName: 'G-201', bedNumber: 'B01', condition: 'Stable', status: 'Admitted' } },
-  { _id: 'demo-ipd-185', data: { patientName: 'Priya K', ipdNo: 'IPD-0185', wardName: 'General Ward', roomName: 'G-201', bedNumber: 'B02', condition: 'Stable', status: 'Admitted' } },
-  { _id: 'demo-ipd-190', data: { patientName: 'Karthik', ipdNo: 'IPD-0190', wardName: 'General Ward', roomName: 'G-202', bedNumber: 'B04', condition: 'Observation', status: 'Admitted' } },
-  { _id: 'demo-ipd-192', data: { patientName: 'Meena', ipdNo: 'IPD-0192', wardName: 'General Ward', roomName: 'G-203', bedNumber: 'B05', condition: 'Stable', status: 'Admitted' } },
-  { _id: 'demo-ipd-194', data: { patientName: 'Ravi', ipdNo: 'IPD-0194', wardName: 'General Ward', roomName: 'G-204', bedNumber: 'B07', condition: 'Critical', status: 'Admitted' } },
-];
-const DEMO_ASSIGNMENTS = [
-  { _id: 'demo-a-1', data: { type: 'Patient Assignment', nurseName: 'Priya S', patientName: 'Raj Kumar', ipdNo: 'IPD-0182', bedNumber: 'B01', condition: 'Stable', wardName: 'General Ward', shift: 'Morning', date: todayISO(), responsibility: 'Primary Nurse' } },
-  { _id: 'demo-a-2', data: { type: 'Patient Assignment', nurseName: 'Priya S', patientName: 'Priya K', ipdNo: 'IPD-0185', bedNumber: 'B02', condition: 'Stable', wardName: 'General Ward', shift: 'Morning', date: todayISO(), responsibility: 'Primary Nurse' } },
-  { _id: 'demo-a-3', data: { type: 'Patient Assignment', nurseName: 'Priya S', patientName: 'Karthik', ipdNo: 'IPD-0190', bedNumber: 'B04', condition: 'Observation', wardName: 'General Ward', shift: 'Morning', date: todayISO(), responsibility: 'Supporting Nurse' } },
-  { _id: 'demo-a-4', data: { type: 'Patient Assignment', nurseName: 'Anu M', patientName: 'Meena', ipdNo: 'IPD-0192', bedNumber: 'B05', condition: 'Stable', wardName: 'General Ward', shift: 'Morning', date: todayISO(), responsibility: 'Primary Nurse' } },
-  { _id: 'demo-a-5', data: { type: 'Patient Assignment', nurseName: 'Anu M', patientName: 'Ravi', ipdNo: 'IPD-0194', bedNumber: 'B07', condition: 'Critical', wardName: 'General Ward', shift: 'Morning', date: todayISO(), responsibility: 'Primary Nurse' } },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function Button({ children, icon: Icon, onClick, tone = 'white', disabled = false }) {
@@ -58,18 +44,18 @@ export function PatientAssignmentPage() {
   const [date, setDate] = useState(todayISO());
   const [showAssign, setShowAssign] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [form, setForm] = useState({ nurseName: 'Priya S', responsibility: 'Primary Nurse', notes: '' });
+  const [form, setForm] = useState({ nurseName: '', responsibility: 'Primary Nurse', notes: '' });
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const patientRecords = admissions.records.length ? admissions.records.filter(activeAdmission) : DEMO_INPATIENTS;
-  const assignmentRecords = nursingCare.records.some((record) => record.data?.type === 'Patient Assignment')
-    ? nursingCare.records.filter((record) => record.data?.type === 'Patient Assignment')
-    : DEMO_ASSIGNMENTS;
+  const patientRecords = useMemo(() => admissions.records.filter(activeAdmission), [admissions.records]);
+  const assignmentRecords = useMemo(() => (
+    nursingCare.records.filter((record) => record.data?.type === 'Patient Assignment')
+  ), [nursingCare.records]);
   const nurseOptions = useMemo(() => {
     const existing = names(nurses.records);
     const assigned = assignmentRecords.map((record) => record.data?.nurseName).filter(Boolean);
-    return [...new Set([...existing, ...assigned, 'Priya S', 'Anu M'])];
+    return [...new Set([...existing, ...assigned].filter(Boolean))];
   }, [assignmentRecords, nurses.records]);
 
   const wardPatients = useMemo(() => patientRecords.filter((record) => (record.data?.wardName || record.data?.ward) === ward), [patientRecords, ward]);
@@ -85,11 +71,11 @@ export function PatientAssignmentPage() {
     });
     return [...map.entries()];
   }, [filteredAssignments]);
-  const selectedPatient = wardPatients.find((record) => record._id === selectedPatientId) || wardPatients[0] || DEMO_INPATIENTS[0];
+  const selectedPatient = wardPatients.find((record) => record._id === selectedPatientId) || wardPatients[0] || null;
 
   function openAssign(patientRecord = selectedPatient) {
     setSelectedPatientId(patientRecord?._id || '');
-    setForm((current) => ({ ...current, nurseName: nurseOptions[0] || 'Priya S' }));
+    setForm((current) => ({ ...current, nurseName: nurseOptions[0] || '' }));
     setShowAssign(true);
     setTimeout(() => document.getElementById('assign-patient-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   }
@@ -163,13 +149,13 @@ export function PatientAssignmentPage() {
           </div>
 
           <div className="mb-4 rounded-md bg-[#f8fbff] p-3 text-[13px] font-semibold text-[#334155]">
-            <div className="font-extrabold text-[#071936]">{selectedPatient?.data?.patientName || 'Raj Kumar'} - {selectedPatient?.data?.ipdNo || selectedPatient?.data?.admissionNo || 'IPD-2026-00182'}</div>
-            <div className="mt-1">Location: {selectedPatient?.data?.wardName || ward} / {selectedPatient?.data?.roomName || 'G-201'} / {selectedPatient?.data?.bedNumber || 'B01'}</div>
+            <div className="font-extrabold text-[#071936]">{selectedPatient?.data?.patientName || '-'} - {selectedPatient?.data?.ipdNo || selectedPatient?.data?.admissionNo || '-'}</div>
+            <div className="mt-1">Location: {selectedPatient?.data?.wardName || ward} / {selectedPatient?.data?.roomName || '-'} / {selectedPatient?.data?.bedNumber || '-'}</div>
             <div className="mt-1">From {date} - {SHIFTS[shift][0]} to {SHIFTS[shift][1]}</div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <label className="text-[12px] font-extrabold uppercase text-[#536173]">Patient<select className={`${INPUT} mt-1`} value={selectedPatient?._id || ''} onChange={(event) => setSelectedPatientId(event.target.value)}>{wardPatients.map((record) => <option key={record._id} value={record._id}>{record.data?.patientName} - {record.data?.ipdNo || record.data?.admissionNo}</option>)}</select></label>
+            <label className="text-[12px] font-extrabold uppercase text-[#536173]">Patient<select className={`${INPUT} mt-1`} value={selectedPatient?._id || ''} onChange={(event) => setSelectedPatientId(event.target.value)}><option value="">Select patient</option>{wardPatients.map((record) => <option key={record._id} value={record._id}>{record.data?.patientName} - {record.data?.ipdNo || record.data?.admissionNo}</option>)}</select></label>
             <label className="text-[12px] font-extrabold uppercase text-[#536173]">Nurse *<select className={`${INPUT} mt-1`} value={form.nurseName} onChange={(event) => setForm({ ...form, nurseName: event.target.value })}>{nurseOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
             <label className="text-[12px] font-extrabold uppercase text-[#536173]">Shift<select className={`${INPUT} mt-1`} value={shift} onChange={(event) => setShift(event.target.value)}>{Object.keys(SHIFTS).map((item) => <option key={item}>{item}</option>)}</select></label>
             <label className="text-[12px] font-extrabold uppercase text-[#536173]">Responsibility<select className={`${INPUT} mt-1`} value={form.responsibility} onChange={(event) => setForm({ ...form, responsibility: event.target.value })}>{RESPONSIBILITIES.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -240,3 +226,5 @@ export function PatientAssignmentPage() {
     </div>
   );
 }
+
+

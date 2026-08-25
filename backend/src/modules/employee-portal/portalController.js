@@ -1,6 +1,10 @@
 import bcrypt from 'bcryptjs';
+import fs from 'fs/promises';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import path from 'path';
 import { Types } from 'mongoose';
+import { fileURLToPath } from 'url';
 
 import { env } from '../../config/env.js';
 import { AppUser } from '../../models/AppUser.js';
@@ -17,6 +21,27 @@ import { httpError } from '../../utils/httpError.js';
 
 const SALT_ROUNDS = 10;
 const roleSet = new Set(['admin', 'hr', 'employee']);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LEAVE_UPLOAD_DIR = path.join(__dirname, '../../../uploads/leaves');
+const EMPLOYEE_PHOTO_UPLOAD_DIR = path.join(__dirname, '../../../uploads/employees');
+
+export const leaveAttachmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+    cb(allowed.has(file.mimetype) ? null : httpError(400, 'Only PDF, JPG and PNG files are allowed'), allowed.has(file.mimetype));
+  },
+});
+
+export const employeePhotoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = new Set(['image/jpeg', 'image/png']);
+    cb(allowed.has(file.mimetype) ? null : httpError(400, 'Only JPG and PNG files are allowed'), allowed.has(file.mimetype));
+  },
+});
 
 function normalizeEmail(email) {
   return String(email ?? '').trim().toLowerCase();
@@ -49,6 +74,68 @@ function timeNow() {
 
 function monthRange(month = new Date().toISOString().slice(0, 7)) {
   return { $gte: `${month}-01`, $lte: `${month}-31` };
+}
+
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  return ['true', '1', 'yes', 'on', 'enable'].includes(String(value).trim().toLowerCase());
+}
+
+function parseObject(value, fallback = {}) {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function datesBetween(from, to = from) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(from)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(to))) return [];
+  const dates = [];
+  const cursor = new Date(`${from}T00:00:00.000Z`);
+  const end = new Date(`${to}T00:00:00.000Z`);
+  if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime())) return [];
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+async function saveLeaveAttachment(file) {
+  if (!file) return undefined;
+  await fs.mkdir(LEAVE_UPLOAD_DIR, { recursive: true });
+  const ext = path.extname(file.originalname || '').toLowerCase() || '.bin';
+  const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+  await fs.writeFile(path.join(LEAVE_UPLOAD_DIR, fileName), file.buffer);
+  return {
+    originalName: file.originalname || fileName,
+    fileName,
+    url: `/uploads/leaves/${fileName}`,
+    size: file.size || 0,
+    mimeType: file.mimetype || '',
+    uploadedAt: new Date(),
+  };
+}
+
+async function saveEmployeePhoto(file) {
+  if (!file) return undefined;
+  await fs.mkdir(EMPLOYEE_PHOTO_UPLOAD_DIR, { recursive: true });
+  const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+  const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+  await fs.writeFile(path.join(EMPLOYEE_PHOTO_UPLOAD_DIR, fileName), file.buffer);
+  return {
+    originalName: file.originalname || fileName,
+    fileName,
+    url: `/uploads/employees/${fileName}`,
+    size: file.size || 0,
+    mimeType: file.mimetype || '',
+    uploadedAt: new Date(),
+  };
 }
 
 function hoursBetween(start, end) {
@@ -427,15 +514,53 @@ export async function createAdminEmployee(req, res, next) {
   try {
     const ownerUserId = req.employeeUser.ownerUserId;
     const category = await resolveOwnerCategory(ownerUserId);
-    const { employeeId, name, email, mobileNumber, phone, department, dept, designation, joiningDate, joinDate, password, loginAccess = true, status = 'Active', role = 'employee', basicSalary = 0 } = req.body;
+    const {
+      employeeId, name, email, mobileNumber, phone, department, dept, designation, joiningDate, joinDate,
+      password, loginAccess = true, status = 'Active', role = 'employee', basicSalary = 0,
+      gender = '', dateOfBirth = '', bloodGroup = '', address = '', branch = '', reportingManager = '',
+      employmentType = 'Full Time', shift = '', workLocation = '', emergencyContact = {},
+    } = req.body;
+    const finalLoginAccess = parseBoolean(loginAccess, true);
+    const finalEmergencyContact = parseObject(emergencyContact);
     const visiblePassword = String(password || '').trim();
     if (!name || !email) return next(httpError(400, 'Employee name and email are required'));
-    if (loginAccess && !visiblePassword) return next(httpError(400, 'Login password is required when login access is enabled'));
+    if (finalLoginAccess && !visiblePassword) return next(httpError(400, 'Login password is required when login access is enabled'));
     const finalRole = roleSet.has(role) ? role : 'employee';
     const finalEmployeeId = String(employeeId || await nextEmployeeId(ownerUserId)).trim();
-    const employee = await Employee.create({ userId: ownerUserId, category, employeeId: finalEmployeeId, name, email: normalizeEmail(email), phone: mobileNumber || phone || '', dept: department || dept || '', designation: designation || '', joinDate: joiningDate || joinDate || '', status, loginAccess: Boolean(loginAccess), loginPassword: visiblePassword, employeeRole: finalRole, basicSalary });
+    const photo = await saveEmployeePhoto(req.file);
+    const employee = await Employee.create({
+      userId: ownerUserId,
+      category,
+      employeeId: finalEmployeeId,
+      name,
+      email: normalizeEmail(email),
+      phone: mobileNumber || phone || '',
+      dept: department || dept || '',
+      designation: designation || '',
+      joinDate: joiningDate || joinDate || '',
+      status,
+      loginAccess: finalLoginAccess,
+      loginPassword: visiblePassword,
+      employeeRole: finalRole,
+      basicSalary: Number(basicSalary) || 0,
+      ...(photo ? { photo } : {}),
+      gender,
+      dateOfBirth,
+      bloodGroup,
+      address,
+      branch,
+      reportingManager,
+      employmentType,
+      shift,
+      workLocation,
+      emergencyContact: {
+        name: String(finalEmergencyContact?.name || '').trim(),
+        relationship: String(finalEmergencyContact?.relationship || '').trim(),
+        phone: String(finalEmergencyContact?.phone || '').trim(),
+      },
+    });
     const loginSlug = slugify(employee.name);
-    if (loginAccess && visiblePassword) {
+    if (finalLoginAccess && visiblePassword) {
       await EmployeeLogin.findOneAndUpdate(
         { ownerUserId, employeeId: employee.employeeId },
         { ownerUserId, employeeObjectId: employee._id, employeeId: employee.employeeId, name: employee.name, email: normalizeEmail(email), category, loginSlug, passwordHash: await bcrypt.hash(visiblePassword, SALT_ROUNDS), loginPassword: visiblePassword, role: finalRole, loginEnabled: true, status },
@@ -475,6 +600,16 @@ export async function updateAdminEmployee(req, res, next) {
       designation,
       status,
       basicSalary,
+      gender,
+      dateOfBirth,
+      bloodGroup,
+      address,
+      branch,
+      reportingManager,
+      employmentType,
+      shift,
+      workLocation,
+      emergencyContact,
     } = req.body;
 
     const wantsLogin = loginAccess === undefined ? Boolean(existing.loginAccess) : Boolean(loginAccess);
@@ -498,10 +633,26 @@ export async function updateAdminEmployee(req, res, next) {
       joinDate: joiningDate !== undefined ? String(joiningDate ?? '').trim() : existing.joinDate,
       basicSalary: Number.isFinite(Number(basicSalary)) ? Number(basicSalary) : existing.basicSalary,
       loginAccess: wantsLogin,
-      status: ['Active', 'Inactive'].includes(status) ? status : existing.status,
+      status: ['Active', 'Inactive', 'Probation', 'On Leave', 'Resigned', 'Terminated'].includes(status) ? status : existing.status,
       employeeRole: finalRole,
       category: req.employeeUser.category || existing.category || await resolveOwnerCategory(ownerUserId),
+      gender: gender !== undefined ? String(gender || '').trim() : existing.gender,
+      dateOfBirth: dateOfBirth !== undefined ? String(dateOfBirth || '').trim() : existing.dateOfBirth,
+      bloodGroup: bloodGroup !== undefined ? String(bloodGroup || '').trim() : existing.bloodGroup,
+      address: address !== undefined ? String(address || '').trim() : existing.address,
+      branch: branch !== undefined ? String(branch || '').trim() : existing.branch,
+      reportingManager: reportingManager !== undefined ? String(reportingManager || '').trim() : existing.reportingManager,
+      employmentType: employmentType !== undefined ? String(employmentType || '').trim() : existing.employmentType,
+      shift: shift !== undefined ? String(shift || '').trim() : existing.shift,
+      workLocation: workLocation !== undefined ? String(workLocation || '').trim() : existing.workLocation,
     };
+    if (emergencyContact !== undefined) {
+      update.emergencyContact = {
+        name: String(emergencyContact?.name || '').trim(),
+        relationship: String(emergencyContact?.relationship || '').trim(),
+        phone: String(emergencyContact?.phone || '').trim(),
+      };
+    }
     if (shouldChangePassword) update.loginPassword = visiblePassword;
 
     const employee = await Employee.findOneAndUpdate(
@@ -593,10 +744,81 @@ export async function adminMonthlyAttendance(req, res, next) {
   }
 }
 
+export async function markAdminAttendance(req, res, next) {
+  try {
+    const ownerUserId = req.employeeUser.ownerUserId;
+    const {
+      employeeId,
+      date = today(),
+      status = 'Present',
+      checkIn = '--',
+      checkOut = '--',
+      remarks = '',
+      shift = '',
+    } = req.body;
+    if (!employeeId) return next(httpError(400, 'Employee is required'));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return next(httpError(400, 'A valid attendance date is required'));
+    const employee = await Employee.findOne({ userId: ownerUserId, employeeId }).lean();
+    if (!employee) return next(httpError(404, 'Employee not found'));
+    const allowed = ['Present', 'Late', 'Absent', 'On Leave', 'WFH', 'On Duty', 'Half Day', 'Weekly Off', 'Holiday'];
+    const finalStatus = allowed.includes(status) ? status : 'Present';
+    const record = await Attendance.findOneAndUpdate(
+      { userId: ownerUserId, employeeId, date },
+      {
+        $set: {
+          userId: ownerUserId,
+          employeeId,
+          name: employee.name,
+          dept: employee.dept || '',
+          date,
+          status: finalStatus,
+          checkIn: checkIn || '--',
+          checkOut: checkOut || '--',
+          hours: hoursBetween(checkIn, checkOut),
+          shift: shift || employee.shift || '',
+          remarks,
+        },
+      },
+      { upsert: true, new: true, runValidators: true },
+    ).lean();
+    res.json(record);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function adminCorrections(req, res, next) {
   try {
     const data = await AttendanceCorrection.find({ ownerUserId: req.employeeUser.ownerUserId }).sort({ createdAt: -1 }).lean();
     res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createAdminCorrection(req, res, next) {
+  try {
+    const ownerUserId = req.employeeUser.ownerUserId;
+    const employeeId = String(req.body.employeeId || '').trim();
+    const date = String(req.body.date || today()).trim();
+    const reason = String(req.body.reason || '').trim();
+    if (!employeeId) return next(httpError(400, 'Employee is required'));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return next(httpError(400, 'A valid correction date is required'));
+    if (!reason) return next(httpError(400, 'Correction reason is required'));
+    const employee = await Employee.findOne({ userId: ownerUserId, employeeId }).lean();
+    if (!employee) return next(httpError(404, 'Employee not found'));
+    const correction = await AttendanceCorrection.create({
+      ownerUserId,
+      employeeId,
+      name: employee.name,
+      dept: employee.dept || '',
+      date,
+      checkIn: String(req.body.checkIn || '').trim(),
+      checkOut: String(req.body.checkOut || '').trim(),
+      reason,
+      status: 'Pending',
+    });
+    res.status(201).json(correction);
   } catch (err) {
     next(err);
   }
@@ -627,10 +849,85 @@ export async function adminLeaves(req, res, next) {
   }
 }
 
+export async function createAdminLeave(req, res, next) {
+  try {
+    const ownerUserId = req.employeeUser.ownerUserId;
+    const empId = String(req.body.empId || req.body.employeeId || '').trim();
+    const employee = await Employee.findOne({ userId: ownerUserId, employeeId: empId }).lean();
+    if (!employee) return next(httpError(404, 'Employee not found'));
+
+    const from = String(req.body.from || '').trim();
+    const to = String(req.body.to || from).trim();
+    if (!from || !to) return next(httpError(400, 'From and to dates are required'));
+
+    const attachment = await saveLeaveAttachment(req.file);
+    const leave = await Leave.create({
+      userId: ownerUserId,
+      leaveId: await nextLeaveId(ownerUserId),
+      name: employee.name,
+      empId: employee.employeeId,
+      dept: employee.dept,
+      type: req.body.type || 'Casual Leave',
+      from,
+      to,
+      days: Number(req.body.days) || 1,
+      reason: req.body.reason || '',
+      applied: today(),
+      status: req.body.status || 'Pending',
+      recordedBy: req.employeeUser.name || 'HR Admin',
+      ...(attachment ? { attachment } : {}),
+    });
+    res.status(201).json(leave);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function updateLeaveStatus(req, res, next) {
   try {
-    const leave = await Leave.findOneAndUpdate({ _id: req.params.id, userId: req.employeeUser.ownerUserId }, { $set: { status: req.body.status } }, { new: true }).lean();
+    const ownerUserId = req.employeeUser.ownerUserId;
+    const status = String(req.body.status || '').trim();
+    if (!['Approved', 'Pending', 'Rejected'].includes(status)) return next(httpError(400, 'Leave status must be Approved, Pending or Rejected'));
+    const leave = await Leave.findOneAndUpdate({ _id: req.params.id, userId: ownerUserId }, { $set: { status } }, { new: true }).lean();
     if (!leave) return next(httpError(404, 'Leave request not found'));
+    const leaveDates = datesBetween(leave.from, leave.to);
+    const leaveRemark = `Leave approved: ${leave.leaveId} (${leave.type})`;
+
+    if (status === 'Approved' && leaveDates.length) {
+      const employee = await Employee.findOne({ userId: ownerUserId, employeeId: leave.empId }).lean();
+      await Attendance.bulkWrite(leaveDates.map((date) => ({
+        updateOne: {
+          filter: { userId: ownerUserId, employeeId: leave.empId, date },
+          update: {
+            $set: {
+              userId: ownerUserId,
+              employeeId: leave.empId,
+              name: leave.name,
+              dept: leave.dept || '',
+              date,
+              checkIn: '--',
+              checkOut: '--',
+              hours: '--',
+              shift: employee?.shift || '',
+              remarks: leaveRemark,
+              status: 'On Leave',
+            },
+          },
+          upsert: true,
+        },
+      })), { ordered: false });
+    }
+
+    if (status !== 'Approved' && leaveDates.length) {
+      await Attendance.deleteMany({
+        userId: ownerUserId,
+        employeeId: leave.empId,
+        date: { $in: leaveDates },
+        status: 'On Leave',
+        remarks: leaveRemark,
+      });
+    }
+
     res.json(leave);
   } catch (err) {
     next(err);
@@ -639,8 +936,63 @@ export async function updateLeaveStatus(req, res, next) {
 
 export async function adminPayroll(req, res, next) {
   try {
-    const data = await Payroll.find({ userId: req.employeeUser.ownerUserId }).sort({ month: -1 }).lean();
+    const month = String(req.query.month || '').trim();
+    const filter = { userId: req.employeeUser.ownerUserId };
+    if (month) filter.month = month;
+    const data = await Payroll.find(filter).sort({ month: -1, createdAt: -1 }).lean();
     res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function generateAdminPayroll(req, res, next) {
+  try {
+    const ownerUserId = req.employeeUser.ownerUserId;
+    const month = String(req.body.month || new Date().toISOString().slice(0, 7)).trim();
+    if (!/^\d{4}-\d{2}$/.test(month)) return next(httpError(400, 'A valid payroll month is required'));
+    const employees = await Employee.find({ userId: ownerUserId, status: { $ne: 'Terminated' } }).lean();
+    const operations = employees.map((employee) => {
+      const basic = Number(employee.basicSalary || 0);
+      const allowances = Math.round(basic * 0.22);
+      const deductions = Math.round(basic * 0.16);
+      return {
+        updateOne: {
+          filter: { userId: ownerUserId, employeeId: employee.employeeId, month },
+          update: {
+            $set: {
+              userId: ownerUserId,
+              employeeId: employee.employeeId,
+              name: employee.name,
+              dept: employee.dept || '',
+              month,
+              basic,
+              allowances,
+              deductions,
+              net: Math.max(0, basic + allowances - deductions),
+              status: 'Pending',
+            },
+          },
+          upsert: true,
+        },
+      };
+    });
+    if (operations.length) await Payroll.bulkWrite(operations, { ordered: false });
+    const data = await Payroll.find({ userId: ownerUserId, month }).sort({ createdAt: -1 }).lean();
+    res.status(201).json({ data, message: `Payroll generated for ${data.length} employee(s).` });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function approveAdminPayroll(req, res, next) {
+  try {
+    const ownerUserId = req.employeeUser.ownerUserId;
+    const month = String(req.body.month || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(month)) return next(httpError(400, 'A valid payroll month is required'));
+    await Payroll.updateMany({ userId: ownerUserId, month }, { $set: { status: 'Paid' } });
+    const data = await Payroll.find({ userId: ownerUserId, month }).sort({ createdAt: -1 }).lean();
+    res.json({ data, message: `Payroll approved for ${data.length} employee(s).` });
   } catch (err) {
     next(err);
   }

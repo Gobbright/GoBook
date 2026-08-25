@@ -43,20 +43,20 @@ const ITEM_NAME_MAX_CHARS = 55;
 const EXTRA_VALUE_MAX_CHARS = 60;
 const NOTES_MAX_CHARS = 220;
 const MODERN_ROW_MIN_HEIGHT_MM = 7;
-const CLASSIC_ROW_MIN_HEIGHT_MM = 6.5;
+const CLASSIC_ROW_MIN_HEIGHT_MM = 7.2;
 const CLASSIC_LAYOUT_MM = {
   contentHeight: 283,
-  firstHeader: 64,
+  firstHeader: 66,
   continuationHeader: 12,
-  tableHeader: 7,
-  subtotal: 4.8,
-  taxRow: 8,
-  uqc: 10.5,
-  totalLine: 4.5,
-  summary: 32,
+  tableHeader: 8.2,
+  subtotal: 5.6,
+  taxRow: 8.6,
+  uqc: 11.8,
+  totalLine: 5.4,
+  summary: 35,
   words: 0,
-  bottom: 42,
-  footer: 8,
+  bottom: 45,
+  footer: 8.5,
 };
 
 // Truncate in JS rather than clamp with CSS overflow/max-height: html2canvas
@@ -78,6 +78,14 @@ function lineItemExtraDescription(item = {}) {
     ?? item.note
     ?? item.remark
     ?? '';
+}
+
+function lineItemDisplayName(item = {}) {
+  const description = String(item.description || '').trim();
+  const modelName = String(item.size || item.modelName || '').trim();
+  if (!modelName) return description;
+  if (!description) return modelName;
+  return `${description} - ${modelName}`;
 }
 
 function trimOuterBlankLines(lines) {
@@ -138,7 +146,7 @@ function classicPaymentPendingText(docMeta = {}) {
 }
 
 function classicTermsLines(terms, notes) {
-  const fallback = 'Goods once sold will not be taken back.\nRate difference payable on overdue bill.';
+  const fallback = 'Goods once sold will not be taken back.\nRate difference payable on overdue bill.\nSubject to Trichy Jurisdiction.';
   const text = String(terms || notes || fallback);
   return text
     .split(/\r?\n|(?=\s*-\s*[A-Za-z0-9])/)
@@ -158,7 +166,7 @@ function wrappedLineCount(text, charsPerLine) {
 function estimateModernRowHeight(row) {
   if (row.kind === 'charge') return MODERN_ROW_MIN_HEIGHT_MM;
   const item = row.data || {};
-  const titleLines = wrappedLineCount(item.description, 24);
+  const titleLines = wrappedLineCount(lineItemDisplayName(item), 24);
   const descriptionLines = lineItemDescriptionBullets(item)
     .reduce((sum, line) => sum + (line ? Math.max(1, Math.ceil(line.length / 20)) : 1), 0);
   return Math.max(MODERN_ROW_MIN_HEIGHT_MM, 2.5 + Math.max(titleLines, descriptionLines, 1) * 3.4);
@@ -167,10 +175,48 @@ function estimateModernRowHeight(row) {
 function estimateClassicRowHeight(row) {
   if (row.kind === 'charge') return CLASSIC_ROW_MIN_HEIGHT_MM;
   const item = row.data || {};
-  const titleLines = wrappedLineCount(item.description, 70);
+  const titleLines = wrappedLineCount(lineItemDisplayName(item), 70);
   const descriptionLines = lineItemClassicDescriptionLines(item)
     .reduce((sum, line) => sum + (line ? Math.max(1, Math.ceil(line.length / 70)) : 1), 0);
-  return Math.max(CLASSIC_ROW_MIN_HEIGHT_MM, 2 + (titleLines * 3.2) + (descriptionLines * 3.2));
+  return Math.max(CLASSIC_ROW_MIN_HEIGHT_MM, 2.4 + (titleLines * 3.5) + (descriptionLines * 3.5));
+}
+
+function partyGstinFallback(data = {}, extra = {}) {
+  return data?.gstin
+    || data?.gstNumber
+    || data?.gstNo
+    || data?.gst_no
+    || data?.vendorGstin
+    || data?.vendorGstNumber
+    || data?.vendorGstNo
+    || data?.vendorGSTIN
+    || extra?.vendorGstin
+    || extra?.vendorGstNumber
+    || extra?.vendorGstNo
+    || extra?.vendorGSTIN
+    || '';
+}
+
+function bankValue(source = {}, extra = {}, key, aliases = []) {
+  return [key, ...aliases].reduce((found, field) => (
+    found || source?.[field] || extra?.[field] || extra?.[`vendor${field.charAt(0).toUpperCase()}${field.slice(1)}`]
+  ), '');
+}
+
+function bankRowsForDocument({ config = {}, customer = {}, docExtra = {}, bizSettings = {}, uppercaseLabels = false }) {
+  const source = config.documentType === 'purchase-entry' ? customer : bizSettings;
+  const extra = config.documentType === 'purchase-entry' ? docExtra : {};
+  const rows = [
+    [uppercaseLabels ? 'BANK NAME' : 'Bank', bankValue(source, extra, 'bankName', ['vendorBankName'])],
+    [uppercaseLabels ? 'A/C NAME' : 'A/C Name', bankValue(source, extra, 'accountHolderName', ['accountName', 'vendorAccountHolderName', 'vendorAccountName'])],
+    ['A/C No.', bankValue(source, extra, 'accountNumber', ['accountNo', 'vendorAccountNumber', 'vendorAccountNo'])],
+    [uppercaseLabels ? 'IFSC CODE' : 'IFSC', bankValue(source, extra, 'ifscCode', ['ifsc', 'vendorIfscCode', 'vendorIfsc'])],
+    ...(uppercaseLabels ? [] : [['Branch', bankValue(source, extra, 'bankBranch', ['branch', 'vendorBankBranch'])]]),
+  ].filter(([, value]) => value);
+  const emptyText = config.documentType === 'purchase-entry'
+    ? 'Add vendor bank details in Vendor details'
+    : 'Add bank details in Business Settings';
+  return { rows, emptyText };
 }
 
 function paginateByHeight(rows, getCapacity, estimateRowHeight) {
@@ -320,14 +366,8 @@ function BottomCard({ title, children, className = '' }) {
   );
 }
 
-function BankDetailsCard({ bizSettings }) {
-  const bankRows = [
-    ['Bank', bizSettings.bankName],
-    ['A/C Name', bizSettings.accountHolderName],
-    ['A/C No.', bizSettings.accountNumber],
-    ['IFSC', bizSettings.ifscCode],
-    ['Branch', bizSettings.bankBranch],
-  ].filter(([, value]) => value);
+function BankDetailsCard({ config, customer, docExtra, bizSettings }) {
+  const { rows: bankRows, emptyText } = bankRowsForDocument({ config, customer, docExtra, bizSettings });
 
   return (
     <BottomCard title="Bank Details" className="invoice-bank-card">
@@ -341,7 +381,7 @@ function BankDetailsCard({ bizSettings }) {
           ))}
         </div>
       ) : (
-        <div className="invoice-bank-empty">Add bank details in Business Settings</div>
+        <div className="invoice-bank-empty">{emptyText}</div>
       )}
     </BottomCard>
   );
@@ -433,7 +473,7 @@ function ItemRow({ item, sno, showGst, isIntrastate }) {
     <tr>
       <td className="invoice-col-sno">{sno}</td>
       <td className="invoice-col-item">
-        <div className="invoice-item-main">{truncateText(item.description, ITEM_NAME_MAX_CHARS) || '-'}</div>
+        <div className="invoice-item-main">{truncateText(lineItemDisplayName(item), ITEM_NAME_MAX_CHARS) || '-'}</div>
       </td>
       <td className="invoice-col-description">
         {descriptionBullets.length > 0 ? (
@@ -514,7 +554,7 @@ function ClassicLineRow({ row, index, showGst }) {
     <tr>
       <td className="classic-col-sno">{index + 1})</td>
       <td className="classic-col-desc">
-        <div className="invoice-classic-item-title">{truncateText(item?.description || charge?.label || 'Additional Charge', 82)}</div>
+        <div className="invoice-classic-item-title">{truncateText(item ? lineItemDisplayName(item) : charge?.label || 'Additional Charge', 82)}</div>
         {descriptionLines.length > 0 && (
           <div className="invoice-classic-item-sub">
             {descriptionLines.map((line, lineIndex) => (
@@ -648,12 +688,13 @@ function DocumentClassicTemplate({
     acc[unit] = (acc[unit] || 0) + (Number(item.qty) || 0);
     return acc;
   }, {});
-  const bankRows = [
-    ['BANK NAME', bizSettings.bankName],
-    ['A/C NAME', bizSettings.accountHolderName],
-    ['A/C No.', bizSettings.accountNumber],
-    ['IFSC CODE', bizSettings.ifscCode],
-  ].filter(([, value]) => value);
+  const { rows: bankRows, emptyText: bankEmptyText } = bankRowsForDocument({
+    config,
+    customer,
+    docExtra,
+    bizSettings,
+    uppercaseLabels: true,
+  });
   const title = config.printTitle || config.title || 'Tax Invoice';
   const customerAddress = [
     customer.address,
@@ -721,8 +762,9 @@ function DocumentClassicTemplate({
 
               <div className="invoice-classic-party-grid">
                 <div className="invoice-classic-customer">
-                  <div className="invoice-classic-section-caption">Customer</div>
+                  <div className="invoice-classic-section-caption">{config.partyToLabel || 'Customer'}</div>
                   <h2>{customer.name || '-'}</h2>
+                  {customer.gstin && <p>GSTIN : {customer.gstin}</p>}
                   {customerAddress.map((line) => <p key={line}>{line}</p>)}
                   {customer.gstType && <p>GST Type :{customer.gstType}</p>}
                   {docMeta.placeOfSupply && <p>POS : {docMeta.placeOfSupply}</p>}
@@ -845,7 +887,7 @@ function DocumentClassicTemplate({
                   <h3>Bank Details:</h3>
                   {bankRows.length > 0 ? bankRows.map(([label, value]) => (
                     <p key={label}><b>{label}</b><span>:</span>{value}</p>
-                  )) : <p>Add bank details in Business Settings</p>}
+                  )) : <p>{bankEmptyText}</p>}
                 </div>
                 <div className="invoice-classic-qr">
                   <h3>UPI Payment QR Code</h3>
@@ -861,7 +903,7 @@ function DocumentClassicTemplate({
                 </div>
                 <div className="invoice-classic-declaration">
                   <h3>Declaration:</h3>
-                  <p>Subject to local jurisdiction.</p>
+                  <p>Subject to Trichy Jurisdiction.</p>
                   <p>Goods sold as bill.</p>
                   <p>Prices are approved from customer side.</p>
                   <p>Material has been delivered with this invoice copy.</p>
@@ -938,9 +980,14 @@ export function DocumentPreviewModal({
         ? { label: 'Expected Delivery', value: fmtDate(docExtra.expectedDelivery) }
         : null;
 
+  const partyCustomer = {
+    ...customer,
+    gstin: partyGstinFallback(customer, docExtra),
+  };
+
   const shippingData = !sameShipping && (shipping?.address || shipping?.city || shipping?.state || shipping?.pincode)
-    ? { name: customer.name, ...shipping }
-    : customer;
+    ? { name: partyCustomer.name, ...shipping }
+    : partyCustomer;
 
   const extraDetails = [
     { show: docMeta.poRef, label: 'PO Ref', value: docMeta.poRef },
@@ -1044,7 +1091,7 @@ export function DocumentPreviewModal({
         {isClassicTemplate ? (
           <DocumentClassicTemplate
             config={config}
-            customer={customer}
+            customer={partyCustomer}
             docMeta={docMeta}
             docExtra={docExtra}
             items={items}
@@ -1113,7 +1160,7 @@ export function DocumentPreviewModal({
                   <div className="invoice-divider" />
 
                   <div className="invoice-addresses">
-                    <AddressBlock title={config.partyToLabel || 'Bill To'} data={customer} />
+                    <AddressBlock title={config.partyToLabel || 'Bill To'} data={partyCustomer} />
                     <AddressBlock title="Ship To" data={shippingData} />
                   </div>
 
@@ -1283,10 +1330,10 @@ export function DocumentPreviewModal({
                     </BottomCard>
                     <BottomCard title="Terms & Conditions">
                       <div className="whitespace-pre-wrap">
-                        {truncateText(terms, NOTES_MAX_CHARS) || '1. Goods once sold will not be taken back.\n2. Subject to local jurisdiction.\n3. Please pay on or before due date.'}
+                        {truncateText(terms, NOTES_MAX_CHARS) || '1. Goods once sold will not be taken back.\n2. Subject to Trichy Jurisdiction.\n3. Please pay on or before due date.'}
                       </div>
                     </BottomCard>
-                    <BankDetailsCard bizSettings={bizSettings} />
+                    <BankDetailsCard config={config} customer={partyCustomer} docExtra={docExtra} bizSettings={bizSettings} />
                     <BottomCard title="Authorized Signature" className="invoice-signature-card">
                       <div className="invoice-stamp-placeholder">Company Stamp</div>
                       <div className="invoice-signature-line">

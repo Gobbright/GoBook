@@ -4,7 +4,7 @@ import { FileText, MessageCircle, Plus, Printer, Search, Trash2 } from 'lucide-r
 import { useModuleRecords } from '../../../shared/recordUi/useModuleRecords.js';
 
 const ESTIMATE_TYPES = ['Surgery', 'IPD Treatment', 'Health Checkup', 'Emergency', 'Diagnostics', 'Other'];
-const DOCTORS = ['Dr. Arun Kumar', 'Dr. Kumar', 'Dr. Meera Sharma', 'Dr. Priya Nair'];
+const DOCTORS = ['', 'Dr. Kumar', 'Dr. Meera Sharma', 'Dr. Priya Nair'];
 const DEFAULT_SERVICES = [
   { name: 'Surgery Charges', department: 'OT', price: 25000 },
   { name: 'Surgeon Fee', department: 'Doctors', price: 8000 },
@@ -26,14 +26,14 @@ function today() {
 
 function nextEstimateNo(records) {
   const max = records.reduce((highest, record) => {
-    const n = Number(String(record.data?.estimateNo || '').replace(/\D/g, ''));
+    const n = Number(String(record.data?.estimateNo || '-').replace(/\D/g, ''));
     return Number.isFinite(n) ? Math.max(highest, n) : highest;
   }, 240);
   return `EST-${String(max + 1).padStart(5, '0')}`;
 }
 
 function patientPhone(data = {}) {
-  return data.phone || data.mobile || '';
+  return data.phone || data.mobile || '-';
 }
 
 function totalServices(services = []) {
@@ -61,7 +61,7 @@ export function EstimatesPage() {
   const [showPatientMenu, setShowPatientMenu] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [estimateType, setEstimateType] = useState('Surgery');
-  const [doctor, setDoctor] = useState('Dr. Arun Kumar');
+  const [doctor, setDoctor] = useState('');
   const [expectedDays, setExpectedDays] = useState(3);
   const [services, setServices] = useState(DEFAULT_SERVICES);
   const [expectedInsurance, setExpectedInsurance] = useState(30000);
@@ -83,7 +83,7 @@ export function EstimatesPage() {
   const patientPayable = Math.max(0, estimatedCost - Number(expectedInsurance || 0) - Number(discount || 0));
   const savedRows = useMemo(() => estimates.records
     .map((record) => ({ id: record._id, ...record.data }))
-    .sort((a, b) => String(b.estimateNo || '').localeCompare(String(a.estimateNo || '')))
+    .sort((a, b) => String(b.estimateNo || '-').localeCompare(String(a.estimateNo || '-')))
     .slice(0, 6), [estimates.records]);
 
   function updateService(index, field, value) {
@@ -104,8 +104,8 @@ export function EstimatesPage() {
     return {
       estimateNo,
       patientName: selectedPatient?.data?.name || search,
-      patientId: selectedPatient?.data?.patientId || '',
-      patientRecordId: selectedPatient?._id || '',
+      patientId: selectedPatient?.data?.patientId || '-',
+      patientRecordId: selectedPatient?._id || '-',
       mobile: patientPhone(selectedPatient?.data),
       estimateType,
       doctor,
@@ -140,7 +140,7 @@ export function EstimatesPage() {
   function shareWhatsApp() {
     const text = `${estimateNo} estimate for ${selectedPatient?.data?.name || search}: estimated payable ${money(patientPayable)}`;
     const mobile = patientPhone(selectedPatient?.data).replace(/\D/g, '');
-    window.open(`https://wa.me/${mobile || ''}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/${mobile || '-'}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   }
 
   return (
@@ -190,7 +190,7 @@ export function EstimatesPage() {
                         type="button"
                         onClick={() => {
                           setSelectedPatientId(patient._id);
-                          setSearch(patient.data?.name || patient.data?.patientId || '');
+                          setSearch(patient.data?.name || patient.data?.patientId || '-');
                           setShowPatientMenu(false);
                         }}
                         className="block w-full cursor-pointer border-b border-[#edf2f7] px-3 py-2 text-left text-[13px] last:border-0 hover:bg-blue-50"
@@ -310,3 +310,4 @@ export function EstimatesPage() {
     </div>
   );
 }
+

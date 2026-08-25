@@ -7,78 +7,9 @@ import { todayISO } from '../../../shared/recordUi/dateUtils.js';
 const INPUT = 'h-10 w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[13px] font-[inherit] text-[#111827] outline-none focus:border-blue-500';
 const DATE_FILTERS = ['Today', 'All Dates'];
 const SOURCE_FILTERS = ['OPD/IPD', 'OPD', 'IPD', 'Emergency', 'Discharge'];
-const DOCTORS = ['Doctor', 'Dr. Arun', 'Dr. Ravi', 'Dr. Arun Kumar', 'Dr. Ravi Kumar'];
+const DOCTORS = ['Doctor'];
 const STATUSES = ['Status', 'PENDING', 'PARTIALLY DISPENSED', 'DISPENSED', 'CANCELLED', 'EXPIRED'];
 
-const DEFAULT_MEDICINES = [
-  { medicine: 'Paracetamol 500mg', dosage: '500mg', frequency: '1-0-1', duration: '5 Days' },
-  { medicine: 'Vitamin C 500mg', dosage: '500mg', frequency: '1-0-0', duration: '7 Days' },
-  { medicine: 'ORS Sachet', dosage: '1', frequency: '1-1-1', duration: '3 Days' },
-];
-
-const DEMO_PRESCRIPTIONS = [
-  {
-    _id: 'demo-rx-1052',
-    data: {
-      rxId: 'RX-1052',
-      prescriptionNo: 'RX-2026-001052',
-      patientName: 'Raj Kumar',
-      patientId: 'GBH-00128',
-      age: '34',
-      gender: 'Male',
-      bloodGroup: 'O+',
-      allergy: 'Penicillin',
-      source: 'OPD',
-      doctorName: 'Dr. Arun',
-      visitNo: 'OPD-2026-00452',
-      diagnosis: 'Viral Fever',
-      prescribedMedicines: DEFAULT_MEDICINES,
-      doctorInstructions: 'Take medicines after food.',
-      status: 'PENDING',
-      date: todayISO(),
-    },
-  },
-  {
-    _id: 'demo-rx-1051',
-    data: {
-      rxId: 'RX-1051',
-      prescriptionNo: 'RX-2026-001051',
-      patientName: 'Priya S',
-      patientId: 'GBH-00129',
-      age: '42',
-      gender: 'Female',
-      bloodGroup: 'B+',
-      source: 'IPD',
-      doctorName: 'Dr. Ravi',
-      visitNo: 'IPD-2026-00181',
-      diagnosis: 'Post operative care',
-      prescribedMedicines: DEFAULT_MEDICINES.slice(0, 2),
-      doctorInstructions: 'Continue medication as advised.',
-      status: 'PARTIALLY DISPENSED',
-      date: todayISO(),
-    },
-  },
-  {
-    _id: 'demo-rx-1050',
-    data: {
-      rxId: 'RX-1050',
-      prescriptionNo: 'RX-2026-001050',
-      patientName: 'Karthik R',
-      patientId: 'GBH-00130',
-      age: '29',
-      gender: 'Male',
-      bloodGroup: 'A+',
-      source: 'OPD',
-      doctorName: 'Dr. Arun',
-      visitNo: 'OPD-2026-00448',
-      diagnosis: 'Gastritis',
-      prescribedMedicines: DEFAULT_MEDICINES.slice(0, 2),
-      doctorInstructions: 'After food.',
-      status: 'DISPENSED',
-      date: todayISO(),
-    },
-  },
-];
 
 function normalize(value = '') {
   return String(value || '').trim().toLowerCase();
@@ -105,7 +36,7 @@ function normalizeMedicines(data = {}) {
       return { medicine, dosage, frequency, duration };
     });
   }
-  return DEFAULT_MEDICINES;
+  return [];
 }
 
 function Button({ children, icon: Icon, onClick, tone = 'white', disabled = false }) {
@@ -144,7 +75,7 @@ export function PrescriptionsQueuePage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const records = prescriptions.records.length ? prescriptions.records : DEMO_PRESCRIPTIONS;
+  const records = prescriptions.records;
   const filteredRecords = useMemo(() => {
     const q = normalize(search);
     return records.filter((record) => {
@@ -165,13 +96,13 @@ export function PrescriptionsQueuePage() {
   const selectedData = selected?.data || {};
   const selectedStatus = normalizeStatus(selectedData);
   const selectedMedicines = normalizeMedicines(selectedData);
-  const selectedAllergy = selectedData.allergy || selectedData.knownAllergies || (selectedData.patientName ? '' : 'Penicillin');
+  const selectedAllergy = selectedData.allergy || selectedData.knownAllergies || '';
 
   async function sendToDispensing() {
     if (!selected) return;
     setSaving(true);
     try {
-      if (!String(selected._id).startsWith('demo-')) {
+      if (selected) {
         await prescriptions.update(selected._id, {
           ...selectedData,
           pharmacyStatus: 'Sent to Dispensing',
@@ -247,7 +178,7 @@ export function PrescriptionsQueuePage() {
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#edf2f7] p-4">
           <div>
             <h2 className="m-0 text-[18px] font-extrabold text-[#071936]">Prescription</h2>
-            <p className="m-0 mt-1 text-[13px] font-semibold text-[#64748b]">{selectedData.prescriptionNo || selectedData.rxId || 'RX-2026-001052'}</p>
+            <p className="m-0 mt-1 text-[13px] font-semibold text-[#64748b]">{selectedData.prescriptionNo || selectedData.rxId || '-'}</p>
           </div>
           <FileText size={24} className="text-blue-600" />
         </div>
@@ -256,8 +187,8 @@ export function PrescriptionsQueuePage() {
           <div className="mb-4 rounded-lg border border-[#dbe4ef] bg-[#f8fbff] p-4">
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]">
               <div>
-                <div className="text-[17px] font-extrabold text-[#071936]">{selectedData.patientName || 'Raj Kumar'} - {selectedData.patientId || 'GBH-00128'}</div>
-                <div className="mt-1 text-[13px] font-semibold text-[#64748b]">{selectedData.age || '34'} Y - {selectedData.gender || 'Male'} - {selectedData.bloodGroup || 'O+'}</div>
+                <div className="text-[17px] font-extrabold text-[#071936]">{selectedData.patientName || '-'} - {selectedData.patientId || '-'}</div>
+                <div className="mt-1 text-[13px] font-semibold text-[#64748b]">{selectedData.age || '-'} Y - {selectedData.gender || '-'} - {selectedData.bloodGroup || '-'}</div>
                 {selectedAllergy && (
                   <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] font-extrabold text-red-700">
                     <AlertTriangle size={14} />Allergy: {selectedAllergy}
@@ -265,9 +196,9 @@ export function PrescriptionsQueuePage() {
                 )}
               </div>
               <div className="text-[13px] font-semibold text-[#334155]">
-                <div>Doctor: <strong>{selectedData.doctorName || 'Dr. Arun Kumar'}</strong></div>
-                <div className="mt-1">Visit: <strong>{selectedData.visitNo || selectedData.opdNo || 'OPD-2026-00452'}</strong></div>
-                <div className="mt-1">Diagnosis: <strong>{selectedData.diagnosis || 'Viral Fever'}</strong></div>
+                <div>Doctor: <strong>{selectedData.doctorName || '-'}</strong></div>
+                <div className="mt-1">Visit: <strong>{selectedData.visitNo || selectedData.opdNo || '-'}</strong></div>
+                <div className="mt-1">Diagnosis: <strong>{selectedData.diagnosis || '-'}</strong></div>
               </div>
             </div>
           </div>
@@ -297,7 +228,7 @@ export function PrescriptionsQueuePage() {
 
           <div className="mt-4 rounded-md border border-[#dbe4ef] bg-white p-3">
             <div className="text-[12px] font-extrabold uppercase text-[#536173]">Doctor Instructions</div>
-            <div className="mt-1 text-[13px] font-semibold text-[#334155]">{selectedData.doctorInstructions || selectedData.additionalInstructions || 'Take medicines after food.'}</div>
+            <div className="mt-1 text-[13px] font-semibold text-[#334155]">{selectedData.doctorInstructions || selectedData.additionalInstructions || '-'}</div>
           </div>
 
           <div className="mt-5 flex flex-wrap justify-end gap-2">
@@ -309,3 +240,4 @@ export function PrescriptionsQueuePage() {
     </div>
   );
 }
+

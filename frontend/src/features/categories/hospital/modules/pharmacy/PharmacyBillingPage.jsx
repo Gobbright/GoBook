@@ -489,7 +489,7 @@ export function PharmacyBillingPage() {
             onClick={() => window.location.assign('/hospital/bills-invoices')}
             className="flex min-w-[104px] items-center justify-center gap-2 border-0 bg-white px-3 py-2 text-[12px] font-bold text-[#0d1c34] cursor-pointer hover:bg-blue-50"
           >
-            <span className="rounded bg-black/5 px-1.5 py-0.5 text-[10px] font-black">Alt+V</span>
+            <span className="hidden md:inline rounded bg-black/5 px-1.5 py-0.5 text-[10px] font-black">Alt+V</span>
             <List size={14} />
             List
           </button>
@@ -539,7 +539,7 @@ export function PharmacyBillingPage() {
                 <select data-fkey="pharmacy-prescription" className={INPUT} value={prescription} onChange={(event) => setPrescription(event.target.value)}>
                   <option value="">Select Prescription</option>
                   {prescriptionOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                  {prescriptionOptions.length === 0 && <option value="RX-2026-00456">RX-2026-00456 - Sample</option>}
+                  {prescriptionOptions.length === 0 && <option value="">No prescriptions available</option>}
                 </select>
               </div>
               <div className="flex items-end">

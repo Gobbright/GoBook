@@ -89,7 +89,7 @@ export function SelectDropdown({ value, onChange, options, placeholder = 'Select
               onMouseEnter={() => setHighlighted(index)}
               onClick={() => choose(index)}
               className={`w-full text-left px-3 py-2 text-[13px] cursor-pointer border-0 font-[inherit] ${
-                opt.value === value ? 'text-blue-600 font-semibold bg-blue-50' : index === highlighted ? 'bg-[#f8fafc] text-[#111827]' : 'bg-transparent text-[#111827]'
+                opt.activeOption || opt.value === value ? 'text-blue-600 font-semibold bg-blue-50' : index === highlighted ? 'bg-[#f8fafc] text-[#111827]' : 'bg-transparent text-[#111827]'
               }`}
             >
               {opt.label}

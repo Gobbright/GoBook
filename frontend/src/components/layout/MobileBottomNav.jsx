@@ -28,7 +28,7 @@ const CATEGORY_NAV_ITEMS = {
   retail: {
     left: { label: 'Customers', href: '/customers', icon: User },
     right: { label: 'Products', href: '/products', icon: Package },
-    createHref: '/billing/purchase-order/new',
+    createHref: '/billing/invoice/new',
   },
   hospital: {
     left: { label: 'Patients', href: '/hospital/patients', icon: HeartPulse },
@@ -36,14 +36,14 @@ const CATEGORY_NAV_ITEMS = {
     createHref: '/hospital/patient-registration',
   },
   school: {
-    left: { label: 'Students', href: '/school/students', icon: GraduationCap },
-    right: { label: 'Fees', href: '/school/fee-collection', icon: Wallet },
-    createHref: '/school/admission',
+    left: { label: 'Students', href: '/school/students/list', icon: GraduationCap },
+    right: { label: 'Fees', href: '/school/fees/collect-fees', icon: Wallet },
+    createHref: '/school/admissions/new-admission',
   },
   hotel: {
-    left: { label: 'Guests', href: '/hotel/guests', icon: Users },
-    right: { label: 'Rooms', href: '/hotel/room-types', icon: BedDouble },
-    createHref: '/hotel/bookings',
+    left: { label: 'Guests', href: '/hotel/guests/list', icon: Users },
+    right: { label: 'Rooms', href: '/hotel/rooms-availability/room-status', icon: BedDouble },
+    createHref: '/hotel/reservations/new',
   },
   construction: {
     left: { label: 'Clients', href: '/construction/clients-tenders/clients', icon: Users },

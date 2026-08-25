@@ -626,6 +626,1284 @@
   }
 }
 
+.employee-management {
+  background: #f7faff;
+  color: #071936;
+}
+
+.hr-screen {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.hr-page-head,
+.hr-toolbar,
+.hr-actions,
+.hr-breadcrumb,
+.hr-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hr-page-head {
+  justify-content: space-between;
+}
+
+.hr-page-head h1 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 900;
+}
+
+.hr-page-head p,
+.hr-breadcrumb {
+  margin: 4px 0 0;
+  color: #536173;
+  font-size: 12px;
+}
+
+.hr-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4f46e5;
+  font-weight: 800;
+}
+
+.hr-btn,
+.hr-icon-btn {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #10264f;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hr-btn {
+  padding: 0 14px;
+}
+
+.hr-btn.primary {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+  box-shadow: 0 9px 18px rgba(79, 70, 229, 0.2);
+}
+
+.hr-btn.soft {
+  background: #f0f3ff;
+  color: #4f46e5;
+}
+
+.hr-btn.full {
+  width: 100%;
+}
+
+.hr-icon-btn {
+  width: 38px;
+  padding: 0;
+}
+
+.hr-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hr-stat-card,
+.hr-card,
+.hr-profile-hero,
+.hr-doc-person,
+.hr-mini-card {
+  min-width: 0;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+}
+
+.hr-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 84px;
+  padding: 16px;
+}
+
+.hr-stat-card strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.hr-stat-card span:last-child {
+  color: #536173;
+  font-size: 12px;
+}
+
+.hr-stat-icon {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.hr-stat-icon.blue { background: #eef4ff; color: #2563eb; }
+.hr-stat-icon.green { background: #ecfdf3; color: #16a34a; }
+.hr-stat-icon.orange { background: #fff4e5; color: #f97316; }
+.hr-stat-icon.red { background: #fff0f0; color: #ef4444; }
+
+.hr-card {
+  padding: 18px;
+}
+
+.hr-card h2,
+.hr-card h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.hr-toolbar {
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.hr-search {
+  flex: 1;
+  min-width: 220px;
+  max-width: 520px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #7b8da8;
+}
+
+.hr-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+}
+
+.hr-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.hr-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.hr-table th,
+.hr-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid #edf2f7;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.hr-table th {
+  background: #f8fafc;
+  color: #536173;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.hr-employee-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hr-employee-cell > span,
+.hr-avatar-sm,
+.hr-avatar-xl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 900;
+}
+
+.hr-employee-cell > span,
+.hr-avatar-sm {
+  width: 36px;
+  height: 36px;
+}
+
+.hr-avatar-xl {
+  width: 96px;
+  height: 96px;
+}
+
+.hr-employee-cell strong {
+  display: block;
+}
+
+.hr-employee-cell small {
+  color: #536173;
+  line-height: 1.35;
+}
+
+.hr-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.hr-pill.green { background: #dcfce7; color: #15803d; }
+.hr-pill.amber { background: #ffedd5; color: #c2410c; }
+.hr-pill.blue { background: #dbeafe; color: #1d4ed8; }
+.hr-pill.gray { background: #f1f5f9; color: #475569; }
+.hr-pill.red { background: #fee2e2; color: #dc2626; }
+
+.hr-menu-cell {
+  position: relative;
+}
+
+.hr-row-menu,
+.hr-filter-panel,
+.hr-verify-panel {
+  position: fixed;
+  z-index: 60;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+.hr-row-menu {
+  position: absolute;
+  top: 40px;
+  right: 6px;
+  width: 178px;
+  padding: 8px;
+}
+
+.hr-row-menu a,
+.hr-row-menu button {
+  width: 100%;
+  display: block;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #10264f;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hr-row-menu a:hover,
+.hr-row-menu button:hover {
+  background: #f4f7ff;
+}
+
+.hr-table-footer {
+  margin-top: 12px;
+  color: #536173;
+  font-size: 12px;
+}
+
+.hr-filter-panel,
+.hr-verify-panel {
+  top: 104px;
+  right: 26px;
+  width: min(340px, calc(100vw - 40px));
+  padding: 18px;
+}
+
+.hr-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.hr-panel-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.hr-panel-head button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hr-field {
+  display: grid;
+  gap: 7px;
+  color: #10264f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hr-field b {
+  color: #ef4444;
+}
+
+.hr-field input,
+.hr-field select,
+.hr-field textarea,
+.hr-verify-panel textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 11px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  background: #fff;
+  outline: 0;
+  color: #071936;
+  font-size: 12px;
+}
+
+.hr-field textarea,
+.hr-verify-panel textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.hr-check-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  font-size: 12px;
+}
+
+.hr-check-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+}
+
+.hr-panel-actions,
+.hr-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.hr-stepper {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+.hr-stepper button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: #536173;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hr-stepper span {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eef2ff;
+}
+
+.hr-stepper .active {
+  color: #4f46e5;
+}
+
+.hr-stepper .active span {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.hr-form-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+}
+
+.hr-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.hr-form-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hr-upload-box {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  border: 1px dashed #b8c8df;
+  border-radius: 7px;
+  background: #fbfdff;
+  color: #4f46e5;
+  font-size: 12px;
+}
+
+.employee-photo-upload {
+  cursor: pointer;
+}
+
+.employee-photo-upload input {
+  display: none;
+}
+
+.employee-photo-upload img {
+  width: 58px;
+  height: 58px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.hr-upload-box small {
+  color: #64748b;
+}
+
+.hr-side-stack {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.hr-type,
+.hr-workflow,
+.hr-info-row,
+.hr-review p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hr-type {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 9px;
+  border: 0;
+  border-radius: 7px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hr-type.active,
+.hr-type:hover {
+  background: #f0f3ff;
+}
+
+.hr-type span {
+  display: grid;
+  font-weight: 900;
+}
+
+.hr-type small {
+  color: #536173;
+  font-weight: 600;
+}
+
+.hr-workflow {
+  margin: 11px 0;
+  color: #536173;
+  font-size: 12px;
+}
+
+.hr-workflow span {
+  width: 10px;
+  height: 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 999px;
+}
+
+.hr-workflow.done {
+  color: #4f46e5;
+}
+
+.hr-workflow.done span {
+  border-color: #4f46e5;
+  background: #4f46e5;
+}
+
+.hr-profile-mini,
+.hr-empty-docs {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.hr-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px;
+}
+
+.hr-profile-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.hr-profile-title h1 {
+  display: inline;
+  margin: 0 12px 0 0;
+  font-size: 26px;
+}
+
+.hr-tabs {
+  border-bottom: 1px solid #dbe4ef;
+}
+
+.hr-tabs button {
+  position: relative;
+  padding: 0 12px 12px;
+  border: 0;
+  background: transparent;
+  color: #536173;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.hr-tabs button.active {
+  color: #4f46e5;
+}
+
+.hr-tabs button.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: #4f46e5;
+}
+
+.hr-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.hr-mini-card {
+  padding: 18px;
+}
+
+.hr-mini-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+}
+
+.hr-mini-card span,
+.hr-mini-card small,
+.hr-info-row span,
+.hr-review span {
+  color: #536173;
+  font-size: 12px;
+}
+
+.hr-mini-card small {
+  display: inline-flex;
+  margin-top: 10px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 900;
+}
+
+.hr-profile-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(280px, 0.8fr);
+  gap: 16px;
+}
+
+.hr-info-row,
+.hr-review p {
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #edf2f7;
+  padding: 9px 0;
+}
+
+.hr-info-row strong,
+.hr-review strong {
+  max-width: 58%;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.hr-activity {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  padding: 9px 0;
+  color: #10264f;
+  font-size: 12px;
+}
+
+.hr-activity span {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #4f46e5;
+}
+
+.hr-activity small {
+  color: #64748b;
+}
+
+.hr-doc-person {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 18px;
+}
+
+.hr-doc-person span {
+  color: #536173;
+  font-size: 12px;
+}
+
+.hr-doc-stats {
+  display: flex;
+  gap: 10px;
+}
+
+.hr-doc-stats span {
+  min-width: 104px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid #dfe7f1;
+  border-radius: 7px;
+  padding: 10px;
+  background: #fbfdff;
+}
+
+.hr-doc-stats b {
+  color: #071936;
+  font-size: 18px;
+}
+
+.hr-doc-preview {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 150px;
+  margin: 12px 0;
+  border: 8px solid #f1f5f9;
+  background: #fff;
+  color: #4f46e5;
+}
+
+@media (max-width: 1280px) {
+  .hr-stat-grid,
+  .hr-profile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hr-form-layout,
+  .hr-profile-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .hr-side-stack {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .hr-page-head,
+  .hr-toolbar,
+  .hr-profile-hero,
+  .hr-doc-person {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hr-stat-grid,
+  .hr-profile-grid,
+  .hr-form-grid,
+  .hr-form-grid.three,
+  .hr-side-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .hr-doc-person {
+    display: flex;
+  }
+
+  .hr-doc-stats {
+    flex-wrap: wrap;
+  }
+}
+
+.employee-management .hr-screen,
+.employee-management .hr-screen button,
+.employee-management .hr-screen input,
+.employee-management .hr-screen select,
+.employee-management .hr-screen textarea {
+  font-weight: 400;
+}
+
+.employee-management .hr-screen h1,
+.employee-management .hr-screen h2,
+.employee-management .hr-screen h3 {
+  font-weight: 600;
+}
+
+.employee-management .hr-page-head h1 {
+  font-weight: 600;
+}
+
+.employee-management .hr-breadcrumb a,
+.employee-management .hr-breadcrumb strong,
+.employee-management .hr-btn,
+.employee-management .hr-icon-btn,
+.employee-management .hr-stepper button,
+.employee-management .hr-field,
+.employee-management .hr-card h2,
+.employee-management .hr-card h3,
+.employee-management .hr-table th,
+.employee-management .hr-pill,
+.employee-management .hr-type span,
+.employee-management .hr-check-list strong {
+  font-weight: 500;
+}
+
+.employee-management .hr-stat-card strong,
+.employee-management .hr-employee-cell strong,
+.employee-management .hr-profile-title h1,
+.employee-management .hr-mini-card strong,
+.employee-management .hr-info-row strong,
+.employee-management .hr-review strong,
+.employee-management .hr-activity strong,
+.employee-management .hr-doc-stats b,
+.employee-management .hr-doc-person strong,
+.employee-management .hr-profile-mini strong {
+  font-weight: 500;
+}
+
+.employee-management .hr-upload-box span,
+.employee-management .hr-type small,
+.employee-management .hr-mini-card small {
+  font-weight: 400;
+}
+
+.hr-btn.danger {
+  border-color: #fecaca;
+  background: #fff;
+  color: #dc2626;
+}
+
+.attendance-date-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.attendance-date-row label {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #10264f;
+  font-size: 12px;
+}
+
+.attendance-date-row input {
+  width: 24px;
+  border: 0;
+  outline: 0;
+}
+
+.hr-subsection-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 8px;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.03);
+}
+
+.hr-subsection-tabs a {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.hr-subsection-tabs a:hover,
+.hr-subsection-tabs a.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.attendance-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.attendance-stat {
+  min-height: 82px;
+  padding: 16px;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+}
+
+.attendance-stat span,
+.attendance-muted {
+  color: #536173;
+  font-size: 12px;
+}
+
+.attendance-stat strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.attendance-stat small {
+  color: #16a34a;
+  font-size: 11px;
+}
+
+.attendance-select {
+  min-height: 40px;
+  min-width: 170px;
+  padding: 0 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #10264f;
+  font-size: 12px;
+  outline: 0;
+}
+
+.attendance-table {
+  min-width: 860px;
+}
+
+.attendance-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 14px;
+  color: #536173;
+  font-size: 12px;
+}
+
+.attendance-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.attendance-legend i {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.attendance-register-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 16px;
+  align-items: start;
+}
+
+.attendance-register-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+}
+
+.attendance-register-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.attendance-register-table th,
+.attendance-register-table td {
+  min-width: 28px;
+  height: 34px;
+  border: 1px solid #edf2f7;
+  text-align: center;
+}
+
+.attendance-register-table th:first-child,
+.attendance-register-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 170px;
+  background: #fff;
+  text-align: left;
+  padding: 6px 10px;
+}
+
+.att-cell {
+  display: inline-flex;
+  min-width: 22px;
+  min-height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #ecfdf3;
+  color: #15803d;
+  font-size: 10px;
+}
+
+.att-cell.A { background: #fee2e2; color: #dc2626; }
+.att-cell.L,
+.att-cell.HF { background: #ffedd5; color: #c2410c; }
+.att-cell.WF,
+.att-cell.OD { background: #e0e7ff; color: #4f46e5; }
+.att-cell.empty { background: transparent; color: transparent; }
+
+.attendance-summary-card {
+  padding: 16px;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.attendance-summary-card h2,
+.report-main h2,
+.report-late h2 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.attendance-summary-card p,
+.report-late p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf2f7;
+  color: #536173;
+  font-size: 12px;
+}
+
+.attendance-summary-card strong,
+.report-late strong {
+  color: #071936;
+  font-weight: 500;
+}
+
+.attendance-rate-line {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0;
+  font-size: 12px;
+}
+
+.attendance-rate-line i {
+  height: 6px;
+  border-radius: 999px;
+  background: #16a34a;
+}
+
+.correction-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1fr) minmax(280px, 0.85fr);
+  gap: 16px;
+}
+
+.correction-list {
+  display: grid;
+  gap: 10px;
+}
+
+.correction-list > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.correction-list > button.active {
+  border-color: #4f46e5;
+  background: #f8faff;
+}
+
+.correction-list small {
+  grid-column: 2;
+  color: #536173;
+}
+
+.correction-list i {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  font-style: normal;
+}
+
+.attendance-tab-count {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 11px;
+}
+
+.correction-document {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  color: #10264f;
+}
+
+.correction-document small {
+  color: #536173;
+}
+
+.attendance-note {
+  width: 100%;
+  min-height: 110px;
+  padding: 11px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+}
+
+.correction-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+
+.report-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.attendance-report-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 250px;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.report-menu {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.report-menu button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #536173;
+  text-align: left;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.report-menu button.active,
+.report-menu button:hover {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.report-main {
+  min-width: 0;
+}
+
+.report-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.report-summary-grid span {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #dfe7f1;
+  border-radius: 7px;
+  color: #536173;
+  font-size: 12px;
+}
+
+.report-summary-grid strong {
+  color: #071936;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.attendance-chart {
+  height: 230px;
+  display: grid;
+  grid-template-columns: repeat(31, minmax(4px, 1fr));
+  align-items: end;
+  gap: 5px;
+  padding: 18px;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  background: linear-gradient(#fff, #fbfdff);
+}
+
+.attendance-chart span {
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(180deg, #4f46e5, #16a34a);
+}
+
+.chart-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.chart-dot.green { background: #16a34a; }
+.chart-dot.red { background: #ef4444; }
+.chart-dot.amber { background: #f59e0b; }
+.chart-dot.blue { background: #4f46e5; }
+
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.integration-grid button {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.integration-grid span {
+  display: grid;
+  gap: 3px;
+  color: #10264f;
+}
+
+.integration-grid small {
+  color: #536173;
+}
+
+@media (max-width: 1280px) {
+  .attendance-stat-grid,
+  .integration-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .attendance-register-layout,
+  .correction-layout,
+  .attendance-report-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .report-filter-grid,
+  .report-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .attendance-stat-grid,
+  .integration-grid,
+  .report-filter-grid,
+  .report-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-select {
+    width: 100%;
+  }
+}
+
 @media (max-width: 560px) {
   :where(.employee-management, .employee-portal) .content {
     padding: 14px;
@@ -1563,6 +2841,538 @@
   margin-bottom: 18px;
 }
 
+.leave-request-layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.9fr) minmax(520px, 1.7fr) minmax(250px, 0.95fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.leave-apply-card,
+.leave-list-card,
+.leave-detail-card,
+.leave-settings-card {
+  display: grid;
+  gap: 14px;
+}
+
+.leave-apply-card h2,
+.leave-detail-card h2,
+.leave-settings-card h2,
+.leave-calendar-side h2 {
+  margin: 0;
+  color: #071936;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.leave-upload {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed #bfdbfe;
+  border-radius: 7px;
+  background: #f8fbff;
+  color: #1d4ed8;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.leave-upload input {
+  display: none;
+}
+
+.leave-upload span {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.leave-detail-person {
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.leave-detail-person i {
+  margin-left: auto;
+  font-style: normal;
+}
+
+.leave-workflow {
+  display: grid;
+  grid-template-columns: auto repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.leave-workflow h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.leave-workflow span {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #536173;
+  font-size: 12px;
+}
+
+.leave-workflow i {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.leave-type-create {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leave-type-create input {
+  min-height: 38px;
+  width: 150px;
+  padding: 0 11px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #10264f;
+  font-size: 12px;
+  outline: 0;
+}
+
+.leave-success-message {
+  width: fit-content;
+  margin: -6px 0 0;
+  padding: 8px 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 12px;
+}
+
+.leave-types-table svg.leave-check {
+  color: #16a34a;
+}
+
+.leave-types-table svg.leave-x {
+  color: #ef4444;
+}
+
+.leave-types-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #536173;
+  font-size: 12px;
+}
+
+.leave-types-summary strong {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 500;
+}
+
+.leave-row-actions {
+  position: relative;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.leave-action-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.leave-action-menu button {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #10264f;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.leave-action-menu button:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.leave-type-modal {
+  width: min(560px, 100%);
+}
+
+.leave-type-check-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.leave-type-check-grid .employee-check-field {
+  width: 100%;
+  min-height: 42px;
+  align-self: auto;
+  padding: 0 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  background: #f8fbff;
+  white-space: nowrap;
+}
+
+.leave-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.leave-settings-grid button,
+.integration-grid button {
+  min-width: 0;
+}
+
+.leave-settings-grid button {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  background: #fff;
+  color: #10264f;
+  text-align: left;
+  cursor: pointer;
+}
+
+.leave-settings-grid span,
+.leave-calendar-side p span,
+.leave-report-split p span {
+  display: grid;
+  gap: 3px;
+}
+
+.leave-settings-grid small,
+.leave-calendar-side p small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.leave-balance-person {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.leave-employee-dropdown {
+  position: relative;
+  width: min(260px, 100%);
+}
+
+.leave-employee-dropdown > button.attendance-select {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.leave-employee-dropdown > button.attendance-select span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leave-employee-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: min(280px, 86vw);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+}
+
+.leave-employee-menu > span,
+.leave-employee-menu button {
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #10264f;
+  font-size: 12px;
+  text-align: left;
+}
+
+.leave-employee-menu button {
+  cursor: pointer;
+}
+
+.leave-employee-menu button:hover,
+.leave-employee-menu button.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.leave-employee-menu small {
+  color: #64748b;
+}
+
+.leave-total-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.leave-total-grid .hr-card {
+  display: grid;
+  gap: 7px;
+  padding: 16px;
+}
+
+.leave-total-grid span {
+  color: #536173;
+  font-size: 12px;
+}
+
+.leave-total-grid strong {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.leave-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 14px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+.leave-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(86px, 1fr));
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.leave-calendar-grid b,
+.leave-calendar-grid > div {
+  min-height: 44px;
+  padding: 10px;
+  border-right: 1px solid #edf2f7;
+  border-bottom: 1px solid #edf2f7;
+  background: #fff;
+}
+
+.leave-calendar-grid b {
+  min-height: 36px;
+  color: #536173;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.leave-calendar-grid > div {
+  min-height: 104px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.leave-calendar-grid > div.blank {
+  background: #f8fafc;
+}
+
+.leave-calendar-grid strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.leave-calendar-grid span,
+.leave-dot {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 5px;
+}
+
+.leave-calendar-grid span {
+  min-height: 20px;
+  padding: 3px 6px;
+  color: #10264f;
+  font-size: 10px;
+  overflow: hidden;
+}
+
+.leave-calendar-grid .cl,
+.leave-dot.cl {
+  background: #ede9fe;
+}
+
+.leave-calendar-grid .sl,
+.leave-dot.sl {
+  background: #ffedd5;
+}
+
+.leave-calendar-grid .el,
+.leave-dot.el {
+  background: #dcfce7;
+}
+
+.leave-calendar-grid .co,
+.leave-calendar-grid .up,
+.leave-dot.up {
+  background: #fee2e2;
+}
+
+.leave-calendar-side {
+  display: grid;
+  gap: 14px;
+}
+
+.leave-calendar-side .hr-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.leave-calendar-side p {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  color: #10264f;
+  font-size: 12px;
+}
+
+.leave-calendar-side p b {
+  margin-left: auto;
+  font-weight: 500;
+}
+
+.leave-availability {
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-content: center;
+  justify-self: center;
+  border: 12px solid #22c55e;
+  border-left-color: #e5e7eb;
+  border-radius: 999px;
+  color: #10264f;
+  text-align: center;
+}
+
+.leave-availability strong {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.leave-availability span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.leave-dot {
+  width: 18px;
+  height: 14px;
+}
+
+.leave-report-split {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.leave-donut {
+  width: 150px;
+  height: 150px;
+  display: grid;
+  place-content: center;
+  justify-self: center;
+  border: 26px solid #a78bfa;
+  border-top-color: #fb923c;
+  border-right-color: #93c5fd;
+  border-bottom-color: #86efac;
+  border-radius: 999px;
+  text-align: center;
+}
+
+.leave-donut strong {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.leave-donut span,
+.leave-report-note {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.leave-report-split p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 9px 0;
+  color: #10264f;
+  font-size: 12px;
+}
+
+.leave-report-split p strong {
+  font-weight: 500;
+}
+
+.leave-report-note {
+  margin: 14px 0 0;
+  padding: 12px;
+  border-radius: 7px;
+  background: #fff7ed;
+}
+
 @media (max-width: 560px) {
   .attendance-status-head,
   .attendance-punch-grid,
@@ -1573,5 +3383,295 @@
   .attendance-status-head {
     align-items: flex-start;
     display: grid;
+  }
+}
+
+@media (max-width: 1180px) {
+  .leave-request-layout,
+  .leave-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .leave-workflow,
+  .leave-settings-grid,
+  .leave-total-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .leave-type-create,
+  .leave-balance-person {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .leave-type-create input,
+  .leave-type-create .hr-btn,
+  .leave-balance-person .hr-btn {
+    width: 100%;
+  }
+
+  .leave-workflow,
+  .leave-settings-grid,
+  .leave-total-grid,
+  .leave-type-check-grid,
+  .leave-report-split {
+    grid-template-columns: 1fr;
+  }
+
+  .leave-calendar-grid {
+    grid-template-columns: repeat(7, minmax(58px, 1fr));
+    overflow-x: auto;
+  }
+}
+
+.payroll-person-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.payroll-structure-grid,
+.payroll-processing-layout,
+.payslip-layout,
+.payroll-report-layout {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+}
+
+.payroll-structure-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payroll-processing-layout {
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+
+.payslip-layout {
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.payroll-report-layout {
+  grid-template-columns: 230px minmax(0, 1fr);
+}
+
+.payroll-table-card,
+.payroll-summary-card,
+.payroll-action-list,
+.payslip-list,
+.payslip-preview,
+.report-category-list {
+  display: grid;
+  gap: 12px;
+}
+
+.payroll-table-card p,
+.payroll-table-card b,
+.payroll-summary-card p,
+.payslip-columns p,
+.payslip-columns b {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf2f7;
+  color: #10264f;
+  font-size: 12px;
+}
+
+.payroll-table-card b,
+.payslip-columns b {
+  margin-top: 4px;
+  padding: 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #eef2ff;
+  color: #1d4ed8;
+}
+
+.payroll-table-card .danger,
+.payslip-columns .danger {
+  background: #fff1f2;
+  color: #dc2626;
+}
+
+.payroll-table-card strong,
+.payroll-summary-card strong,
+.payslip-columns strong {
+  font-weight: 500;
+  text-align: right;
+}
+
+.payroll-net-card,
+.payslip-net {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 14px;
+}
+
+.payroll-net-card strong,
+.payslip-net strong {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.payroll-total-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.payroll-side-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.payroll-summary-card hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid #edf2f7;
+}
+
+.payroll-action-list button,
+.payslip-list button,
+.report-category-list button {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #10264f;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.payroll-action-list button:hover,
+.payslip-list button:hover,
+.payslip-list button.active,
+.report-category-list button:hover,
+.report-category-list button.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.payroll-action-list button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.payslip-list button {
+  min-height: 58px;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.payslip-list button span,
+.payslip-preview > p {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.payslip-meta,
+.payslip-columns {
+  display: grid;
+  gap: 12px;
+}
+
+.payslip-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 14px 0;
+}
+
+.payslip-meta span {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #edf2f7;
+  border-radius: 7px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.payslip-meta strong {
+  color: #10264f;
+  font-weight: 500;
+}
+
+.payslip-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payslip-columns section {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.payslip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.report-category-list {
+  align-content: start;
+}
+
+.hr-pill {
+  border: 0;
+}
+
+@media (max-width: 1180px) {
+  .payroll-processing-layout,
+  .payslip-layout,
+  .payroll-report-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .payroll-total-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .payroll-person-head,
+  .hr-page-head,
+  .hr-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payroll-structure-grid,
+  .payroll-total-grid,
+  .payslip-meta,
+  .payslip-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .payroll-person-head .attendance-select,
+  .hr-actions .attendance-select,
+  .hr-actions .hr-btn {
+    width: 100%;
   }
 }

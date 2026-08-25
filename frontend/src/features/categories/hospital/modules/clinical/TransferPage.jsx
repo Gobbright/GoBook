@@ -8,34 +8,9 @@ const INPUT = 'h-10 w-full rounded-md border border-[#dbe4ef] bg-white px-3 text
 const TEXTAREA = 'min-h-20 w-full rounded-md border border-[#dbe4ef] bg-white px-3 py-2 text-[13px] font-[inherit] text-[#111827] outline-none focus:border-blue-500';
 const REASONS = ['Patient requested private room', 'Doctor advised ICU care', 'ICU step-down', 'Clinical isolation required', 'Maintenance/cleaning', 'Bed consolidation', 'Other'];
 const TRANSFER_TYPES = ['Bed to Bed', 'Room to Room', 'Ward to Ward', 'Ward to ICU', 'ICU to Ward', 'Branch Transfer'];
-const DEMO_ADMISSIONS = [
-  {
-    _id: 'demo-ipd-182',
-    data: {
-      patientName: 'Raj Kumar',
-      patientId: 'GBH-00128',
-      ipdNo: 'IPD-2026-00182',
-      wardName: 'General Ward',
-      roomName: 'G-201',
-      bedNumber: 'B01',
-      dailyRoomCharge: 1500,
-      nursingCharge: 300,
-      status: 'Bed Allocated',
-      bedHistory: [
-        { from: '2026-08-07 10:00', to: '', wardName: 'General Ward', roomName: 'G-201', bedNumber: 'B01', rate: 1500, nursingCharge: 300 },
-      ],
-    },
-  },
-];
-const DEMO_BEDS = [
-  { _id: 'demo-g201-b01', data: { name: 'B01', wardName: 'General Ward', roomName: 'G-201', floor: '2nd Floor', status: 'Occupied', patientName: 'Raj Kumar', ipdNo: 'IPD-2026-00182', dailyCharge: 1500, nursingCharge: 300 } },
-  { _id: 'demo-p205-b01', data: { name: 'B01', wardName: 'Private Ward', roomName: 'P-205', floor: '2nd Floor', status: 'Available', dailyCharge: 3000, nursingCharge: 500 } },
-  { _id: 'demo-p205-b02', data: { name: 'B02', wardName: 'Private Ward', roomName: 'P-205', floor: '2nd Floor', status: 'Available', dailyCharge: 3000, nursingCharge: 500 } },
-  { _id: 'demo-icu-ic04', data: { name: 'IC-04', wardName: 'ICU', roomName: 'ICU', floor: 'Ground Floor', status: 'Available', dailyCharge: 7000, nursingCharge: 1500 } },
-];
 
 function normalize(value = '') {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '-').trim().toLowerCase();
 }
 
 function money(value) {
@@ -58,7 +33,7 @@ function bedName(data = {}) {
 
 function roomName(data = {}) {
   if (data.roomName || data.roomNumber || data.room) return data.roomName || data.roomNumber || data.room;
-  const raw = String(data.name || '');
+  const raw = String(data.name || '-');
   return raw.includes('/') ? raw.split('/')[0] : 'G-201';
 }
 
@@ -110,8 +85,8 @@ export function TransferPage() {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const admissionRecords = admissions.records.length ? admissions.records : DEMO_ADMISSIONS;
-  const bedRecords = beds.records.length ? beds.records : DEMO_BEDS;
+  const admissionRecords = admissions.records;
+  const bedRecords = beds.records;
   const activeAdmissions = useMemo(() => admissionRecords.filter((record) => isActiveIpd(record.data?.status)), [admissionRecords]);
   const patientOptions = useMemo(() => {
     const q = normalize(search);
@@ -125,7 +100,7 @@ export function TransferPage() {
     return source.slice(0, 8);
   }, [activeAdmissions, search]);
 
-  const selectedAdmission = activeAdmissions.find((record) => record._id === selectedAdmissionId) || patientOptions[0] || activeAdmissions[0] || DEMO_ADMISSIONS[0];
+  const selectedAdmission = activeAdmissions.find((record) => record._id === selectedAdmissionId) || patientOptions[0] || activeAdmissions[0] || null;
   const data = useMemo(() => selectedAdmission?.data || {}, [selectedAdmission]);
   const currentBed = useMemo(() => bedRecords.find((record) => {
     const bed = record.data || {};
@@ -165,7 +140,7 @@ export function TransferPage() {
 
   function selectAdmission(record) {
     setSelectedAdmissionId(record._id);
-    setSearch(record.data?.patientName || '');
+    setSearch(record.data?.patientName || '-');
   }
 
   async function transferPatient() {
@@ -194,7 +169,7 @@ export function TransferPage() {
 
     setSaving(true);
     try {
-      if (currentBed && !String(currentBed._id).startsWith('demo-')) {
+      if (currentBed) {
         await beds.update(currentBed._id, {
           ...currentBed.data,
           status: 'Cleaning',
@@ -204,18 +179,18 @@ export function TransferPage() {
           lastReleasedAt: transferAt,
         });
       }
-      if (!String(selectedBed._id).startsWith('demo-')) {
+      if (selectedBed._id) {
         await beds.update(selectedBed._id, {
           ...selectedBedData,
           status: 'Occupied',
-          patientName: data.patientName || 'Raj Kumar',
-          patientId: data.patientId || '',
-          ipdNo: data.ipdNo || data.admissionNo || '',
+          patientName: data.patientName || '-',
+          patientId: data.patientId || '-',
+          ipdNo: data.ipdNo || data.admissionNo || '-',
           allocationDate: transferDate,
           allocationTime: transferTime,
         });
       }
-      if (!String(selectedAdmission._id).startsWith('demo-')) {
+      if (selectedAdmission._id) {
         await admissions.update(selectedAdmission._id, {
           ...data,
           wardName: newWard,
@@ -235,9 +210,9 @@ export function TransferPage() {
       await procedures.create({
         name: `Bed transfer to ${newRoom}/${bedName(selectedBedData)}`,
         procedure: `Bed transfer - ${newWard}`,
-        patientName: data.patientName || 'Raj Kumar',
-        patientId: data.patientId || '',
-        ipdNo: data.ipdNo || data.admissionNo || '',
+        patientName: data.patientName || '-',
+        patientId: data.patientId || '-',
+        ipdNo: data.ipdNo || data.admissionNo || '-',
         department: 'IPD',
         date: transferDate,
         charge: newRate + newNursing,
@@ -287,7 +262,7 @@ export function TransferPage() {
           </div>
 
           <div className="mt-4 rounded-md border border-[#edf2f7] bg-[#f8fbff] p-4 text-[14px] font-extrabold text-[#071936]">
-            {data.patientName || 'Raj Kumar'} - {data.ipdNo || data.admissionNo || 'IPD-2026-00182'}
+            {data.patientName || '-'} - {data.ipdNo || data.admissionNo || '-'}
           </div>
 
           <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_70px_minmax(0,1fr)]">
@@ -311,7 +286,7 @@ export function TransferPage() {
               <div className="grid gap-3">
                 <label className="text-[12px] font-extrabold uppercase text-[#536173]">Ward *<select className={`${INPUT} mt-1`} value={newWard} onChange={(event) => { setNewWard(event.target.value); setNewBedId(''); }}><option value="">Select Ward</option>{wardOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label className="text-[12px] font-extrabold uppercase text-[#536173]">Room *<select className={`${INPUT} mt-1`} value={newRoom} onChange={(event) => { setNewRoom(event.target.value); setNewBedId(''); }}><option value="">Select Room</option>{roomOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label className="text-[12px] font-extrabold uppercase text-[#536173]">Bed *<select className={`${INPUT} mt-1`} value={selectedBed?._id || ''} onChange={(event) => setNewBedId(event.target.value)}><option value="">Select Available Bed</option>{availableBeds.map((record) => <option key={record._id} value={record._id}>{bedName(record.data)} - {record.data?.status || 'Available'}</option>)}</select></label>
+                <label className="text-[12px] font-extrabold uppercase text-[#536173]">Bed *<select className={`${INPUT} mt-1`} value={selectedBed?._id || '-'} onChange={(event) => setNewBedId(event.target.value)}><option value="">Select Available Bed</option>{availableBeds.map((record) => <option key={record._id} value={record._id}>{bedName(record.data)} - {record.data?.status || 'Available'}</option>)}</select></label>
                 <div className="rounded-md border border-emerald-100 bg-emerald-50 p-3 text-[13px] font-bold text-emerald-800">New Rate: {money(newRate)} / Day + {money(newNursing)} nursing</div>
               </div>
             </section>
@@ -322,7 +297,7 @@ export function TransferPage() {
             <label className="text-[12px] font-extrabold uppercase text-[#536173]">Transfer Date<input className={`${INPUT} mt-1`} type="date" value={transferDate} onChange={(event) => setTransferDate(event.target.value)} /></label>
             <label className="text-[12px] font-extrabold uppercase text-[#536173]">Transfer Time<input className={`${INPUT} mt-1`} type="time" value={transferTime} onChange={(event) => setTransferTime(event.target.value)} /></label>
             <label className="md:col-span-2 text-[12px] font-extrabold uppercase text-[#536173]">Reason *<select className={`${INPUT} mt-1`} value={reason} onChange={(event) => setReason(event.target.value)}>{REASONS.map((item) => <option key={item}>{item}</option>)}</select></label>
-            <label className="text-[12px] font-extrabold uppercase text-[#536173]">Doctor Approval<input className={`${INPUT} mt-1`} value={doctorApproval} onChange={(event) => setDoctorApproval(event.target.value)} placeholder="Dr. Arun Kumar" /></label>
+            <label className="text-[12px] font-extrabold uppercase text-[#536173]">Doctor Approval<input className={`${INPUT} mt-1`} value={doctorApproval} onChange={(event) => setDoctorApproval(event.target.value)} placeholder="Approving doctor" /></label>
             <label className="md:col-span-2 xl:col-span-3 text-[12px] font-extrabold uppercase text-[#536173]">Notes<textarea className={`${TEXTAREA} mt-1`} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
           </div>
 
@@ -358,3 +333,5 @@ export function TransferPage() {
     </div>
   );
 }
+
+

@@ -2,6 +2,7 @@ import { Schema, model } from 'mongoose';
 
 const salesRecordSchema = new Schema({
   userId:   { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
+  branch:   { type: String, trim: true, default: '', index: true },
   date:     { type: String, required: true },
   number:   { type: String, required: true, trim: true },
   customer: { type: String, trim: true, default: '' },
