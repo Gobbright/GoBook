@@ -5,6 +5,7 @@ const lineItemSchema = new Schema({
   productCode:  { type: String, default: '', trim: true },
   barcode:      { type: String, default: '', trim: true },
   itemType:     { type: String, enum: ['Product', 'Service'], default: 'Product' },
+  productType:  { type: String, default: 'Standard', trim: true },
   description: { type: String, default: '' },
   itemDescription: { type: String, default: '' },
   size:        { type: String, default: '', trim: true },
@@ -13,7 +14,8 @@ const lineItemSchema = new Schema({
   unit:        { type: String, default: 'Nos' },
   rate:        { type: Number, default: 0 },
   discount:    { type: Number, default: 0 },
-  gstRate:     { type: Number, default: 18 },
+  discountType:{ type: String, enum: ['percent', 'amount'], default: 'percent' },
+  gstRate:     { type: Number, default: 0 },
 });
 
 const chargeSchema = new Schema({
@@ -21,6 +23,13 @@ const chargeSchema = new Schema({
   amount:  { type: String, default: '' },
   gstRate: { type: Number, default: 18 },
 });
+
+const paymentSplitSchema = new Schema({
+  methodId:  { type: String, default: '', trim: true },
+  method:    { type: String, default: '', trim: true },
+  amount:    { type: Number, default: 0 },
+  reference: { type: String, default: '', trim: true },
+}, { _id: false });
 
 const customFieldSchema = new Schema({
   key:   { type: String, default: '' },
@@ -89,6 +98,7 @@ const invoiceSchema = new Schema({
 
   advanceReceived: { type: Number, default: 0 },
   paymentMethod:   { type: String, default: '', trim: true },
+  paymentSplits:   { type: [paymentSplitSchema], default: [] },
   notes:           { type: String, default: '' },
   internalNotes:   { type: String, default: '' },
   terms:           { type: String, default: '' },

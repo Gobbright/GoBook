@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import '../features/employee-management/employeeManagement.css';
 
-import { AdminLoginPage } from '../features/admin/AdminLoginPage.jsx';
 import { AdminPanelPage } from '../features/admin/AdminPanelPage.jsx';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage.jsx';
 import { InvoicesPage } from '../features/admin/pages/InvoicesPage.jsx';
@@ -19,6 +18,7 @@ import { CategoryHospitalPage } from '../features/admin/pages/CategoryHospitalPa
 import { CategoryHotelPage } from '../features/admin/pages/CategoryHotelPage.jsx';
 import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage.jsx';
 import { GoogleOnboardingPage } from '../features/auth/GoogleOnboardingPage.jsx';
+import { LegalPage } from '../features/auth/LegalPage.jsx';
 import { LoginPage } from '../features/auth/LoginPage.jsx';
 import { RegisterPage } from '../features/auth/RegisterPage.jsx';
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage.jsx';
@@ -68,7 +68,7 @@ import { hotelRoutes } from './hotelRoutes.jsx';
 import { ngoRoutes } from './ngoRoutes.jsx';
 import { commonRoutes, retailRoutes } from './retailRoutes.jsx';
 import { schoolRoutes } from './schoolRoutes.jsx';
-import { AdminProtectedRoute, AdminPublicRoute, GlobalErrorReporter, LegacyHashRedirect, ProtectedRoute, ProtectedShell, PublicRoute } from './RouteGuards.jsx';
+import { AdminProtectedRoute, GlobalErrorReporter, LegacyHashRedirect, ProtectedRoute, ProtectedShell, PublicRoute } from './RouteGuards.jsx';
 import { getLastRoute } from './routeStorage.js';
 
 // Rendered inside <BrowserRouter>, so useLocation() re-runs this on clean URL navigation,
@@ -90,10 +90,12 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+      <Route path="/terms" element={<LegalPage type="terms" />} />
+      <Route path="/privacy" element={<LegalPage type="privacy" />} />
       <Route path="/employee-login" element={<EmployeeLoginRoute />} />
       <Route path="/employee/*" element={<EmployeePortalRoutes />} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
-      <Route path="/admin-login" element={<AdminPublicRoute><AdminLoginPage /></AdminPublicRoute>} />
+      <Route path="/admin-login" element={<Navigate to="/login" replace />} />
       <Route path="/admin" element={adminRoute(<AdminPanelPage />)} />
       <Route path="/admin/users" element={adminRoute(<AdminSectionPage group="usersBusinesses" />)} />
       <Route path="/admin/users/all" element={adminRoute(<AdminUserListPage type="all" />)} />

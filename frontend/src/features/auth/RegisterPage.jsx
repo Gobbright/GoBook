@@ -6,7 +6,7 @@ import {
   Rocket, ShieldCheck, Store, User, Users, Wallet,
 } from 'lucide-react';
 
-import { CATEGORIES } from '../../constants/categories.js';
+import { CATEGORIES, RETAIL_SUBCATEGORIES } from '../../constants/categories.js';
 import { sendRegisterOtp, verifyRegisterOtp } from '../../services/authService.js';
 import { fetchSubscriptionPlans, openRazorpayCheckout, verifyRegistrationPayment } from '../../services/subscriptionService.js';
 import { AuthLayout } from './AuthLayout.jsx';
@@ -40,7 +40,10 @@ function validateCompanyStep(form) {
 }
 
 function validateCategoryStep(form) {
-  return form.category ? {} : { category: 'Select a category' };
+  const errs = {};
+  if (!form.category) errs.category = 'Select a category';
+  if (form.category === 'retail' && !form.retailSubcategory) errs.retailSubcategory = 'Select a retail subcategory';
+  return errs;
 }
 
 function validateAccountStep(form) {
@@ -129,7 +132,7 @@ function CompanyDetailsStep({ form, errors, set, onNext, onBack }) {
   );
 }
 
-function CategoryStep({ form, errors, setCategory, onNext, onBack }) {
+function CategoryStep({ form, errors, setCategory, setRetailSubcategory, onNext, onBack }) {
   return (
     <div>
       <BackButton onClick={onBack} />
@@ -137,17 +140,52 @@ function CategoryStep({ form, errors, setCategory, onNext, onBack }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-2">
         {CATEGORIES.map(({ value, label, icon }) => {
           const Icon = CATEGORY_ICONS[icon];
+          const locked = value !== 'retail';
           const selected = form.category === value;
           return (
-            <button key={value} type="button" onClick={() => setCategory(value)} className={`min-h-[82px] flex flex-col items-center justify-center gap-2 rounded-xl px-2 py-3 border cursor-pointer transition-all ${selected ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-300'}`}>
-              <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${selected ? 'bg-blue-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'}`}>{Icon && <Icon size={16} />}</span>
-              <span className={`text-[11.5px] font-semibold text-center leading-tight ${selected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`}>{label}</span>
+            <button
+              key={value}
+              type="button"
+              disabled={locked}
+              onClick={() => !locked && setCategory(value)}
+              className={`relative min-h-[88px] flex flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 border transition-all ${locked ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-75 dark:border-slate-700 dark:bg-slate-800/70' : selected ? 'cursor-pointer border-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'cursor-pointer border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-300'}`}
+            >
+              {locked && (
+                <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-500 ring-1 ring-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:ring-slate-600">
+                  <Lock size={11} />
+                </span>
+              )}
+              <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${locked ? 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-400' : selected ? 'bg-blue-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'}`}>{Icon && <Icon size={16} />}</span>
+              <span className={`text-[11.5px] font-semibold text-center leading-tight ${locked ? 'text-slate-500 dark:text-slate-400' : selected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`}>{label}</span>
+              {locked && <span className="text-[10px] font-bold leading-none text-slate-600 dark:text-slate-300">Coming soon</span>}
             </button>
           );
         })}
       </div>
       <FieldError message={errors.category} />
-      <PrimaryButton onClick={onNext} tone="green">Continue <ArrowRight size={18} /></PrimaryButton>
+      {form.category === 'retail' && (
+        <div className="mt-4">
+          <label className={LABEL}>Retail Subcategory</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {RETAIL_SUBCATEGORIES.map((item) => {
+              const selected = form.retailSubcategory === item.value;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setRetailSubcategory(item.value)}
+                  className={`min-h-[68px] rounded-xl border px-3 py-2 text-left cursor-pointer transition-all ${selected ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-300'}`}
+                >
+                  <span className={`block text-[12px] font-extrabold ${selected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>{item.label}</span>
+                  <span className={`block mt-1 text-[10.5px] leading-snug ${SUBTEXT}`}>{item.includes}</span>
+                </button>
+              );
+            })}
+          </div>
+          <FieldError message={errors.retailSubcategory} />
+        </div>
+      )}
+      <PrimaryButton onClick={onNext}>Continue <ArrowRight size={18} /></PrimaryButton>
     </div>
   );
 }
@@ -213,7 +251,7 @@ function OtpStep({ email, otp, setOtp, error, message, submitting, resending, on
       <input value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} className={`${INPUT} pl-3 text-center tracking-[8px] text-[20px] font-extrabold`} placeholder="000000" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required />
       {error && <div className={`rounded-xl px-3 py-2 ${ERROR_BOX}`}><span className={`text-[12px] ${ERROR_TEXT}`}>{error}</span></div>}
       {message && <div className="rounded-xl px-3 py-2 bg-emerald-50 text-emerald-700 text-[12px] border border-emerald-100">{message}</div>}
-      <PrimaryButton type="submit" disabled={submitting || otp.length !== 6}><CreditCard size={17} />{submitting ? 'Opening secure payment...' : 'Verify & Pay Securely'}</PrimaryButton>
+      <PrimaryButton type="submit" disabled={submitting || otp.length !== 6}><CreditCard size={17} />{submitting ? 'Creating account...' : 'Verify & Create Account'}</PrimaryButton>
       <button type="button" onClick={onResend} disabled={resending} className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[12px] cursor-pointer disabled:opacity-60"><RefreshCw size={14} />{resending ? 'Sending...' : 'Resend OTP'}</button>
     </form>
   );
@@ -222,7 +260,7 @@ function OtpStep({ email, otp, setOtp, error, message, submitting, resending, on
 export function RegisterPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    businessName: '', gstin: '', phone: '', email: '', category: '',
+    businessName: '', gstin: '', phone: '', email: '', category: '', retailSubcategory: '',
     name: '', password: '', confirmPassword: '', acceptTerms: false,
     subscriptionPlan: '', subscriptionAmount: 0,
   });
@@ -242,6 +280,7 @@ export function RegisterPage() {
     password: form.password,
     businessName: form.businessName,
     category: form.category,
+    retailSubcategory: form.category === 'retail' ? form.retailSubcategory : '',
     phone: form.phone,
     gstin: form.gstin.trim().toUpperCase(),
     subscriptionPlan: form.subscriptionPlan,
@@ -269,7 +308,7 @@ export function RegisterPage() {
     return (e) => {
       const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
       setForm((f) => field === 'category'
-        ? { ...f, category: value, subscriptionPlan: '', subscriptionAmount: 0 }
+        ? { ...f, category: value, retailSubcategory: value === 'retail' ? f.retailSubcategory : '', subscriptionPlan: '', subscriptionAmount: 0 }
         : { ...f, [field]: value });
       setErrors((prev) => {
         if (!prev[field]) return prev;
@@ -369,7 +408,7 @@ export function RegisterPage() {
       {step > 0 && <StepProgress step={step} />}
       {step === 0 && <WelcomeStep onNext={() => setStep(1)} />}
       {step === 1 && <CompanyDetailsStep form={form} errors={errors} set={set} onNext={() => goNext(validateCompanyStep)} onBack={goBack} />}
-      {step === 2 && <CategoryStep form={form} errors={errors} setCategory={(value) => set('category')({ target: { type: 'text', value } })} onNext={() => goNext(validateCategoryStep)} onBack={goBack} />}
+      {step === 2 && <CategoryStep form={form} errors={errors} setCategory={(value) => set('category')({ target: { type: 'text', value } })} setRetailSubcategory={(value) => set('retailSubcategory')({ target: { type: 'text', value } })} onNext={() => goNext(validateCategoryStep)} onBack={goBack} />}
       {step === 3 && <AccountStep form={form} errors={errors} set={set} showPassword={showPassword} setShowPassword={setShowPassword} onBack={goBack} onNext={() => goNext(validateAccountStep)} />}
       {step === 4 && <PlanStep form={form} plans={plans} plansLoading={plansLoading} errors={errors} setPlan={choosePlan} error={error} submitting={submitting} onBack={goBack} onSubmit={handleSendOtp} />}
       {step === 5 && <OtpStep email={form.email} otp={otp} setOtp={setOtp} error={error} message={message} submitting={submitting} resending={resending} onBack={goBack} onSubmit={handleVerifyOtp} onResend={handleResendOtp} />}

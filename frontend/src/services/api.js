@@ -46,6 +46,7 @@ function qs(params) {
 }
 
 export const api = {
+  getMe: () => request('GET', '/auth/me'),
   // ── Settings ──────────────────────────────────────────────────────────────
   getSettings: () => request('GET', '/settings'),
   listStaffUsers: (params) => request('GET', `/settings/users${qs(params ?? {})}`),
@@ -141,25 +142,30 @@ export const api = {
   updateVendor:   (id, payload) => request('PUT', `/more-modules/vendors/${id}`, payload),
 
   // ── Products ──────────────────────────────────────────────────────────────
-  listProducts:  (search)    => request('GET',    `/sales/products${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  listProducts:  (params)    => {
+    if (typeof params === 'string') return request('GET', `/sales/products${params ? `?search=${encodeURIComponent(params)}` : ''}`);
+    return request('GET', `/sales/products${qs(params ?? {})}`);
+  },
   createProduct: (payload)   => request('POST',   '/sales/products', payload),
   updateProduct: (id, payload) => request('PUT',  `/sales/products/${id}`, payload),
   deleteProduct: (id)        => request('DELETE', `/sales/products/${id}`),
 
   // ── Inventory: Products ───────────────────────────────────────────────────
   invProductStats:      ()               => request('GET', '/inventory/products/stats'),
-  invProductNextCode:   ()               => request('GET', '/inventory/products/next-code'),
+  invProductNextCode:   (params)         => request('GET', `/inventory/products/next-code${qs(params ?? {})}`),
   invProductCategories: ()               => request('GET', '/inventory/products/categories'),
+  invProductSubcategories: ()            => request('GET', '/inventory/products/subcategories'),
   invProductBrands:     ()               => request('GET', '/inventory/products/brands'),
   invProductSizes:      ()               => request('GET', '/inventory/products/sizes'),
   invProductFabrics:    ()               => request('GET', '/inventory/products/fabrics'),
   invProductColours:    ()               => request('GET', '/inventory/products/colours'),
   invProductTypes:      ()               => request('GET', '/inventory/products/types'),
   invListProducts:      (params)         => request('GET', `/inventory/products${qs(params ?? {})}`),
+  invGetProduct:        (id)             => request('GET', `/inventory/products/${id}`),
   invCreateProduct:     (payload)        => request('POST',   '/inventory/products', payload),
   invUpdateProduct:     (id, payload)    => request('PUT',    `/inventory/products/${id}`, payload),
   invDeleteProduct:     (id)             => request('DELETE', `/inventory/products/${id}`),
-  invImportProducts:    (formData)       => upload('/inventory/products/import', formData),
+  invImportProducts:    (formData, params) => upload(`/inventory/products/import${qs(params ?? {})}`, formData),
 
   invStockSummary:      (params)         => request('GET', `/inventory/reports/summary${qs(params ?? {})}`),
   invStockLedger:       (params)         => request('GET', `/inventory/reports/ledger${qs(params ?? {})}`),

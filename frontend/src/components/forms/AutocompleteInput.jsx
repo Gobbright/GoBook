@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 // Replaces `<input list="..."> + <datalist>` — same native-popup text-size
 // problem as <select> (see SelectDropdown.jsx), but for a free-text field with
 // suggestions rather than a closed set of choices.
-export function AutocompleteInput({ value, onChange, options = [], placeholder = '', className = '', inputClassName = '', maxLength, icon = null, onKeyDown, onFocus, dropDirection = 'auto', ...inputProps }) {
+export function AutocompleteInput({ value, onChange, onSelect, options = [], placeholder = '', className = '', inputClassName = '', dropdownClassName = '', maxLength, icon = null, onKeyDown, onFocus, dropDirection = 'auto', ...inputProps }) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
   const [dropUp, setDropUp] = useState(false);
   const ref = useRef(null);
+  const optionRefs = useRef([]);
 
   // Options are plain strings almost everywhere this is used; a caller can
   // optionally pass { value, label, badge } objects instead (e.g. to tag each
@@ -15,9 +16,18 @@ export function AutocompleteInput({ value, onChange, options = [], placeholder =
   const normalized = options.map((opt) => (typeof opt === 'string' ? { value: opt, label: opt } : opt));
   const query = String(value || '').trim().toLowerCase();
   const filtered = query
-    ? normalized.filter((opt) => opt.label.toLowerCase().includes(query) && opt.label.toLowerCase() !== query)
+    ? normalized.filter((opt) => {
+        const label = String(opt.label || '').toLowerCase();
+        const searchText = String(opt.searchText || opt.label || '').toLowerCase();
+        return searchText.includes(query) && label !== query;
+      })
     : normalized;
   const suggestions = filtered.slice(0, 20);
+
+  useEffect(() => {
+    if (!open || highlighted < 0) return;
+    optionRefs.current[highlighted]?.scrollIntoView({ block: 'nearest' });
+  }, [open, highlighted]);
 
   useEffect(() => {
     function handleOutside(e) {
@@ -46,6 +56,7 @@ export function AutocompleteInput({ value, onChange, options = [], placeholder =
 
   function choose(opt) {
     onChange(opt.value);
+    onSelect?.(opt.value, opt);
     setOpen(false);
   }
 
@@ -57,10 +68,10 @@ export function AutocompleteInput({ value, onChange, options = [], placeholder =
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlighted((i) => Math.min(suggestions.length - 1, i + 1));
+      setHighlighted((i) => Math.min(suggestions.length - 1, i < 0 ? 0 : i + 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setHighlighted((i) => Math.max(0, i - 1));
+      setHighlighted((i) => Math.max(0, i < 0 ? suggestions.length - 1 : i - 1));
     } else if (e.key === 'Enter' && highlighted >= 0) {
       e.preventDefault();
       choose(suggestions[highlighted]);
@@ -85,15 +96,16 @@ export function AutocompleteInput({ value, onChange, options = [], placeholder =
         placeholder={placeholder}
       />
       {open && suggestions.length > 0 && (
-        <div className={`absolute z-50 left-0 right-0 bg-white border border-[#dde6f2] rounded-lg shadow-lg py-1 max-h-56 overflow-y-auto ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+        <div className={`absolute z-50 left-0 right-0 bg-white border border-[#dde6f2] rounded-lg shadow-lg py-1 max-h-56 overflow-y-auto ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'} ${dropdownClassName}`}>
           {suggestions.map((opt, index) => (
             <button
               key={opt.value}
+              ref={(node) => { optionRefs.current[index] = node; }}
               type="button"
               onMouseEnter={() => setHighlighted(index)}
               onMouseDown={(e) => { e.preventDefault(); choose(opt); }}
-              className={`w-full flex items-center justify-between gap-2 text-left px-3 py-2 text-[13px] cursor-pointer border-0 font-[inherit] ${
-                index === highlighted ? 'bg-[#f8fafc] text-[#111827]' : 'bg-transparent text-[#111827]'
+              className={`w-full flex items-center justify-between gap-2 text-left py-2 pr-3 text-[13px] cursor-pointer border-0 font-[inherit] ${opt.indent ? 'pl-7' : 'pl-3'} ${
+                index === highlighted ? 'bg-blue-50 text-[#0f172a] shadow-[inset_3px_0_0_#3b82f6]' : 'bg-transparent text-[#111827]'
               }`}
             >
               <span className="truncate">{opt.label}</span>

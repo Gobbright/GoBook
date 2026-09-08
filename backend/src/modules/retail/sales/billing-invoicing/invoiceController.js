@@ -32,6 +32,7 @@ function normalizeInvoicePayload(body = {}) {
           ?? '',
         ),
         itemType: String(item.itemType ?? '').trim().toLowerCase() === 'service' ? 'Service' : 'Product',
+        productType: String(item.productType ?? '').trim() || 'Standard',
         hsn: String(item.hsn ?? ''),
         unit: String(item.unit ?? ''),
       }))
@@ -207,7 +208,12 @@ export async function sendInvoiceEmail(req, res, next) {
     const itemRows = (invoice.items || [])
       .filter((it) => it.description || Number(it.rate) > 0)
       .map((it, idx) => {
-        const taxable = (Number(it.qty) || 0) * (Number(it.rate) || 0) * (1 - (Number(it.discount) || 0) / 100);
+        const gross = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+        const discountValue = Number(it.discount) || 0;
+        const discount = it.discountType === 'amount'
+          ? Math.min(gross, discountValue)
+          : gross * (discountValue / 100);
+        const taxable = gross - discount;
         const gst     = taxable * ((Number(it.gstRate) || 0) / 100);
         const itemDescription = it.itemDescription == null ? '' : String(it.itemDescription);
         calculatedTotal += taxable + gst;

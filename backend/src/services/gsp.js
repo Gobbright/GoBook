@@ -41,7 +41,12 @@ function buildNicPayload(data, bizSettings) {
   const toStateCode   = stateCode(customer.state || '');
 
   const itemList = (items || []).map((it) => {
-    const taxable = it.qty * it.rate * (1 - (it.discount || 0) / 100);
+    const gross = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+    const discountValue = Number(it.discount) || 0;
+    const discount = it.discountType === 'amount'
+      ? Math.min(gross, discountValue)
+      : gross * (discountValue / 100);
+    const taxable = gross - discount;
     const isIntra = fromStateCode === toStateCode;
     return {
       productName:  it.description,

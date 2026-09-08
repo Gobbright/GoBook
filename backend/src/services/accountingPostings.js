@@ -38,7 +38,11 @@ function sourceVoucherNo(sourceType, sourceNumber, sourceId) {
 
 function lineTotal(item, includeGst = true) {
   const gross = (Number(item.qty) || 0) * (Number(item.rate) || 0);
-  const taxable = gross * (1 - (Number(item.discount) || 0) / 100);
+  const discountValue = Number(item.discount) || 0;
+  const discount = item.discountType === 'amount'
+    ? Math.min(gross, discountValue)
+    : gross * (discountValue / 100);
+  const taxable = gross - discount;
   const gst = includeGst ? taxable * ((Number(item.gstRate) || 0) / 100) : 0;
   return { taxable: money(taxable), gst: money(gst), total: money(taxable + gst) };
 }

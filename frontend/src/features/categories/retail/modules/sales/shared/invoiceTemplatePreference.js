@@ -1,20 +1,16 @@
 const TEMPLATE_KEY = 'gobook.invoicePrintTemplate';
-const VALID_TEMPLATES = new Set(['modern', 'classic']);
+const MASTER_INVOICE_TEMPLATE = 'classic';
 
-export function getInvoicePrintTemplate(defaultValue = 'modern') {
-  try {
-    const stored = localStorage.getItem(TEMPLATE_KEY);
-    return VALID_TEMPLATES.has(stored) ? stored : defaultValue;
-  } catch {
-    return defaultValue;
-  }
+export function getInvoicePrintTemplate(defaultValue = 'classic') {
+  return MASTER_INVOICE_TEMPLATE;
 }
 
 export function setInvoicePrintTemplate(value) {
-  if (!VALID_TEMPLATES.has(value)) return;
   try {
-    localStorage.setItem(TEMPLATE_KEY, value);
+    localStorage.setItem(TEMPLATE_KEY, MASTER_INVOICE_TEMPLATE);
   } catch {
     // The current page state still holds the selection if storage is unavailable.
   }
 }
+
+export { MASTER_INVOICE_TEMPLATE };

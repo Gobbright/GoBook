@@ -321,7 +321,7 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
   }, []);
 
   return (
-    <div style={{ position: 'fixed', left: 0, top: 0, width: '794px', pointerEvents: 'none', zIndex: 50 }}>
+    <div className="pdf-download-stage">
       <DocumentPreviewModal
         embedded
         config={config}
@@ -341,6 +341,7 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
         tcs={invoice.tcs}
         advanceAmt={invoice.advanceReceived || 0}
         paymentMethod={invoice.paymentMethod || ''}
+        paymentSplits={invoice.paymentSplits || []}
         addDiscount={invoice.additionalDiscount}
         downloadAsPdf
         pdfMode

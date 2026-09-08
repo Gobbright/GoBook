@@ -2,6 +2,17 @@ import { Product } from '../../../models/Product.js';
 import { ProductCategory } from '../../../models/ProductCategory.js';
 import { httpError } from '../../../utils/httpError.js';
 
+function normalizeCategoryBody(body = {}) {
+  const payload = { ...body };
+  if ('name' in payload) payload.name = String(payload.name || '').trim();
+  if ('description' in payload) payload.description = String(payload.description || '').trim();
+  if ('subCategories' in payload) {
+    const source = Array.isArray(payload.subCategories) ? payload.subCategories : String(payload.subCategories || '').split(/[\n,]+/);
+    payload.subCategories = [...new Set(source.map((item) => String(item || '').trim()).filter(Boolean))];
+  }
+  return payload;
+}
+
 // GET /api/inventory/categories/stats
 export async function getCategoryStats(req, res, next) {
   try {
@@ -55,7 +66,7 @@ export async function getCategory(req, res, next) {
 // POST /api/inventory/categories
 export async function createCategory(req, res, next) {
   try {
-    const cat = await ProductCategory.create({ ...req.body, userId: req.user.id });
+    const cat = await ProductCategory.create({ ...normalizeCategoryBody(req.body), userId: req.user.id });
     res.status(201).json(cat);
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, `Category "${req.body.name}" already exists`));
@@ -68,16 +79,17 @@ export async function updateCategory(req, res, next) {
   try {
     const existing = await ProductCategory.findOne({ _id: req.params.id, userId: req.user.id }).lean();
     if (!existing) return next(httpError(404, 'Category not found'));
+    const payload = normalizeCategoryBody(req.body);
 
     const cat = await ProductCategory.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.id },
-      { $set: req.body },
+      { $set: payload },
       { new: true, runValidators: true },
     ).lean();
 
     // Keep tagged products in sync when a category is renamed, so the link doesn't silently break.
-    if (req.body.name && req.body.name !== existing.name) {
-      await Product.updateMany({ userId: req.user.id, category: existing.name }, { $set: { category: req.body.name } });
+    if (payload.name && payload.name !== existing.name) {
+      await Product.updateMany({ userId: req.user.id, category: existing.name }, { $set: { category: payload.name } });
     }
 
     res.json(cat);

@@ -1,8 +1,9 @@
 import { redirectTo } from '../../routes/navigation.js';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, RefreshCw } from 'lucide-react';
 
+import { loginAdmin } from '../admin/adminService.js';
 import { login, startGoogleOtpLogin, verifyGoogleOtpLogin } from '../../services/authService.js';
 import { renderGoogleSignInButton } from '../../services/googleAuth.js';
 import { AuthLayout } from './AuthLayout.jsx';
@@ -43,6 +44,10 @@ export function LoginPage() {
           const data = await startGoogleOtpLogin(credential);
           if (!active) return;
           setEmail(data.email);
+          if (data.user) {
+            redirectTo(data.user.needsOnboarding ? '/google-onboarding' : '/dashboard');
+            return;
+          }
           if (data.existingAccount) {
             setPassword('');
             setGoogleCredential('');
@@ -97,7 +102,12 @@ export function LoginPage() {
       const user = await login(email, password);
       redirectTo(user.needsEmailVerification ? '/verify-email' : user.needsOnboarding ? '/google-onboarding' : '/dashboard');
     } catch (err) {
-      setError(err.message || 'Invalid email or password. Please try again.');
+      try {
+        await loginAdmin(email, password);
+        redirectTo('/admin');
+      } catch {
+        setError(err.message || 'Invalid email or password. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -167,7 +177,7 @@ export function LoginPage() {
               <label htmlFor="email" className={LABEL}>Email Address</label>
               <div className="relative">
                 <Mail size={15} className={ICON} />
-                <input id="email" type="email" required placeholder="Enter your email address" value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT} />
+                <input id="email" type="text" required placeholder="Enter your email address" value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT} />
               </div>
             </div>
 
@@ -235,11 +245,6 @@ export function LoginPage() {
         )}
 
         <p className={`auth-login-register text-center text-[12px] mt-3 mb-0 ${MUTED}`}>Don&apos;t have an account? <Link to="/register" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>Create Account</Link></p>
-        <div className="auth-admin-panel-row text-center mt-2">
-          <Link to="/admin-login" className="auth-admin-panel-link text-[12px] font-bold no-underline hover:underline" style={{ color: '#334155' }}>
-            <ShieldCheck className="auth-admin-panel-icon" size={15} /> <span>Admin Panel</span>
-          </Link>
-        </div>
       </AuthLayout>
     </LaunchExperience>
   );

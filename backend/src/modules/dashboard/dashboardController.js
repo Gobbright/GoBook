@@ -37,7 +37,10 @@ function invoiceTotal(inv) {
   let total = 0;
   for (const item of inv.items ?? []) {
     const gross = (Number(item.qty) || 0) * (Number(item.rate) || 0);
-    const discount = gross * ((Number(item.discount) || 0) / 100);
+    const discountValue = Number(item.discount) || 0;
+    const discount = item.discountType === 'amount'
+      ? Math.min(gross, discountValue)
+      : gross * (discountValue / 100);
     const taxable = gross - discount;
     const gst = taxable * ((Number(item.gstRate) || 0) / 100);
     total += taxable + gst;

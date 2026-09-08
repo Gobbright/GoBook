@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Download, Printer, Send, Wallet, Trash2, IndianRupee } from 'lucide-react';
 import { api } from '../../../../../../services/api.js';
-import { SelectDropdown } from '../../../../../../components/forms/SelectDropdown.jsx';
 import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
 import { RecordPaymentModal } from './RecordPaymentModal.jsx';
 import { ShareModal } from './ShareModal.jsx';
-import { getInvoicePrintTemplate, setInvoicePrintTemplate } from './invoiceTemplatePreference.js';
+import { getInvoicePrintTemplate } from './invoiceTemplatePreference.js';
 
 function fmt(n) {
   return `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -124,8 +123,9 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [downloadPdfMode, setDownloadPdfMode] = useState(false);
-  const [printTemplate, setPrintTemplate] = useState(() => getInvoicePrintTemplate());
+  const printTemplate = getInvoicePrintTemplate();
   const [products, setProducts] = useState([]);
+  const printInProgressRef = useRef(false);
 
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
   const listRoute = ({
@@ -194,9 +194,40 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
 
   useEffect(() => { loadPayments(); }, [invoiceId, documentType]);
 
+  const handlePrint = useCallback(async () => {
+    if (printInProgressRef.current) return;
+    printInProgressRef.current = true;
+    try {
+      const printRoot = document.querySelector('#document-preview-print');
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      if (document.fonts?.ready) await document.fonts.ready.catch(() => {});
+      const images = Array.from(printRoot?.querySelectorAll('img') || []);
+      await Promise.all(images.map((img) => {
+        if (img.complete) return Promise.resolve();
+        if (typeof img.decode === 'function') return img.decode().catch(() => {});
+        return new Promise((resolve) => {
+          img.addEventListener('load', resolve, { once: true });
+          img.addEventListener('error', resolve, { once: true });
+        });
+      }));
+      window.print();
+    } finally {
+      printInProgressRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
-    setInvoicePrintTemplate(printTemplate);
-  }, [printTemplate]);
+    function handlePrintShortcut(event) {
+      const mod = event.ctrlKey || event.metaKey;
+      if (!mod || event.key.toLowerCase() !== 'p') return;
+      event.preventDefault();
+      handlePrint();
+    }
+
+    window.addEventListener('keydown', handlePrintShortcut);
+    return () => window.removeEventListener('keydown', handlePrintShortcut);
+  }, [handlePrint]);
 
   async function handleDeletePayment(paymentId) {
     if (!window.confirm('Delete this payment record?')) return;
@@ -254,7 +285,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
   const accounting = invoice.accounting || {};
 
   return (
-    <div className="p-4 md:p-7 max-w-5xl mx-auto">
+    <div className="document-print-host p-4 md:p-7 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 print:hidden">
         <div className="flex items-center gap-3 flex-wrap">
           <button
@@ -270,22 +301,13 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <label className="inline-flex items-center gap-2 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white">
-            <span className="text-[#536173] font-medium">Template</span>
-            <SelectDropdown
-              value={printTemplate}
-              onChange={setPrintTemplate}
-              buttonClassName="border-0 bg-transparent text-[13px] font-semibold text-[#111827] outline-none font-[inherit]"
-              options={[{ value: 'modern', label: 'Modern' }, { value: 'classic', label: 'Classic' }]}
-            />
-          </label>
           <button type="button" onClick={() => setShowShareModal(true)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white hover:bg-gray-50 transition-colors">
             <Send size={13} className="text-[#94a3b8]" />
             Send
           </button>
-          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white hover:bg-gray-50 transition-colors">
+          <button type="button" onClick={handlePrint} className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white hover:bg-gray-50 transition-colors">
             <Printer size={13} className="text-[#94a3b8]" />
-            Print
+            Print Invoice
           </button>
           <button type="button" onClick={() => setDownloadPdfMode(true)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] text-[#374151] bg-white hover:bg-gray-50 transition-colors">
             <Download size={13} className="text-[#94a3b8]" />
@@ -341,11 +363,13 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
         tcs={invoice.tcs}
         advanceAmt={invoice.advanceReceived || 0}
         paymentMethod={invoice.paymentMethod || ''}
+        paymentSplits={invoice.paymentSplits || []}
         addDiscount={invoice.additionalDiscount}
         downloadAsPdf={downloadPdfMode}
         pdfMode={downloadPdfMode}
         invoiceNumber={docMeta.number}
         printTemplate={printTemplate}
+        printStylesActive
         onPdfDownloaded={() => setDownloadPdfMode(false)}
       />
 

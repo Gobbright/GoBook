@@ -16,7 +16,7 @@ import { getSidebarSections } from '../../constants/navigation.js';
 import { logout } from '../../services/authService.js';
 import { useCurrentUser } from '../../hooks/useCurrentUser.js';
 import { getToken } from '../../services/authToken.js';
-import sidebarLogo from '../../assets/images/logo/logo.png';
+import sidebarLogo from '../../assets/images/logo/Logo.png';
 import { normalizeAppPath } from '../../routes/navigation.js';
 
 const ICON_MAP = {
@@ -163,8 +163,12 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Logo */}
-        <div className="px-6 mb-6 flex-none flex justify-start">
-          <img src={sidebarLogo} alt="GoBook" className="h-16 w-auto object-contain" />
+        <div className="px-4 mb-4 flex-none flex justify-start overflow-visible">
+          <img
+            src={sidebarLogo}
+            alt="GoBook"
+            className="h-auto w-[225px] max-w-none object-contain object-left brightness-125 contrast-125 saturate-150 drop-shadow-[0_0_8px_rgba(255,255,255,0.22)]"
+          />
         </div>
 
         {/* Nav sections */}

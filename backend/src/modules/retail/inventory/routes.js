@@ -5,6 +5,7 @@ import {
   getNextProductCode,
   listProducts,
   getCategories,
+  getSubCategories,
   getBrands,
   getSizes,
   getFabrics,
@@ -73,6 +74,7 @@ inventoryRouter.get('/reports/ledger',  getStockLedger);
 inventoryRouter.get('/products/stats',      getProductStats);
 inventoryRouter.get('/products/next-code',  getNextProductCode);
 inventoryRouter.get('/products/categories', getCategories);
+inventoryRouter.get('/products/subcategories', getSubCategories);
 inventoryRouter.get('/products/brands',     getBrands);
 inventoryRouter.get('/products/sizes',      getSizes);
 inventoryRouter.get('/products/fabrics',    getFabrics);

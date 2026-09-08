@@ -1,8 +1,11 @@
 import { Schema, model } from 'mongoose';
 
+import { RETAIL_SUBCATEGORIES } from '../constants/categories.js';
+
 const businessSettingsSchema = new Schema({
   userId:          { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, unique: true, index: true },
   businessName:    { type: String, default: '' },
+  retailSubcategory: { type: String, enum: ['', ...RETAIL_SUBCATEGORIES], default: '' },
   businessEmail:   { type: String, default: '' },
   phone:           { type: String, default: '' },
   address:         { type: String, default: '' },
@@ -22,6 +25,8 @@ const businessSettingsSchema = new Schema({
   maintainAuditLog:      { type: Boolean, default: true },
   logoUrl:               { type: String, default: '' },
   logoFileId:            { type: Schema.Types.ObjectId },
+  paymentQrUrl:          { type: String, default: '' },
+  paymentQrFileId:       { type: Schema.Types.ObjectId },
   bankName:             { type: String, default: '' },
   accountHolderName:    { type: String, default: '' },
   accountNumber:        { type: String, default: '' },

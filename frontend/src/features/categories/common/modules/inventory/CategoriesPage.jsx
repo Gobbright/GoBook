@@ -23,10 +23,14 @@ const TrashIcon = () => (
   </svg>
 );
 
-const EMPTY_FORM = { name: '', description: '', status: 'Active' };
+const EMPTY_FORM = { name: '', subCategories: [], description: '', status: 'Active' };
 
 function CategoryModal({ mode, initial, onSave, onClose }) {
-  const [form, setForm] = useState(initial ?? EMPTY_FORM);
+  const [form, setForm] = useState(() => ({
+    ...EMPTY_FORM,
+    ...(initial ?? {}),
+    subCategoriesText: (initial?.subCategories || []).join(', '),
+  }));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -38,7 +42,12 @@ function CategoryModal({ mode, initial, onSave, onClose }) {
     setSaving(true);
     setErr('');
     try {
-      const result = mode === 'add' ? await api.invCreateCategory(form) : await api.invUpdateCategory(initial._id, form);
+      const payload = {
+        ...form,
+        subCategories: String(form.subCategoriesText || '').split(/[\n,]+/).map((item) => item.trim()).filter(Boolean),
+      };
+      delete payload.subCategoriesText;
+      const result = mode === 'add' ? await api.invCreateCategory(payload) : await api.invUpdateCategory(initial._id, payload);
       onSave(result);
     } catch (e) {
       setErr(e.message || 'Failed to save category');
@@ -59,11 +68,15 @@ function CategoryModal({ mode, initial, onSave, onClose }) {
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label className={LABEL}>Category Name *</label>
-              <input className={INPUT} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Electronics" />
+              <input className={INPUT} value={form.name} onChange={(e) => set('name', e.target.value)} />
             </div>
             <div>
               <label className={LABEL}>Description</label>
-              <input className={INPUT} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="e.g. Phones, laptops, accessories" />
+              <input className={INPUT} value={form.description} onChange={(e) => set('description', e.target.value)} />
+            </div>
+            <div>
+              <label className={LABEL}>Subcategories</label>
+              <textarea className={`${INPUT} min-h-24 resize-y`} value={form.subCategoriesText} onChange={(e) => set('subCategoriesText', e.target.value)} />
             </div>
             <div>
               <label className={LABEL}>Status</label>
@@ -159,7 +172,7 @@ export function CategoriesPage() {
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7]">
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
-            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search categories..." value={search} onChange={(e) => handleSearch(e.target.value)} />
+            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" value={search} onChange={(e) => handleSearch(e.target.value)} />
           </div>
         </div>
 
@@ -170,6 +183,7 @@ export function CategoriesPage() {
             <thead>
               <tr>
                 <th className={TH}>Category Name</th>
+                <th className={TH}>Subcategories</th>
                 <th className={TH}>Description</th>
                 <th className={TH}>Products</th>
                 <th className={TH}>Status</th>
@@ -178,12 +192,13 @@ export function CategoriesPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
               ) : categories.length === 0 ? (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#536173]">No categories found</td></tr>
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-[13px] text-[#536173]">No categories found</td></tr>
               ) : categories.map((row) => (
                 <tr key={row._id} className="hover:bg-gray-50">
                   <td className={`${TD} font-medium text-[#111827]`}>{row.name}</td>
+                  <td className={`${TD} text-[#536173]`}>{(row.subCategories || []).length ? row.subCategories.join(', ') : '-'}</td>
                   <td className={`${TD} text-[#536173]`}>{row.description || '—'}</td>
                   <td className={`${TD} text-[#111827]`}>{row.productCount}</td>
                   <td className={TD}>

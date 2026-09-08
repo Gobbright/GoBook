@@ -19,10 +19,12 @@ export async function login(email, password) {
 }
 
 export async function startGoogleOtpLogin(credential) {
-  return apiClient('/auth/google-otp/start', {
+  const data = await apiClient('/auth/google-otp/start', {
     method: 'POST',
     body: JSON.stringify({ credential }),
   });
+  if (data.token && data.user) setSession(data.token, data.user);
+  return data;
 }
 
 export async function verifyGoogleOtpLogin({ email, otp }) {

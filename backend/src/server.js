@@ -26,6 +26,7 @@ const app = express();
 
 // Trust Hostinger's nginx reverse proxy.
 app.set('trust proxy', 1);
+app.disable('etag');
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use((_req, res, next) => {
@@ -73,6 +74,12 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
 app.use('/api', apiRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);

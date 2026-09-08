@@ -35,6 +35,8 @@ const ROUTE_PERMISSION_RULES = [
   [/^\/sales-reports$/, 'reports'],
   [/^\/purchase-reports$/, 'reports'],
   [/^\/products$/, 'inventory'],
+  [/^\/services$/, 'inventory'],
+  [/^\/product-masters$/, 'inventory'],
   [/^\/product-categories$/, 'inventory'],
   [/^\/brands$/, 'inventory'],
   [/^\/warehouse$/, 'inventory'],
@@ -112,6 +114,7 @@ const SECTIONS = {
       { label: 'Debit Note', href: '/billing/debit-note/new', icon: 'FilePlus' },
       { label: 'E-Invoice', href: '/billing/e-invoice/new', icon: 'Zap' },
       { label: 'E-Way Bill', href: '/billing/e-way-bill/new', icon: 'Route' },
+      { label: 'Receivables', href: '/billing/receivables', icon: 'IndianRupee' },
     ],
   },
   purchase: {
@@ -157,8 +160,8 @@ const SECTIONS = {
     title: 'Inventory',
     items: [
       { label: 'Products', href: '/products', icon: 'Package' },
-      { label: 'Categories', href: '/product-categories', icon: 'Grid3x3' },
-      { label: 'Brands', href: '/brands', icon: 'Award' },
+      { label: 'Services', href: '/services', icon: 'Wrench' },
+      { label: 'Product Masters', href: '/product-masters', icon: 'Grid3x3' },
       { label: 'Warehouse', href: '/warehouse', icon: 'Warehouse' },
       { label: 'Barcode', href: '/barcode', icon: 'QrCode' },
       { label: 'Stock Summary', href: '/stock-summary', icon: 'BarChart3' },

@@ -1,8 +1,13 @@
 import multer from 'multer';
 import { BusinessSettings } from '../../models/BusinessSettings.js';
+import { AppUser } from '../../models/AppUser.js';
+import { Business } from '../../models/Business.js';
+import { RETAIL_SUBCATEGORIES } from '../../constants/categories.js';
 import { runAppointmentReminders } from '../../jobs/appointmentReminders.js';
 import { httpError } from '../../utils/httpError.js';
 import { deleteStoredFile, hasExpectedFileSignature, storeBuffer } from '../../services/gridfsStorage.js';
+
+const LEGACY_RETAIL_SUBCATEGORY = 'electronics-technology';
 
 export const logoUpload = multer({
   storage: multer.memoryStorage(),
@@ -13,6 +18,15 @@ export const logoUpload = multer({
   },
 });
 
+export const paymentQrUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = /^image\/(jpeg|png|gif|webp)$/i.test(file.mimetype);
+    callback(allowed ? null : httpError(400, 'Only JPG, PNG, GIF, or WebP QR images are allowed'), allowed);
+  },
+});
+
 // GET /api/settings
 export async function getSettings(req, res, next) {
   try {
@@ -20,6 +34,26 @@ export async function getSettings(req, res, next) {
     let settings = await BusinessSettings.findOne({ userId }).lean();
     if (!settings) {
       settings = await BusinessSettings.create({ userId });
+      settings = settings.toObject();
+    }
+    if (!settings.retailSubcategory) {
+      const user = await AppUser.findById(userId, { category: 1, retailSubcategory: 1, businessId: 1 }).lean();
+      const business = user?.businessId
+        ? await Business.findById(user.businessId, { retailSubcategory: 1 }).lean()
+        : null;
+      const retailSubcategory = user?.category === 'retail'
+        ? user?.retailSubcategory || business?.retailSubcategory || LEGACY_RETAIL_SUBCATEGORY
+        : '';
+      if (retailSubcategory) {
+        await Promise.all([
+          BusinessSettings.updateOne({ userId }, { $set: { retailSubcategory } }),
+          AppUser.updateOne({ _id: userId }, { $set: { retailSubcategory } }),
+          user?.businessId
+            ? Business.updateOne({ _id: user.businessId }, { $set: { retailSubcategory } })
+            : Promise.resolve(),
+        ]);
+        settings = { ...settings, retailSubcategory };
+      }
     }
     res.json(settings);
   } catch (err) {
@@ -31,11 +65,29 @@ export async function getSettings(req, res, next) {
 export async function updateSettings(req, res, next) {
   try {
     const userId = req.user.id;
+    const payload = { ...req.body };
+    if (Object.prototype.hasOwnProperty.call(payload, 'retailSubcategory')) {
+      const retailSubcategory = String(payload.retailSubcategory || '').trim();
+      const user = await AppUser.findById(userId, { category: 1, businessId: 1 }).lean();
+      if (user?.category !== 'retail') {
+        payload.retailSubcategory = '';
+      } else {
+        const normalizedRetailSubcategory = retailSubcategory || LEGACY_RETAIL_SUBCATEGORY;
+        if (!RETAIL_SUBCATEGORIES.includes(normalizedRetailSubcategory)) {
+          return next(httpError(400, 'Select a valid retail subcategory'));
+        }
+        payload.retailSubcategory = normalizedRetailSubcategory;
+        await AppUser.updateOne({ _id: userId }, { $set: { retailSubcategory: normalizedRetailSubcategory } });
+        if (user?.businessId) {
+          await Business.updateOne({ _id: user.businessId }, { $set: { retailSubcategory: normalizedRetailSubcategory } });
+        }
+      }
+    }
     let settings = await BusinessSettings.findOne({ userId });
     if (!settings) {
-      settings = await BusinessSettings.create({ userId, ...req.body });
+      settings = await BusinessSettings.create({ userId, ...payload });
     } else {
-      Object.assign(settings, req.body);
+      Object.assign(settings, payload);
       await settings.save();
     }
     res.json(settings.toObject());
@@ -121,6 +173,48 @@ export async function removeLogo(req, res, next) {
       await settings.save();
     }
     res.json({ logoUrl: '' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/settings/payment-qr
+export async function uploadPaymentQr(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    if (!hasExpectedFileSignature(req.file.buffer, req.file.mimetype)) return next(httpError(400, 'QR image content does not match its declared image type'));
+    const userId = req.user.id;
+    let settings = await BusinessSettings.findOne({ userId });
+    if (!settings) settings = await BusinessSettings.create({ userId });
+    const stored = await storeBuffer({
+      buffer: req.file.buffer,
+      filename: req.file.originalname,
+      contentType: req.file.mimetype,
+      metadata: { kind: 'payment-qr', userId, businessId: req.user.businessId },
+    });
+    if (settings.paymentQrFileId) await deleteStoredFile(settings.paymentQrFileId).catch(() => {});
+    const paymentQrUrl = `/api/files/payment-qrs/${stored.id}`;
+    settings.paymentQrUrl = paymentQrUrl;
+    settings.paymentQrFileId = stored.id;
+    await settings.save();
+    res.json({ paymentQrUrl });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DELETE /api/settings/payment-qr
+export async function removePaymentQr(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const settings = await BusinessSettings.findOne({ userId });
+    if (settings?.paymentQrUrl || settings?.paymentQrFileId) {
+      if (settings.paymentQrFileId) await deleteStoredFile(settings.paymentQrFileId).catch(() => {});
+      settings.paymentQrUrl = '';
+      settings.paymentQrFileId = undefined;
+      await settings.save();
+    }
+    res.json({ paymentQrUrl: '' });
   } catch (err) {
     next(err);
   }

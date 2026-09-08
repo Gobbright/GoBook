@@ -72,15 +72,15 @@ function WarehouseModal({ mode, initial, onSave, onClose }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
               <label className={LABEL}>Warehouse Name *</label>
-              <input className={INPUT} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Main Warehouse" />
+              <input className={INPUT} value={form.name} onChange={(e) => set('name', e.target.value)} />
             </div>
             <div className="sm:col-span-2">
               <label className={LABEL}>Location</label>
-              <input className={INPUT} value={form.location} onChange={(e) => set('location', e.target.value)} placeholder="e.g. Mumbai, Maharashtra" />
+              <input className={INPUT} value={form.location} onChange={(e) => set('location', e.target.value)} />
             </div>
             <div className="sm:col-span-2">
               <label className={LABEL}>Manager</label>
-              <input className={INPUT} value={form.manager} onChange={(e) => set('manager', e.target.value)} placeholder="e.g. Amit Singh" />
+              <input className={INPUT} value={form.manager} onChange={(e) => set('manager', e.target.value)} />
             </div>
             <div>
               <label className={LABEL}>Total Capacity (Units)</label>
@@ -185,7 +185,7 @@ export function WarehousePage() {
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7]">
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
-            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search warehouse..." value={search} onChange={(e) => handleSearch(e.target.value)} />
+            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" value={search} onChange={(e) => handleSearch(e.target.value)} />
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import { BarChart3, BookOpen, Building2, FileText, Mail, Moon, Package, ShieldCheck, Star, Sun, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { useTheme } from '../../app/ThemeContext.jsx';
 
@@ -48,6 +49,29 @@ const SOCIAL_LINKS = [
   { label: 'Facebook', href: 'https://www.facebook.com/share/18xYZv2Hqy/?mibextid=wwXIfr', icon: FacebookIcon, className: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
   { label: 'Instagram', href: 'https://www.instagram.com/gobook_?igsh=MTZrZ29kdmozMmlqdA%3D%3D&utm_source=qr', icon: InstagramIcon, className: 'text-pink-500 bg-pink-50 hover:bg-pink-100' },
 ];
+
+function AuthFooterLinks({ className, iconSize = 21 }) {
+  return (
+    <div className={className} aria-label="Social and admin links">
+      {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
+        <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+          <Icon size={iconSize} strokeWidth={2.2} />
+        </a>
+      ))}
+      <a href="mailto:support@gobook.app" aria-label="Email" title="Email"><Mail size={20} /></a>
+    </div>
+  );
+}
+
+function AuthLegalLinks({ className }) {
+  return (
+    <nav className={className} aria-label="Legal links">
+      <Link to="/terms">Terms &amp; Conditions</Link>
+      <span aria-hidden="true">|</span>
+      <Link to="/privacy">Privacy Policy</Link>
+    </nav>
+  );
+}
 
 function CyberFeatures() {
   return (
@@ -111,16 +135,10 @@ function LightLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
         </section>
 
         <div className="auth-light-footer">
-          <div className="auth-light-socials" aria-label="Social links">
-            {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
-              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
-                <Icon size={21} strokeWidth={2.2} />
-              </a>
-            ))}
-            <a href="mailto:support@gobook.app" aria-label="Email" title="Email"><Mail size={20} /></a>
-          </div>
+          <AuthFooterLinks className="auth-light-socials" />
 
           <p>&copy; 2026 GoBook Business Management. All rights reserved.</p>
+          <AuthLegalLinks className="auth-legal-links auth-light-legal-links" />
         </div>
       </section>
 
@@ -175,16 +193,10 @@ function DarkLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
         </section>
 
         <div className="auth-dark-footer">
-          <div className="auth-dark-socials" aria-label="Social links">
-            {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
-              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
-                <Icon size={21} strokeWidth={2.2} />
-              </a>
-            ))}
-            <a href="mailto:support@gobook.app" aria-label="Email" title="Email"><Mail size={20} /></a>
-          </div>
+          <AuthFooterLinks className="auth-dark-socials" />
 
           <p>&copy; 2026 GoBook Business Management. All rights reserved.</p>
+          <AuthLegalLinks className="auth-legal-links auth-dark-legal-links" />
         </div>
       </section>
 
@@ -234,15 +246,9 @@ function CyberDarkLayout({ children, cardMaxWidth, compact, theme, toggleTheme }
         </div>
 
         <div className="auth-cyber-left-footer">
-          <div className="auth-cyber-socials" aria-label="Social links">
-            {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
-              <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
-                <Icon size={22} strokeWidth={2.2} />
-              </a>
-            ))}
-            <a href="mailto:support@gobook.app" aria-label="Email" title="Email"><Mail size={20} /></a>
-          </div>
+          <AuthFooterLinks className="auth-cyber-socials" iconSize={22} />
           <p>&copy; 2026 GoBook Billing App. All rights reserved.</p>
+          <AuthLegalLinks className="auth-legal-links auth-cyber-legal-links" />
         </div>
       </section>
 

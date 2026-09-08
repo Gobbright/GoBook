@@ -1,6 +1,6 @@
 import { Schema, model } from 'mongoose';
 
-import { CATEGORIES } from '../constants/categories.js';
+import { CATEGORIES, RETAIL_SUBCATEGORIES } from '../constants/categories.js';
 
 const appUserSchema = new Schema({
   name:         { type: String, required: true, trim: true },
@@ -30,6 +30,7 @@ const appUserSchema = new Schema({
   businessId:   { type: Schema.Types.ObjectId, ref: 'Business', index: true },
   businessName: { type: String, trim: true, default: '' },
   category:     { type: String, enum: CATEGORIES, default: 'retail' },
+  retailSubcategory: { type: String, enum: ['', ...RETAIL_SUBCATEGORIES], default: '' },
   subscriptionPlan: { type: String, enum: ['', 'starter', 'professional', 'enterprise', 'basic', 'mid', 'advanced'], default: '' },
   subscriptionAmount: { type: Number, default: 0 },
   subscriptionStatus: { type: String, enum: ['', 'active', 'expired', 'cancelled'], default: '' },

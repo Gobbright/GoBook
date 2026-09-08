@@ -16,3 +16,16 @@ publicFilesRouter.get('/logos/:id', async (req, res, next) => {
     next(error);
   }
 });
+
+publicFilesRouter.get('/payment-qrs/:id', async (req, res, next) => {
+  try {
+    const file = await findStoredFile(req.params.id, { 'metadata.kind': 'payment-qr' });
+    if (!file) return next(httpError(404, 'Payment QR image not found'));
+    res.setHeader('Content-Type', file.contentType || 'image/png');
+    res.setHeader('Content-Length', String(file.length || 0));
+    res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+    pipeStoredFile(file._id, res);
+  } catch (error) {
+    next(error);
+  }
+});

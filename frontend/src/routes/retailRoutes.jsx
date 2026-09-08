@@ -27,7 +27,8 @@ import { PayrollPage } from '../features/categories/common/modules/hr-payroll/Pa
 import { BarcodePage } from '../features/categories/common/modules/inventory/BarcodePage.jsx';
 import { BrandsPage } from '../features/categories/common/modules/inventory/BrandsPage.jsx';
 import { CategoriesPage } from '../features/categories/common/modules/inventory/CategoriesPage.jsx';
-import { ProductsPage } from '../features/categories/common/modules/inventory/ProductsPage.jsx';
+import { ProductMastersPage } from '../features/categories/common/modules/inventory/ProductMastersPage.jsx';
+import { ProductsPage, ServiceFormPage } from '../features/categories/common/modules/inventory/ProductsPage.jsx';
 import { StockAlertsPage } from '../features/categories/common/modules/inventory/StockAlertsPage.jsx';
 import { StockInPage } from '../features/categories/common/modules/inventory/StockInPage.jsx';
 import { StockLedgerPage } from '../features/categories/common/modules/inventory/StockLedgerPage.jsx';
@@ -71,7 +72,11 @@ export const commonRoutes = [
   { path: '/customer-lifecycle', element: <CustomerLifecyclePage /> },
   { path: '/crm-reports', element: <ModuleReportsPage type="crm" /> },
 
-  { path: '/products', element: <ProductsPage /> },
+  { path: '/products', element: <ProductsPage initialItemType="Product" lockedItemType="Product" /> },
+  { path: '/services', element: <ProductsPage initialItemType="Service" lockedItemType="Service" /> },
+  { path: '/services/new', element: <ServiceFormPage /> },
+  { path: '/services/:id/edit', element: <ServiceFormPage /> },
+  { path: '/product-masters', element: <ProductMastersPage /> },
   { path: '/product-categories', element: <CategoriesPage /> },
   { path: '/brands', element: <BrandsPage /> },
   { path: '/stock-summary', element: <StockSummaryPage /> },

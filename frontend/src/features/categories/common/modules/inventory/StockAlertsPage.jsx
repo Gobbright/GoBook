@@ -142,7 +142,6 @@ export function StockAlertsPage() {
             </svg>
             <input
               className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]"
-              placeholder="Search alerts..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />

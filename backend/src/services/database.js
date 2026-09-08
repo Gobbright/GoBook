@@ -20,6 +20,15 @@ let lastConnectionError = '';
 let connectionPromise = null;
 let reconnectTimer = null;
 let maintenanceComplete = false;
+const LEGACY_RETAIL_SUBCATEGORY = 'electronics-technology';
+
+const missingRetailSubcategory = {
+  $or: [
+    { retailSubcategory: { $exists: false } },
+    { retailSubcategory: '' },
+    { retailSubcategory: null },
+  ],
+};
 
 async function backfillLegacyGstOwners() {
   const db = mongoose.connection.db;
@@ -79,6 +88,44 @@ async function dropLegacyIndexes() {
   for (const { col, index } of drops) {
     await db.collection(col).dropIndex(index).catch(() => {});
   }
+}
+
+async function backfillLegacyRetailSubcategory() {
+  const db = mongoose.connection.db;
+  const users = db.collection('appusers');
+  const businesses = db.collection('businesses');
+  const settings = db.collection('businesssettings');
+
+  const retailUsers = await users.find(
+    { category: 'retail' },
+    { projection: { _id: 1, businessId: 1 } },
+  ).toArray().catch(() => []);
+
+  const retailUserIds = retailUsers.map((user) => user._id);
+  const retailBusinessIds = [...new Set(
+    retailUsers.map((user) => String(user.businessId || '')).filter(Boolean),
+  )]
+    .filter((id) => mongoose.isValidObjectId(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  await Promise.all([
+    users.updateMany(
+      { category: 'retail', ...missingRetailSubcategory },
+      { $set: { retailSubcategory: LEGACY_RETAIL_SUBCATEGORY } },
+    ),
+    retailBusinessIds.length
+      ? businesses.updateMany(
+        { _id: { $in: retailBusinessIds }, category: 'retail', ...missingRetailSubcategory },
+        { $set: { retailSubcategory: LEGACY_RETAIL_SUBCATEGORY } },
+      )
+      : Promise.resolve(),
+    retailUserIds.length
+      ? settings.updateMany(
+        { userId: { $in: retailUserIds }, ...missingRetailSubcategory },
+        { $set: { retailSubcategory: LEGACY_RETAIL_SUBCATEGORY } },
+      )
+      : Promise.resolve(),
+  ]);
 }
 
 function scheduleReconnect() {
@@ -145,6 +192,7 @@ export async function connectDatabase() {
 
     if (!maintenanceComplete) {
       await backfillLegacyGstOwners();
+      await backfillLegacyRetailSubcategory();
       await dropLegacyIndexes();
       maintenanceComplete = true;
     }

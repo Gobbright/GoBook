@@ -4,7 +4,7 @@ import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
 
 import { env } from '../../config/env.js';
-import { CATEGORIES } from '../../constants/categories.js';
+import { CATEGORIES, RETAIL_SUBCATEGORIES } from '../../constants/categories.js';
 import { AppUser } from '../../models/AppUser.js';
 import { Business } from '../../models/Business.js';
 import { BusinessSettings } from '../../models/BusinessSettings.js';
@@ -25,6 +25,7 @@ const SIGNUP_OTP_MAX_ATTEMPTS = 5;
 const GOOGLE_OTP_EXPIRES_MINUTES = 10;
 const GOOGLE_OTP_MAX_ATTEMPTS = 5;
 const SUBSCRIPTION_PLANS = PLAN_TIERS;
+const LEGACY_RETAIL_SUBCATEGORY = 'electronics-technology';
 
 const googleClient = env.googleClientId ? new OAuth2Client(env.googleClientId) : null;
 
@@ -42,6 +43,7 @@ export function signToken(user) {
       subscriptionPlan: user.subscriptionPlan || '',
       businessId: user.businessId?.toString(),
       category: user.category || 'retail',
+      retailSubcategory: user.retailSubcategory || '',
     },
     env.jwtSecret,
     { expiresIn: env.jwtExpiresIn },
@@ -63,6 +65,7 @@ export function toSafeUser(user) {
     businessId: user.businessId,
     businessName: user.businessName,
     category: user.category || 'retail',
+    retailSubcategory: user.retailSubcategory || '',
     subscriptionPlan: user.subscriptionPlan || '',
     subscriptionAmount: user.subscriptionAmount || 0,
     subscriptionStatus: user.subscriptionStatus || '',
@@ -79,10 +82,11 @@ export function toSafeUser(user) {
 }
 
 // Creates a brand-new business owned by the first user who signs up for it.
-async function createBusinessForNewUser(businessName, fallbackName, category = 'retail') {
+async function createBusinessForNewUser(businessName, fallbackName, category = 'retail', retailSubcategory = '') {
   const business = await Business.create({
     name: businessName?.trim() || `${fallbackName}'s Business`,
     category,
+    retailSubcategory: category === 'retail' ? retailSubcategory : '',
   });
   return business;
 }
@@ -157,6 +161,28 @@ async function ensureBusinessSettingsForUser(user) {
     },
     { upsert: true, setDefaultsOnInsert: true },
   );
+}
+
+async function ensureRetailSubcategory(userDoc) {
+  if (!userDoc || userDoc.category !== 'retail' || userDoc.retailSubcategory) return;
+  const [business, settings] = await Promise.all([
+    userDoc.businessId ? Business.findById(userDoc.businessId, { retailSubcategory: 1 }).lean() : null,
+    BusinessSettings.findOne({ userId: userDoc._id }, { retailSubcategory: 1 }).lean(),
+  ]);
+  const retailSubcategory = business?.retailSubcategory || settings?.retailSubcategory || LEGACY_RETAIL_SUBCATEGORY;
+  userDoc.retailSubcategory = retailSubcategory;
+  await Promise.all([
+    userDoc.save(),
+    userDoc.businessId
+      ? Business.updateOne({ _id: userDoc.businessId }, { $set: { retailSubcategory } })
+      : Promise.resolve(),
+    BusinessSettings.updateOne({ userId: userDoc._id }, { $set: { retailSubcategory } }, { upsert: true }),
+  ]);
+}
+
+async function ensureSafeUserWithRetailSubcategory(userDoc) {
+  await ensureRetailSubcategory(userDoc);
+  return toSafeUser(userDoc.toObject ? userDoc.toObject() : userDoc);
 }
 
 function createResetOtp() {
@@ -241,6 +267,7 @@ function getSignupPayload(req) {
   const password = String(req.body.password ?? '');
   const businessName = String(req.body.businessName ?? '').trim();
   const category = String(req.body.category ?? '').trim();
+  const retailSubcategory = String(req.body.retailSubcategory ?? '').trim();
   const phone = String(req.body.phone ?? '').trim();
   const gstin = String(req.body.gstin ?? '').trim().toUpperCase();
   const subscriptionPlan = String(req.body.subscriptionPlan ?? '').trim();
@@ -251,6 +278,7 @@ function getSignupPayload(req) {
     password,
     businessName,
     category,
+    retailSubcategory: category === 'retail' ? retailSubcategory : '',
     phone,
     gstin,
     subscriptionPlan,
@@ -264,6 +292,9 @@ async function validateSignupPayload(payload) {
   if (!payload.businessName || payload.businessName.length < 2) throw httpError(400, 'Business name is required');
   if (!payload.phone) throw httpError(400, 'Phone number is required');
   if (!CATEGORIES.includes(payload.category)) throw httpError(400, 'Select a valid business category');
+  if (payload.category === 'retail' && !RETAIL_SUBCATEGORIES.includes(payload.retailSubcategory)) {
+    throw httpError(400, 'Select a valid retail subcategory');
+  }
   if (!SUBSCRIPTION_PLANS.includes(payload.subscriptionPlan)) throw httpError(400, 'Select a valid plan');
 
   const plan = await getActivePlan(payload.category, payload.subscriptionPlan);
@@ -382,6 +413,7 @@ export async function login(req, res, next) {
     if (!user.emailVerified) user.emailVerified = true;
     user.lastLogin = new Date().toISOString();
     await user.save();
+    await ensureRetailSubcategory(user);
 
     const token = signToken(user);
     res.json({ token, user: toSafeUser(user) });
@@ -395,14 +427,33 @@ export async function startGoogleOtpLogin(req, res, next) {
   try {
     const { email, payload } = await verifyGoogleCredential(req.body.credential);
     const googleProfile = buildGoogleProfile(payload, email);
-    const existing = await AppUser.findOne({ $or: [{ email }, { googleId: payload.sub }] }).select('name email status');
+    const [existingByEmail, existingByGoogleId] = await Promise.all([
+      AppUser.findOne({ email }),
+      AppUser.findOne({ googleId: payload.sub }),
+    ]);
+    if (existingByEmail && existingByGoogleId && existingByEmail._id.toString() !== existingByGoogleId._id.toString()) {
+      return next(httpError(409, 'This Google account is already linked to another user.'));
+    }
+    const existing = existingByGoogleId || existingByEmail;
     if (existing && existing.status !== 'Active') return next(httpError(403, 'Account is not active'));
     if (existing) {
+      if (existing.googleId && existing.googleId !== payload.sub) {
+        return next(httpError(409, 'This email is already linked to another Google account.'));
+      }
+      existing.googleId = payload.sub;
+      existing.authProvider = 'google';
+      existing.emailVerified = true;
+      existing.googleProfile = googleProfile;
+      existing.lastLogin = new Date().toISOString();
+      await existing.save();
+      await ensureRetailSubcategory(existing);
       await PendingGoogleLogin.deleteMany({ $or: [{ email }, { googleId: payload.sub }] });
       return res.json({
         existingAccount: true,
         email: existing.email,
-        message: 'Account found. Enter your password to sign in.',
+        token: signToken(existing),
+        user: toSafeUser(existing),
+        message: 'Signed in with Google.',
       });
     }
 
@@ -491,6 +542,7 @@ export async function completeGoogleOnboarding(req, res, next) {
     if (user.onboardingCompleted || user.businessId) return next(httpError(409, 'Onboarding is already completed'));
     const businessName = String(req.body.businessName ?? '').trim();
     const category = String(req.body.category ?? '').trim();
+    const retailSubcategory = category === 'retail' ? String(req.body.retailSubcategory ?? '').trim() : '';
     const phone = String(req.body.phone ?? '').trim();
     const gstin = String(req.body.gstin ?? '').trim().toUpperCase();
     const subscriptionPlan = String(req.body.subscriptionPlan ?? '').trim();
@@ -498,6 +550,7 @@ export async function completeGoogleOnboarding(req, res, next) {
 
     if (!businessName || businessName.length < 2) return next(httpError(400, 'Business name is required'));
     if (!CATEGORIES.includes(category)) return next(httpError(400, 'Select a valid business category'));
+    if (category === 'retail' && !RETAIL_SUBCATEGORIES.includes(retailSubcategory)) return next(httpError(400, 'Select a valid retail subcategory'));
     if (!phone) return next(httpError(400, 'Phone number is required'));
     if (!SUBSCRIPTION_PLANS.includes(subscriptionPlan)) return next(httpError(400, 'Select a valid plan'));
     validatePassword(password);
@@ -512,7 +565,7 @@ export async function completeGoogleOnboarding(req, res, next) {
           name: user.name, email: user.email,
           googleId: user.googleId, authProvider: 'google', googleProfile: user.googleProfile,
           password: await bcrypt.hash(password, SALT_ROUNDS),
-          businessName, category, phone, gstin, subscriptionPlan,
+          businessName, category, retailSubcategory, phone, gstin, subscriptionPlan,
           subscriptionAmount: selectedPlan.amount,
           otpHash, otpExpiresAt, otpAttempts: 0,
           otpVerifiedAt: new Date(), razorpayOrderId: '',
@@ -521,15 +574,11 @@ export async function completeGoogleOnboarding(req, res, next) {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
     if (!env.paymentRequired) {
-      await BusinessSettings.deleteMany({ userId: user._id });
-      await AppUser.deleteOne({ _id: user._id, onboardingCompleted: false });
       const finalUser = await completeFreeSignup(pending);
       return res.status(201).json({ token: signToken(finalUser), user: toSafeUser(finalUser), message: 'Account created' });
     }
 
     const checkout = await createRegistrationOrder(pending);
-    await BusinessSettings.deleteMany({ userId: user._id });
-    await AppUser.deleteOne({ _id: user._id, onboardingCompleted: false });
     res.json({
       paymentRequired: true,
       message: 'Complete payment to create your Google-linked account.',
@@ -682,9 +731,9 @@ export async function resetPassword(req, res, next) {
 // GET /api/auth/me
 export async function getMe(req, res, next) {
   try {
-    const user = await AppUser.findById(req.user.id).lean();
-    if (!user) return next(httpError(404, 'User not found'));
-    res.json(toSafeUser(user));
+    const userDoc = await AppUser.findById(req.user.id);
+    if (!userDoc) return next(httpError(404, 'User not found'));
+    res.json(await ensureSafeUserWithRetailSubcategory(userDoc));
   } catch (err) {
     next(err);
   }

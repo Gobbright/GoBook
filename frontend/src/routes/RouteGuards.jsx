@@ -69,14 +69,10 @@ export function PublicRoute({ children }) {
   return isAuthenticated() ? <Navigate to={getLastRoute()} replace /> : children;
 }
 
-export function AdminPublicRoute({ children }) {
-  return isAdminAuthenticated() ? <Navigate to="/admin" replace /> : children;
-}
-
 export function AdminProtectedRoute({ children }) {
   return isAdminAuthenticated()
     ? <AdminErrorBoundary>{children}</AdminErrorBoundary>
-    : <Navigate to="/admin-login" replace />;
+    : <Navigate to="/login" replace />;
 }
 
 export function ProtectedRoute({ children }) {

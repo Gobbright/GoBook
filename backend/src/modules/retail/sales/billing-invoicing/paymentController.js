@@ -17,7 +17,11 @@ function calcInvoiceTotal(inv) {
   let total = 0;
   for (const item of inv.items ?? []) {
     const gross    = (Number(item.qty) || 0) * (Number(item.rate) || 0);
-    const taxable  = gross * (1 - (Number(item.discount) || 0) / 100);
+    const discountValue = Number(item.discount) || 0;
+    const discount = item.discountType === 'amount'
+      ? Math.min(gross, discountValue)
+      : gross * (discountValue / 100);
+    const taxable  = gross - discount;
     total += taxable + taxable * ((Number(item.gstRate) || 0) / 100);
   }
   for (const charge of inv.charges ?? []) {

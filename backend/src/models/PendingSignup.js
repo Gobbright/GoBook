@@ -1,6 +1,6 @@
 ﻿import { Schema, model } from 'mongoose';
 
-import { CATEGORIES } from '../constants/categories.js';
+import { CATEGORIES, RETAIL_SUBCATEGORIES } from '../constants/categories.js';
 
 const pendingSignupSchema = new Schema({
   name:         { type: String, required: true, trim: true },
@@ -8,6 +8,7 @@ const pendingSignupSchema = new Schema({
   password:     { type: String, required: true, select: false },
   businessName: { type: String, required: true, trim: true },
   category:     { type: String, enum: CATEGORIES, required: true },
+  retailSubcategory: { type: String, enum: ['', ...RETAIL_SUBCATEGORIES], default: '' },
   phone:        { type: String, required: true, trim: true },
   gstin:        { type: String, trim: true, default: '' },
   googleId:     { type: String, trim: true, default: '' },

@@ -1,7 +1,17 @@
 import { Router } from 'express';
 
 import { createBranch, deleteBranch, listBranches, updateBranch } from './branchController.js';
-import { getSettings, updateSettings, uploadLogo, removeLogo, logoUpload, sendTestEmail } from './settingsController.js';
+import {
+  getSettings,
+  updateSettings,
+  uploadLogo,
+  removeLogo,
+  logoUpload,
+  uploadPaymentQr,
+  removePaymentQr,
+  paymentQrUpload,
+  sendTestEmail,
+} from './settingsController.js';
 import { createUser, deleteUser, listUsers, updateUser } from './userController.js';
 
 export const settingsRouter = Router();
@@ -11,6 +21,8 @@ settingsRouter.get('/',           getSettings);
 settingsRouter.put('/',           updateSettings);
 settingsRouter.post('/logo',      logoUpload.single('logo'), uploadLogo);
 settingsRouter.delete('/logo',    removeLogo);
+settingsRouter.post('/payment-qr', paymentQrUpload.single('paymentQr'), uploadPaymentQr);
+settingsRouter.delete('/payment-qr', removePaymentQr);
 settingsRouter.post('/test-email', sendTestEmail);
 
 // Branches

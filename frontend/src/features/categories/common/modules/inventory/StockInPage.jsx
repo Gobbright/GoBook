@@ -91,7 +91,7 @@ function EditModal({ entry, onSave, onClose }) {
             </div>
             <div className="sm:col-span-2">
               <label className={LABEL}>Product Name</label>
-              <input className={INPUT} value={form.productName || ''} onChange={(e) => set('productName', e.target.value)} placeholder="e.g. Widget A" />
+              <input className={INPUT} value={form.productName || ''} onChange={(e) => set('productName', e.target.value)} />
             </div>
             <div className="sm:col-span-2">
               <label className={LABEL}>Supplier *</label>
@@ -221,7 +221,7 @@ export function StockInPage() {
           <ItemTypeTabs value={itemType} onChange={(t) => { setItemType(t); setPage(1); }} />
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
-            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search stock in..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
           <DateRangeFilter
             from={dateFrom}

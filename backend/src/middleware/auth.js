@@ -45,6 +45,7 @@ export function requireAuth(req, _res, next) {
       subscriptionPlan: payload.subscriptionPlan || '',
       businessId: payload.businessId,
       category: payload.category || 'retail',
+      retailSubcategory: payload.retailSubcategory || '',
     };
     // Scope the actor for the rest of this request's async chain so the
     // global audit plugin can attribute writes without req.user being

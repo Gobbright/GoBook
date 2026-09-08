@@ -85,7 +85,7 @@ export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
   }, [doc, config.showGst]);
 
   return (
-    <div style={{ position: 'fixed', left: 0, top: 0, width: '794px', pointerEvents: 'none', zIndex: 50 }}>
+    <div className="pdf-download-stage">
       <DocumentPreviewModal
         embedded
         config={config}
@@ -105,6 +105,7 @@ export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
         tcs={doc.tcs}
         advanceAmt={doc.advanceReceived || 0}
         paymentMethod={doc.paymentMethod || ''}
+        paymentSplits={doc.paymentSplits || []}
         addDiscount={doc.additionalDiscount}
         downloadAsPdf
         pdfMode

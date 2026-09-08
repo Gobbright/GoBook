@@ -66,9 +66,13 @@ function shouldIncludeGst(documentType) {
 function lineAmounts(item, isInterstate, includeGst, multiplier = 1) {
   const qty = Number(item.qty) || 1;
   const rate = Number(item.rate) || 0;
-  const discount = Number(item.discount) || 0;
+  const discountValue = Number(item.discount) || 0;
+  const gross = rate * qty;
+  const discount = item.discountType === 'amount'
+    ? Math.min(gross, discountValue)
+    : gross * (discountValue / 100);
   const gstRate = includeGst ? Number(item.gstRate) || 0 : 0;
-  const taxable = r2(rate * qty * (1 - discount / 100) * multiplier);
+  const taxable = r2((gross - discount) * multiplier);
   const totalTax = r2(Math.abs(taxable) * gstRate / 100) * Math.sign(multiplier || 1);
   return {
     qty,

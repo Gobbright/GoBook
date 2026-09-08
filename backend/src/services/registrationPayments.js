@@ -82,34 +82,72 @@ function subscriptionEndDate(start) {
   return end;
 }
 
+async function applyPendingSignupToExistingUser(existing, pending, { paymentId, amount } = {}) {
+  let businessId = existing.businessId;
+  if (!businessId) {
+    const business = await Business.create({ name: pending.businessName, category: pending.category, retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '' });
+    businessId = business._id;
+  }
+
+  const startDate = new Date();
+  existing.name = pending.name || existing.name;
+  existing.password = pending.password || existing.password;
+  existing.businessId = businessId;
+  existing.businessName = pending.businessName;
+  existing.category = pending.category;
+  existing.retailSubcategory = pending.category === 'retail' ? pending.retailSubcategory || '' : '';
+  existing.phone = pending.phone;
+  existing.googleId = pending.googleId || existing.googleId || '';
+  existing.authProvider = pending.authProvider || existing.authProvider || 'email';
+  existing.googleProfile = pending.googleProfile || existing.googleProfile;
+  existing.emailVerified = true;
+  existing.role = existing.role || 'Super Admin';
+  existing.accountType = existing.accountType || 'owner';
+  existing.subscriptionPlan = pending.subscriptionPlan;
+  existing.subscriptionAmount = amount ?? pending.subscriptionAmount;
+  existing.subscriptionStatus = 'active';
+  existing.subscriptionStartDate = startDate;
+  existing.subscriptionExpiresAt = subscriptionEndDate(startDate);
+  existing.lastSubscriptionPaymentId = paymentId || existing.lastSubscriptionPaymentId;
+  existing.onboardingCompleted = true;
+  existing.status = 'Active';
+  existing.lastLogin = new Date().toISOString();
+  await existing.save();
+
+  await BusinessSettings.findOneAndUpdate(
+    { userId: existing._id },
+    {
+      $set: {
+        businessName: pending.businessName,
+        retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '',
+        businessEmail: pending.email,
+        phone: pending.phone || '',
+        gstin: pending.gstin || '',
+      },
+      $setOnInsert: { userId: existing._id },
+    },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+
+  return existing;
+}
+
 // Activates an account without Razorpay checkout, for when PAYMENT_REQUIRED=false.
 export async function completeFreeSignup(pending) {
   const existing = await AppUser.findOne({ email: pending.email });
   if (existing) {
-    const startDate = new Date();
-    existing.subscriptionPlan = pending.subscriptionPlan;
-    existing.subscriptionAmount = pending.subscriptionAmount;
-    existing.subscriptionStatus = 'active';
-    existing.subscriptionStartDate = startDate;
-    existing.subscriptionExpiresAt = subscriptionEndDate(startDate);
-    existing.status = 'Active';
-    await existing.save();
-    await BusinessSettings.findOneAndUpdate(
-      { userId: existing._id },
-      { $setOnInsert: { userId: existing._id, businessName: existing.businessName, businessEmail: existing.email, phone: existing.phone || '', gstin: pending.gstin } },
-      { upsert: true, setDefaultsOnInsert: true },
-    );
+    await applyPendingSignupToExistingUser(existing, pending);
     await PendingSignup.deleteOne({ _id: pending._id });
     await createAdminNotification({ dedupeKey: `new-user:${existing._id}`, type: 'new_user', title: 'New user registration', message: `${existing.businessName} account was created (payment skipped)`, relatedUser: existing.businessName, userId: existing._id, businessId: existing.businessId }).catch(() => {});
     return existing;
   }
 
-  const business = await Business.create({ name: pending.businessName, category: pending.category });
+  const business = await Business.create({ name: pending.businessName, category: pending.category, retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '' });
   const startDate = new Date();
   const user = await AppUser.create({
     name: pending.name, email: pending.email, password: pending.password,
     businessId: business._id, businessName: pending.businessName,
-    category: pending.category, phone: pending.phone, role: 'Super Admin',
+    category: pending.category, retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '', phone: pending.phone, role: 'Super Admin',
     googleId: pending.googleId || '', authProvider: pending.authProvider || 'email',
     googleProfile: pending.googleProfile,
     lastLogin: new Date().toISOString(), subscriptionPlan: pending.subscriptionPlan,
@@ -119,6 +157,7 @@ export async function completeFreeSignup(pending) {
   });
   await BusinessSettings.create({
     userId: user._id, businessName: pending.businessName, businessEmail: pending.email,
+    retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '',
     phone: pending.phone, gstin: pending.gstin,
   });
   await PendingSignup.deleteOne({ _id: pending._id });
@@ -156,20 +195,7 @@ export async function completePaidSignup(transaction, paymentData = {}, signatur
   try {
     const existing = await AppUser.findOne({ email: pending.email });
     if (existing) {
-      const startDate = new Date();
-      existing.subscriptionPlan = claimed.tier;
-      existing.subscriptionAmount = claimed.amount;
-      existing.subscriptionStatus = 'active';
-      existing.subscriptionStartDate = startDate;
-      existing.subscriptionExpiresAt = subscriptionEndDate(startDate);
-      existing.lastSubscriptionPaymentId = claimed._id;
-      existing.status = 'Active';
-      await existing.save();
-      await BusinessSettings.findOneAndUpdate(
-        { userId: existing._id },
-        { $setOnInsert: { userId: existing._id, businessName: existing.businessName, businessEmail: existing.email, phone: existing.phone || '', gstin: pending.gstin } },
-        { upsert: true, setDefaultsOnInsert: true },
-      );
+      await applyPendingSignupToExistingUser(existing, pending, { paymentId: claimed._id, amount: claimed.amount });
       claimed.status = 'successful';
       claimed.userId = existing._id;
       claimed.businessId = existing.businessId;
@@ -181,12 +207,12 @@ export async function completePaidSignup(transaction, paymentData = {}, signatur
       return existing;
     }
 
-    business = await Business.create({ name: pending.businessName, category: pending.category });
+    business = await Business.create({ name: pending.businessName, category: pending.category, retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '' });
     const startDate = new Date();
     const user = await AppUser.create({
       name: pending.name, email: pending.email, password: pending.password,
       businessId: business._id, businessName: pending.businessName,
-      category: pending.category, phone: pending.phone, role: 'Super Admin',
+      category: pending.category, retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '', phone: pending.phone, role: 'Super Admin',
       googleId: pending.googleId || '', authProvider: pending.authProvider || 'email',
       googleProfile: pending.googleProfile,
       lastLogin: new Date().toISOString(), subscriptionPlan: pending.subscriptionPlan,
@@ -196,6 +222,7 @@ export async function completePaidSignup(transaction, paymentData = {}, signatur
     });
     await BusinessSettings.create({
       userId: user._id, businessName: pending.businessName, businessEmail: pending.email,
+      retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '',
       phone: pending.phone, gstin: pending.gstin,
     });
 
