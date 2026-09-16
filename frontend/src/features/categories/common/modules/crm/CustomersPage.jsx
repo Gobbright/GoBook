@@ -15,13 +15,33 @@ import { apiClient } from '../../../../../services/apiClient.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 
-const EMPTY_CUSTOMER = { name: '', email: '', phone: '', city: '', status: 'Active', address: '' };
+const EMPTY_CUSTOMER = {
+  name: '',
+  phone: '',
+  gstin: '',
+  email: '',
+  address: '',
+  city: '',
+  state: 'Tamil Nadu',
+  pincode: '',
+  status: 'Active',
+};
+
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
+  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
+  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
+  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Andaman & Nicobar Islands',
+  'Chandigarh', 'Delhi', 'Jammu & Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+];
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
 const AVATAR_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#e11d48', '#65a30d'];
 
 const PAGE_SIZE = 5;
+const HIDE_INLINE_CUSTOMER_FORM = false;
 
 function pageNumbers(current, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -116,11 +136,17 @@ export function CustomersPage() {
 
   function updateForm(field, value) { setForm((f) => ({ ...f, [field]: value })); }
   function resetForm() { setForm(EMPTY_CUSTOMER); setEditingId(null); setShowForm(false); setFormError(''); }
+  function openAddCustomer() {
+    setForm(EMPTY_CUSTOMER);
+    setEditingId(null);
+    setFormError('');
+    setShowForm(true);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setFormError('');
-    const payload = { ...form };
+    const payload = { ...form, gstin: form.gstin.trim().toUpperCase(), pincode: form.pincode.replace(/\D/g, '').slice(0, 6) };
     try {
       if (editingId) await updateCustomer(editingId, payload);
       else await createCustomer(payload);
@@ -149,7 +175,17 @@ export function CustomersPage() {
   }
 
   function handleEdit(row) {
-    setForm({ name: row.name, email: row.email, phone: row.phone, city: row.city, status: row.status, address: row.address ?? '' });
+    setForm({
+      name: row.name || '',
+      phone: row.phone || '',
+      gstin: row.gstin || '',
+      email: row.email || '',
+      address: row.address || '',
+      city: row.city || '',
+      state: row.state || 'Tamil Nadu',
+      pincode: row.pincode || '',
+      status: row.status || 'Active',
+    });
     setEditingId(row._id);
     setShowForm(true);
   }
@@ -176,7 +212,7 @@ export function CustomersPage() {
             <svg fill="none" height="14" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
             {importing ? 'Importing...' : 'Import Excel'}
           </button>
-          <button className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="button" onClick={() => setShowForm(true)}>
+          <button className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="button" onClick={openAddCustomer}>
             <svg fill="none" height="14" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" width="14"><line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" /></svg>
             Add Customer
           </button>
@@ -184,6 +220,62 @@ export function CustomersPage() {
       </div>
 
       {showForm && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/35 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="customer-modal-title">
+          <button type="button" aria-label="Close add customer" className="absolute inset-0 cursor-default border-0 bg-transparent" onClick={resetForm} />
+          <form className="relative w-full max-w-[760px] rounded-lg border border-[#cfdced] bg-white p-5 shadow-2xl" onSubmit={handleSubmit}>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 id="customer-modal-title" className="m-0 text-[20px] font-bold text-[#111827]">{editingId ? 'Edit Customer' : 'Add Customer'}</h3>
+                <p className="m-0 mt-1.5 text-[13px] text-[#64748b]">Customer details will be used automatically in this bill.</p>
+              </div>
+              <button className="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-[28px] leading-none text-[#64748b] cursor-pointer hover:bg-slate-50 hover:text-[#111827]" type="button" onClick={resetForm} aria-label="Close">×</button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Customer / Company Name *</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500" placeholder="Customer name" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Phone</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500" placeholder="+91 XXXXX XXXXX" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">GSTIN</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] uppercase outline-none font-[inherit] focus:border-blue-500" placeholder="15-digit GSTIN" maxLength={15} value={form.gstin} onChange={(e) => updateForm('gstin', e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Email</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500" placeholder="customer@email.com" type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Customer Address</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500" placeholder="Street / Building / Area" value={form.address} onChange={(e) => updateForm('address', e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">City</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500" placeholder="City" value={form.city} onChange={(e) => updateForm('city', e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">State</label>
+                <SelectDropdown value={form.state} onChange={(v) => updateForm('state', v)} options={INDIAN_STATES} buttonClassName="!h-[40px] !rounded-md !border-[#dbe4ef] !px-3 !text-[14px]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">PIN Code</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500" placeholder="620001" inputMode="numeric" maxLength={6} value={form.pincode} onChange={(e) => updateForm('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} />
+              </div>
+            </div>
+
+            {formError && <p className="mt-4 text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{formError}</p>}
+            <div className="mt-5 flex justify-end gap-2.5">
+              <button className="min-w-[78px] rounded-md border border-[#dbe4ef] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#1f2937] cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
+              <button className="min-w-[132px] rounded-md border-0 bg-blue-600 px-4 py-2.5 text-[14px] font-semibold text-white cursor-pointer hover:bg-blue-700 font-[inherit]" type="submit">{editingId ? 'Update Customer' : 'Save Customer'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {HIDE_INLINE_CUSTOMER_FORM && showForm && (
         <form className="bg-white border border-[#dfe7f1] rounded-xl p-5 mt-5" onSubmit={handleSubmit}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit Customer' : 'New Customer'}</h3>

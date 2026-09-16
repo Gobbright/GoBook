@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Download, Printer, Send, Wallet, Trash2, IndianRupee } from 'lucide-react';
 import { api } from '../../../../../../services/api.js';
 import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
 import { RecordPaymentModal } from './RecordPaymentModal.jsx';
 import { ShareModal } from './ShareModal.jsx';
-import { getInvoicePrintTemplate } from './invoiceTemplatePreference.js';
 
 function fmt(n) {
   return `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -123,9 +122,8 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [downloadPdfMode, setDownloadPdfMode] = useState(false);
-  const printTemplate = getInvoicePrintTemplate();
   const [products, setProducts] = useState([]);
-  const printInProgressRef = useRef(false);
+  const [printPdfMode, setPrintPdfMode] = useState(false);
 
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
   const listRoute = ({
@@ -137,6 +135,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
     'credit-note': '/billing/credit-note',
     'debit-note': '/billing/debit-note',
     'sales-return': '/billing/sales-return',
+    'supplier-return': '/billing/supplier-return',
     proforma: '/billing/proforma',
     'delivery-challan': '/billing/delivery-challan',
     'e-invoice': '/billing/e-invoice',
@@ -194,28 +193,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
 
   useEffect(() => { loadPayments(); }, [invoiceId, documentType]);
 
-  const handlePrint = useCallback(async () => {
-    if (printInProgressRef.current) return;
-    printInProgressRef.current = true;
-    try {
-      const printRoot = document.querySelector('#document-preview-print');
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
-      if (document.fonts?.ready) await document.fonts.ready.catch(() => {});
-      const images = Array.from(printRoot?.querySelectorAll('img') || []);
-      await Promise.all(images.map((img) => {
-        if (img.complete) return Promise.resolve();
-        if (typeof img.decode === 'function') return img.decode().catch(() => {});
-        return new Promise((resolve) => {
-          img.addEventListener('load', resolve, { once: true });
-          img.addEventListener('error', resolve, { once: true });
-        });
-      }));
-      window.print();
-    } finally {
-      printInProgressRef.current = false;
-    }
-  }, []);
+  const handlePrint = useCallback(() => setPrintPdfMode(true), []);
 
   useEffect(() => {
     function handlePrintShortcut(event) {
@@ -365,10 +343,11 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
         paymentMethod={invoice.paymentMethod || ''}
         paymentSplits={invoice.paymentSplits || []}
         addDiscount={invoice.additionalDiscount}
+        printInvoice={printPdfMode}
+        onPdfPrinted={() => setPrintPdfMode(false)}
         downloadAsPdf={downloadPdfMode}
         pdfMode={downloadPdfMode}
         invoiceNumber={docMeta.number}
-        printTemplate={printTemplate}
         printStylesActive
         onPdfDownloaded={() => setDownloadPdfMode(false)}
       />

@@ -12,8 +12,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-const EFFECTIVE_DATE = '21 August 2026';
-const SUPPORT_EMAIL = 'support@gobook.app';
+const EFFECTIVE_DATE = '9 September 2026';
+const SUPPORT_EMAIL = 'support.gobook@gmail.com';
 
 const DOCUMENTS = {
   terms: {
@@ -75,7 +75,7 @@ const DOCUMENTS = {
       },
       {
         heading: '7. Cancellation and Refund',
-        body: 'Customers may cancel subscriptions in accordance with the cancellation conditions communicated for the selected plan. Unless otherwise expressly stated in the applicable quotation, order or subscription plan, payments already made may be non-refundable after activation of the subscribed service, except where a refund is required under applicable law or expressly approved by GoBook Suite. Your actual commercial refund policy should be inserted here before publishing.',
+        body: 'Customers may cancel subscriptions in accordance with the cancellation conditions communicated for the selected plan. Unless otherwise expressly stated in the applicable quotation, order or subscription plan, payments already made may be non-refundable after activation of the subscribed service, except where a refund is required under applicable law or expressly approved by GoBook Suite.',
       },
       {
         heading: '8. Intellectual Property',
@@ -257,6 +257,25 @@ const DOCUMENTS = {
   },
 };
 
+DOCUMENTS.privacy.sections.push(
+  {
+    heading: '14. Meta Platform and WhatsApp Business Data',
+    body: 'When a business owner connects WhatsApp through Facebook Login for Business or Embedded Signup, GoBook Suite receives a Meta user identifier, granted permissions, an authorization token, WhatsApp Business Account ID/name and selected phone number ID, display number, verified name and verification status. We use these to associate the authorized WhatsApp assets with the correct GoBook business and show its connection status. The connection feature does not import message histories or Meta templates. Campaign drafts, templates, contacts and message/status records entered by customers are stored in the existing WhatsApp workspace; a connected account alone does not mean those messages have been sent through Meta.',
+  },
+  {
+    heading: '15. Meta Data Storage, Retention and Deletion',
+    body: 'Meta access tokens are encrypted with AES-256-GCM in the application database using a backend-only key. Connection management checks the current active business owner. OAuth states are single-use, browser-bound and expire after ten minutes. Meta tokens and app secrets are not returned to the browser or included in application request logs for the callback routes. Meta/Facebook provides authorization and WhatsApp services; our hosting and database providers store the application data. The integration retains connection data until it is removed. Deauthorization removes the saved credential and disconnects the integration; a verified deletion callback or owner-initiated removal deletes the connection record. A non-identifying confirmation and keyed security marker remain for up to 90 days. Database backup copies require the hosting operator to apply separate retention and restore controls.',
+  },
+  {
+    heading: '16. Meta Data Requests and Your Choices',
+    body: 'You can remove GoBook Suite in Meta Business Integrations and use the available data-deletion controls, remove saved connection data in GoBook WhatsApp settings, or contact support.gobook@gmail.com to request access, correction or deletion. See /data-deletion for instructions. Verified automated deletion completes in the application database before a completed confirmation is issued; manual requests require identity review and support will confirm their processing time. Deleting the Meta connection does not delete unrelated GoBook business records or data held independently by Meta.',
+  },
+);
+DOCUMENTS.terms.sections.push({
+  heading: '14. WhatsApp Business Integration and Messaging',
+  body: 'Only an authorized business owner may connect Meta assets. Customers must have authority over the selected business and phone number, comply with Meta Platform Terms, WhatsApp Business Terms and WhatsApp Business Messaging Policy, obtain and keep evidence of any required recipient consent or opt-in, and promptly honor opt-out requests. Do not send spam, deceptive content, prohibited goods or services, or unlawful messages; do not use unauthorized contact lists. Customers remain responsible for message content, approved templates where required, account accuracy, recipient rights and applicable charges. Meta may restrict or revoke access, and GoBook may suspend integration access for misuse, security concerns or termination of the SaaS account. Authorization is separate from phone registration, messaging availability and Meta approval. The Privacy Policy and /data-deletion describe data handling and removal.',
+});
+
 export function LegalPage({ type }) {
   const { documentType } = useParams();
   const selectedType = type || documentType;
@@ -318,7 +337,14 @@ export function LegalPage({ type }) {
             </div>
 
             <footer className="mt-8 border-t border-[#e2ebf5] pt-5 text-[13px] leading-6 text-[#64728f]">
-              For questions about this {selectedType === 'terms' ? 'Terms & Conditions' : 'Privacy Policy'} page, contact <a className="font-bold text-[#1268ff] no-underline hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+              <div className="flex items-center justify-between gap-4">
+                <span>For questions about this {selectedType === 'terms' ? 'Terms & Conditions' : 'Privacy Policy'} page, contact <a className="font-bold text-[#1268ff] no-underline hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.</span>
+                {selectedType === 'terms' && (
+                  <Link to="/admin-login" title="Main Admin Login" aria-label="Main Admin Login" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[7px] border border-[#cbd9ee] text-[#075cff] no-underline transition-colors hover:border-[#1268ff] hover:bg-[#eaf2ff]">
+                    <ShieldCheck size={18} />
+                  </Link>
+                )}
+              </div>
             </footer>
           </div>
         </article>

@@ -1,0 +1,24 @@
+.invoice-preview { font-family: Arial, Helvetica, sans-serif; max-width: 1100px; margin: 0 auto; overflow: hidden; border: 1px solid #dfe7f1; border-radius: 14px; background: #f4f7fb; color: #334155; }
+.invoice-preview-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; background: white; border-bottom: 1px solid #e2e8f0; }
+.invoice-preview-heading { display: grid; gap: 3px; min-width: 0; }
+.invoice-preview-heading strong { font-size: 14px; color: #172b4d; }
+.invoice-preview-heading span { font-size: 12px; color: #64748b; overflow-wrap: anywhere; }
+.invoice-preview-controls, .invoice-preview-control-group { display: flex; align-items: center; gap: 6px; }
+.invoice-preview-controls { flex-wrap: wrap; }
+.invoice-preview-control-group { margin-right: 8px; padding-right: 12px; border-right: 1px solid #e2e8f0; }
+.invoice-preview button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 32px; min-height: 34px; padding: 6px 9px; border: 1px solid transparent; border-radius: 7px; background: white; color: #475569; font: 500 12px/1.4 Arial, sans-serif; cursor: pointer; }
+.invoice-preview button:hover:not(:disabled) { background: #eff6ff; color: #1d4ed8; }
+.invoice-preview button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.invoice-preview button:disabled { opacity: .35; cursor: default; }
+.invoice-preview .invoice-preview-print { background: #2563eb; color: white; padding-inline: 14px; }
+.invoice-preview .invoice-preview-print:hover:not(:disabled) { background: #1d4ed8; color: white; }
+.invoice-preview-zoom { min-width: 36px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.invoice-preview-viewport { height: min(72vh, 1000px); min-height: 320px; overflow: auto; padding: 24px; }
+.invoice-preview-paper { width: max-content; margin: 0 auto; background: white; box-shadow: 0 2px 14px #19324d14, 0 0 0 1px #e2e8f0; }
+.invoice-preview-paper:empty { display: none; }
+.invoice-preview-paper canvas { display: block; }
+.invoice-preview-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px; background: white; border-top: 1px solid #e2e8f0; font-size: 12px; }
+.invoice-preview-status { padding: 24px; text-align: center; font-size: 13px; }
+.invoice-preview-accessible-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 600px) { .invoice-preview-toolbar { padding: 12px; } .invoice-preview-controls { gap: 2px; } .invoice-preview-control-group { margin-right: 2px; padding-right: 4px; } }
+

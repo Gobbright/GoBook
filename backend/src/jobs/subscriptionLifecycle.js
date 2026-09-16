@@ -18,6 +18,7 @@ function dateKey(value = new Date()) {
 export async function backfillSubscriptionExpiries() {
   const users = await AppUser.find({
     subscriptionPlan: { $nin: ['', null] },
+    subscriptionStatus: { $nin: ['trial', 'cancelled'] },
     $or: [{ subscriptionStartDate: { $exists: false } }, { subscriptionExpiresAt: { $exists: false } }],
   }).select('_id createdAt subscriptionStartDate subscriptionExpiresAt subscriptionStatus status').lean();
   if (!users.length) return 0;
@@ -75,7 +76,7 @@ export async function runSubscriptionLifecycle() {
   const users = await AppUser.find({
     subscriptionPlan: { $nin: ['', null] },
     subscriptionExpiresAt: { $lte: horizon },
-    subscriptionStatus: { $ne: 'cancelled' },
+    subscriptionStatus: { $nin: ['trial', 'cancelled'] },
   }).select('name email businessName businessId subscriptionExpiresAt subscriptionStatus status').lean();
 
   let expired = 0;

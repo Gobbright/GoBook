@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { safeNavigate } from '../../../routes/navigation.js';
-import { LogOut, BarChart3, Building2, CreditCard, ChevronDown, Bell, Settings, HardDrive } from 'lucide-react';
+import { LogOut, BarChart3, Building2, CreditCard, ChevronDown, Bell, Settings, HardDrive, MessageCircle } from 'lucide-react';
 
 const MENU_SECTIONS = [
   { title: 'Overview', items: [{ label: 'Dashboard', icon: BarChart3, path: '/admin' }] },
@@ -12,6 +12,11 @@ const MENU_SECTIONS = [
       { label: 'Subscription', icon: CreditCard, path: '/admin/subscription/plans' },
     ],
   },
+  {
+    title: 'WhatsApp API Provider',
+    items: [{ label: 'WhatsApp Provider', icon: MessageCircle, path: '/admin/whatsapp-provider' }],
+  },
+
   { title: 'Finance', items: [{ label: 'Payments', icon: CreditCard, path: '/admin/payments/all' }] },
   {
     title: 'Admin Tools',

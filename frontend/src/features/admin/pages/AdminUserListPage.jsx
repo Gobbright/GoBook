@@ -10,7 +10,7 @@ import { DataTable } from '../components/DataTable.jsx';
 const USER_VIEWS = {
   all: { title: 'All Users', subtitle: 'Every registered app user from DB' },
   active: { title: 'Active Users', subtitle: 'Users with active account status' },
-  trial: { title: 'Trial Users', subtitle: 'Users without a selected subscription plan' },
+  trial: { title: 'Trial Users', subtitle: 'Users currently inside the 15-day free trial' },
   expired: { title: 'Expired Users', subtitle: 'Users marked expired or past expiry date' },
   blocked: { title: 'Blocked Users', subtitle: 'Users with blocked account status' },
   deleted: { title: 'Deleted Users', subtitle: 'Users marked deleted in DB' },
@@ -21,7 +21,7 @@ function normalize(value) {
 }
 
 function isTrialUser(row) {
-  return !row.subscriptionPlan || row.subscriptionPlan === '';
+  return normalize(row.subscriptionStatus) === 'trial' || !row.subscriptionPlan || row.subscriptionPlan === '';
 }
 
 function separateUsersByType(rows) {
@@ -86,7 +86,7 @@ export function AdminUserListPage({ type = 'all' }) {
     sourceKey: 'users',
     label: view.title,
     count: mainData.length,
-    fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'status', 'createdAt', 'lastLogin'],
+    fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'trialEndsAt', 'status', 'createdAt', 'lastLogin'],
     rows: mainData,
   };
 
@@ -167,7 +167,7 @@ export function AdminUserListPage({ type = 'all' }) {
                         sourceKey: 'users',
                         label: sectionData.label,
                         count: sectionData.rows.length,
-                        fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'status', 'createdAt', 'lastLogin'],
+                        fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'trialEndsAt', 'status', 'createdAt', 'lastLogin'],
                         rows: sectionData.rows,
                       }} />
                     </div>

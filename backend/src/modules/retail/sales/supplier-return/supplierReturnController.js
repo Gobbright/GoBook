@@ -1,4 +1,6 @@
 import { Invoice } from '../../../../models/Invoice.js';
+import { SupplierReturnLock } from '../../../../models/SupplierReturnLock.js';
+import { prepareSupplierReturn, purchaseReturnDetails } from '../../../../services/supplierReturns.js';
 import { postInventoryForDocument, reverseInventoryForDocument } from '../../../../services/inventoryMovements.js';
 import {
   postSupplierReturnAccounting,
@@ -11,6 +13,41 @@ import {
 import { httpError } from '../../../../utils/httpError.js';
 
 const DOCTYPE = 'supplier-return';
+
+// Serialize return writes across server instances so two requests cannot both
+// consume the same remaining purchase quantity. Expiry recovers crashed workers.
+function serializeReturn(handler) {
+  return async (req, res, next) => {
+    const key = String(req.user.id);
+    let locked = false;
+    try {
+      await SupplierReturnLock.create({ _id: key, expiresAt: new Date(Date.now() + 600000) });
+      locked = true;
+      await handler(req, res, next);
+    } catch (err) {
+      next(err.code === 11000 ? httpError(409, 'Another supplier return is being saved. Please retry shortly.') : err);
+    } finally {
+      if (locked) await SupplierReturnLock.deleteOne({ _id: key });
+    }
+  };
+}
+
+export async function getSupplierReturnPurchase(req, res, next) {
+  try { res.json(await purchaseReturnDetails(req.user.id, req.params.purchaseId, req.query.excludeId)); }
+  catch (err) { next(err); }
+}
+
+export async function listSupplierReturnPurchases(req, res, next) {
+  try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const filter = { userId: req.user.id, documentType: 'purchase-entry' };
+    if (req.query.search) {
+      const search = String(req.query.search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [{ number: new RegExp(search, 'i') }, { 'customer.name': new RegExp(search, 'i') }, { 'extra.vendorInvoiceNo': new RegExp(search, 'i') }];
+    }
+    res.json({ data: await Invoice.find(filter).sort({ createdAt: -1 }).skip((page - 1) * 50).limit(50).lean() });
+  } catch (err) { next(err); }
+}
 
 // GET /api/sales/supplier-returns/next-number?prefix=SPR
 export async function getNextSupplierReturnNumber(req, res, next) {
@@ -74,9 +111,10 @@ export async function getSupplierReturn(req, res, next) {
 // POST /api/sales/supplier-returns
 // Goods physically leave stock on a supplier return (going back to the vendor),
 // so this also posts inventory movements, mirroring how a sales return brings stock back in.
-export async function createSupplierReturn(req, res, next) {
+async function createReturn(req, res, next) {
   try {
-    const note = await Invoice.create({ ...req.body, userId: req.user.id, businessId: req.user.businessId, documentType: DOCTYPE });
+    const payload = await prepareSupplierReturn(req.body, req.user.id);
+    const note = await Invoice.create({ ...payload, userId: req.user.id, businessId: req.user.businessId, documentType: DOCTYPE });
     try {
       await postInventoryForDocument(note, req.user.id);
       await postSupplierReturnAccounting(note, req.user);
@@ -94,13 +132,14 @@ export async function createSupplierReturn(req, res, next) {
 }
 
 // PUT /api/sales/supplier-returns/:id
-export async function updateSupplierReturn(req, res, next) {
+async function updateReturn(req, res, next) {
   try {
     const existing = await Invoice.findOne({ _id: req.params.id, userId: req.user.id, documentType: DOCTYPE });
     if (!existing) return next(httpError(404, 'Supplier return not found'));
+    const payload = await prepareSupplierReturn(req.body, req.user.id, existing._id);
     const nextDoc = new Invoice({
       ...existing.toObject(),
-      ...req.body,
+      ...payload,
       _id: existing._id,
       userId: existing.userId,
       businessId: existing.businessId,
@@ -119,16 +158,19 @@ export async function updateSupplierReturn(req, res, next) {
     try {
       note = await Invoice.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.id, documentType: DOCTYPE },
-        { $set: { ...req.body, documentType: DOCTYPE } },
+        { $set: { ...payload, userId: existing.userId, businessId: existing.businessId, documentType: DOCTYPE } },
         { new: true, runValidators: false },
       );
+      await postSupplierReturnAccounting(note, req.user);
     } catch (err) {
       await reverseInventoryForDocument(nextDoc, req.user.id);
       await postInventoryForDocument(existing, req.user.id);
+      const { _id, __v, ...original } = existing.toObject();
+      await Invoice.updateOne({ _id, userId: req.user.id }, { $set: original });
+      await postSupplierReturnAccounting(existing, req.user);
       throw err;
     }
 
-    await postSupplierReturnAccounting(note, req.user);
     res.json(await attachAccountingStatus(req.user.id, note.toObject()));
   } catch (err) {
     next(err);
@@ -136,14 +178,25 @@ export async function updateSupplierReturn(req, res, next) {
 }
 
 // DELETE /api/sales/supplier-returns/:id
-export async function deleteSupplierReturn(req, res, next) {
+async function deleteReturn(req, res, next) {
   try {
-    const note = await Invoice.findOneAndDelete({ _id: req.params.id, userId: req.user.id, documentType: DOCTYPE }).lean();
+    const note = await Invoice.findOne({ _id: req.params.id, userId: req.user.id, documentType: DOCTYPE }).lean();
     if (!note) return next(httpError(404, 'Supplier return not found'));
-    await reverseInventoryForDocument(note, req.user.id);
-    await reverseAccountingPosting({ userId: req.user.id, sourceType: DOCTYPE, sourceId: note._id });
+    try {
+      await reverseInventoryForDocument(note, req.user.id);
+      await reverseAccountingPosting({ userId: req.user.id, sourceType: DOCTYPE, sourceId: note._id });
+      await Invoice.deleteOne({ _id: note._id, userId: req.user.id });
+    } catch (err) {
+      await postInventoryForDocument(note, req.user.id);
+      await postSupplierReturnAccounting(note, req.user);
+      throw err;
+    }
     res.json({ message: 'Supplier return deleted successfully' });
   } catch (err) {
     next(err);
   }
 }
+
+export const createSupplierReturn = serializeReturn(createReturn);
+export const updateSupplierReturn = serializeReturn(updateReturn);
+export const deleteSupplierReturn = serializeReturn(deleteReturn);

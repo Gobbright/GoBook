@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import '../features/employee-management/employeeManagement.css';
 
 import { AdminPanelPage } from '../features/admin/AdminPanelPage.jsx';
+import { MainAdminLoginPage } from '../features/admin/MainAdminLoginPage.jsx';
+import { AdminWhatsAppProviderPage } from '../features/admin/pages/AdminWhatsAppProviderPage.jsx';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage.jsx';
 import { InvoicesPage } from '../features/admin/pages/InvoicesPage.jsx';
 import { PaymentsPage } from '../features/admin/pages/PaymentsPage.jsx';
@@ -17,8 +19,10 @@ import { CategoryBusinessPage } from '../features/admin/pages/CategoryBusinessPa
 import { CategoryHospitalPage } from '../features/admin/pages/CategoryHospitalPage.jsx';
 import { CategoryHotelPage } from '../features/admin/pages/CategoryHotelPage.jsx';
 import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage.jsx';
-import { GoogleOnboardingPage } from '../features/auth/GoogleOnboardingPage.jsx';
+import { LegacyOnboardingRedirect } from './RouteGuards.jsx';
+import { PaymentPage } from '../features/auth/PaymentPage.jsx';
 import { LegalPage } from '../features/auth/LegalPage.jsx';
+import { DataDeletionPage } from '../features/meta/DataDeletionPage.jsx';
 import { LoginPage } from '../features/auth/LoginPage.jsx';
 import { RegisterPage } from '../features/auth/RegisterPage.jsx';
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage.jsx';
@@ -92,11 +96,15 @@ function AppRoutes() {
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/terms" element={<LegalPage type="terms" />} />
       <Route path="/privacy" element={<LegalPage type="privacy" />} />
+      <Route path="/privacy-policy" element={<LegalPage type="privacy" />} />
+      <Route path="/data-deletion" element={<DataDeletionPage />} />
+      <Route path="/data-deletion-status/:confirmationCode" element={<DataDeletionPage status />} />
       <Route path="/employee-login" element={<EmployeeLoginRoute />} />
       <Route path="/employee/*" element={<EmployeePortalRoutes />} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
-      <Route path="/admin-login" element={<Navigate to="/login" replace />} />
+      <Route path="/admin-login" element={<MainAdminLoginPage />} />
       <Route path="/admin" element={adminRoute(<AdminPanelPage />)} />
+      <Route path="/admin/whatsapp-provider" element={adminRoute(<AdminWhatsAppProviderPage />)} />
       <Route path="/admin/users" element={adminRoute(<AdminSectionPage group="usersBusinesses" />)} />
       <Route path="/admin/users/all" element={adminRoute(<AdminUserListPage type="all" />)} />
       <Route path="/admin/users/active" element={adminRoute(<AdminUserListPage type="active" />)} />
@@ -156,7 +164,8 @@ function AppRoutes() {
       <Route path="/admin/subscription" element={adminRedirect('/admin/subscription/plans')} />
       <Route path="/admin/settings" element={adminRedirect('/admin/settings/subscription-plans')} />
       <Route path="/admin/*" element={adminRedirect('/admin')} />
-      <Route path="/google-onboarding" element={<ProtectedRoute><GoogleOnboardingPage /></ProtectedRoute>} />
+      <Route path="/onboarding" element={<LegacyOnboardingRedirect />} />
+      <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
       <Route path="/verify-email" element={<ProtectedRoute><VerifyEmailPage /></ProtectedRoute>} />
       <Route path="/platform-admin" element={<ProtectedRoute><PlatformAdminPage /></ProtectedRoute>} />
 

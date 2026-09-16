@@ -1,14 +1,15 @@
 import { redirectTo } from '../../routes/navigation.js';
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Building2, Car, Check, CheckCircle2, ChevronDown, ChevronUp, CreditCard, Eye, EyeOff,
   Factory, GraduationCap, HardHat, Hospital, Lock, Mail, Phone, RefreshCw,
-  Rocket, ShieldCheck, Store, User, Users, Wallet,
+  ShieldCheck, Store, User, Users, Wallet,
 } from 'lucide-react';
 
 import { CATEGORIES, RETAIL_SUBCATEGORIES } from '../../constants/categories.js';
 import { sendRegisterOtp, verifyRegisterOtp } from '../../services/authService.js';
-import { fetchSubscriptionPlans, openRazorpayCheckout, verifyRegistrationPayment } from '../../services/subscriptionService.js';
+import { fetchSubscriptionPlans } from '../../services/subscriptionService.js';
 import { AuthLayout } from './AuthLayout.jsx';
 import { CHECKBOX_TEXT, ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
 
@@ -20,7 +21,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_REGEX = /^[A-Za-z][A-Za-z .'-]{1,}$/;
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
-const STEPS = ['Welcome', 'Company', 'Category', 'Account', 'Plan', 'Verify'];
+const STEPS = ['Company', 'Category', 'Account', 'Bank', 'Verify'];
 
 function validateCompanyStep(form) {
   const errs = {};
@@ -62,8 +63,20 @@ function validateAccountStep(form) {
   return errs;
 }
 
-function validatePlanStep(form) {
-  return form.subscriptionPlan ? {} : { subscriptionPlan: 'Choose a plan' };
+function validateBankStep(form) {
+  const errs = {};
+  if (!form.accountHolderName.trim()) errs.accountHolderName = 'Account holder name is required';
+  if (!form.bankName.trim()) errs.bankName = 'Bank name is required';
+
+  const accountNumber = form.accountNumber.replace(/\D/g, '');
+  if (!form.accountNumber.trim()) errs.accountNumber = 'Account number is required';
+  else if (!/^\d{6,18}$/.test(accountNumber)) errs.accountNumber = 'Enter a valid account number';
+
+  const ifscCode = form.ifscCode.trim().toUpperCase();
+  if (!ifscCode) errs.ifscCode = 'IFSC code is required';
+  else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) errs.ifscCode = 'Enter a valid IFSC code';
+
+  return errs;
 }
 
 function FieldError({ message }) {
@@ -98,19 +111,6 @@ function PrimaryButton({ children, disabled, type = 'button', onClick, tone = 'b
     <button type={type} onClick={onClick} disabled={disabled} className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3.5 text-white font-bold text-[15px] border-0 cursor-pointer transition-all duration-150 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed mt-1" style={{ background, boxShadow: '0 6px 24px -4px rgba(79,144,255,0.45)' }}>
       {children}
     </button>
-  );
-}
-
-function WelcomeStep({ onNext }) {
-  return (
-    <div className="text-center">
-      <div className="flex justify-center mb-5"><div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-blue-500/10"><Rocket size={28} style={{ color: '#3b6dff' }} /></div></div>
-      <h2 className={`text-[22px] font-bold m-0 mb-2 ${HEADING}`}>Welcome to GoBook</h2>
-      <p className="text-[13.5px] font-semibold m-0 mb-3" style={{ color: '#3b6dff' }}>Universal Business Operating Platform</p>
-      <p className={`text-[13px] leading-relaxed m-0 mb-7 ${SUBTEXT}`}>Set up your workspace in a few quick steps. Email OTP verification happens before your account is created.</p>
-      <PrimaryButton onClick={onNext}>Get Started <ArrowRight size={18} /></PrimaryButton>
-      <p className={`text-center text-[12.5px] mt-5 mb-0 ${MUTED}`}>Already have an account? <a href="/login" className="font-bold no-underline hover:underline" style={{ color: '#4f90ff' }}>Sign In</a></p>
-    </div>
   );
 }
 
@@ -201,14 +201,35 @@ function AccountStep({ form, errors, set, showPassword, setShowPassword, onBack,
           <div><label htmlFor="password" className={LABEL}>Password</label><div className="relative"><Lock size={15} className={ICON} /><input id="password" type={showPassword ? 'text' : 'password'} placeholder="Min 8 characters" value={form.password} onChange={set('password')} className={`${INPUT} pr-11 ${errors.password ? 'border-red-400' : ''}`} /><button type="button" onClick={() => setShowPassword((s) => !s)} aria-label={showPassword ? 'Hide password' : 'Show password'} className={`absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-0 flex items-center ${EYE_BUTTON}`}>{showPassword ? <EyeOff size={14} /> : <Eye size={14} />}</button></div><FieldError message={errors.password} /></div>
           <div><label htmlFor="confirmPassword" className={LABEL}>Confirm Password</label><div className="relative"><Lock size={15} className={ICON} /><input id="confirmPassword" type={showPassword ? 'text' : 'password'} placeholder="Re-enter password" value={form.confirmPassword} onChange={set('confirmPassword')} className={`${INPUT} ${errors.confirmPassword ? 'border-red-400' : ''}`} /></div><FieldError message={errors.confirmPassword} /></div>
         </div>
-        <div><label className={`flex items-start gap-2.5 text-[12.5px] cursor-pointer select-none ${CHECKBOX_TEXT}`}><input type="checkbox" checked={form.acceptTerms} onChange={set('acceptTerms')} className="mt-0.5 w-4 h-4 rounded accent-blue-500 cursor-pointer flex-none" /><span>I agree to the <a href="/terms" className="font-semibold no-underline hover:underline" style={{ color: '#4f90ff' }}>Terms of Service</a> and <a href="/privacy" className="font-semibold no-underline hover:underline" style={{ color: '#4f90ff' }}>Privacy Policy</a></span></label><FieldError message={errors.acceptTerms} /></div>
-        <PrimaryButton onClick={onNext}>Choose Plan <ArrowRight size={18} /></PrimaryButton>
+        <div><label className={`flex items-center gap-2.5 text-[12.5px] leading-none cursor-pointer select-none ${CHECKBOX_TEXT}`}><input type="checkbox" checked={form.acceptTerms} onChange={set('acceptTerms')} className="w-4 h-4 rounded accent-blue-500 cursor-pointer flex-none" /><span>I agree to the <a href="/terms" className="font-semibold no-underline hover:underline" style={{ color: '#4f90ff' }}>Terms of Service</a> and <a href="/privacy" className="font-semibold no-underline hover:underline" style={{ color: '#4f90ff' }}>Privacy Policy</a></span></label><FieldError message={errors.acceptTerms} /></div>
+        <PrimaryButton onClick={onNext}>Next <ArrowRight size={18} /></PrimaryButton>
       </div>
     </div>
   );
 }
 
-function PlanStep({ form, plans, plansLoading, errors, setPlan, error, submitting, onBack, onSubmit }) {
+function BankDetailsStep({ form, errors, set, error, submitting, onBack, onSubmit }) {
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-3.5" noValidate>
+      <BackButton onClick={onBack} />
+      <div className="mb-1"><h2 className={`text-[19px] font-bold m-0 mb-1 ${HEADING}`}>Bank Details</h2><p className={`text-[13px] m-0 ${SUBTEXT}`}>These account details will be saved for billing and plan purchase records</p></div>
+      <div><label htmlFor="accountHolderName" className={LABEL}>Account Holder Name</label><div className="relative"><User size={15} className={ICON} /><input id="accountHolderName" type="text" placeholder="Account holder name" value={form.accountHolderName} onChange={set('accountHolderName')} className={`${INPUT} ${errors.accountHolderName ? 'border-red-400' : ''}`} /></div><FieldError message={errors.accountHolderName} /></div>
+      <div><label htmlFor="bankName" className={LABEL}>Bank Name</label><div className="relative"><Building2 size={15} className={ICON} /><input id="bankName" type="text" placeholder="Bank name" value={form.bankName} onChange={set('bankName')} className={`${INPUT} ${errors.bankName ? 'border-red-400' : ''}`} /></div><FieldError message={errors.bankName} /></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label htmlFor="accountNumber" className={LABEL}>Account Number</label><div className="relative"><CreditCard size={15} className={ICON} /><input id="accountNumber" type="text" inputMode="numeric" placeholder="Account number" value={form.accountNumber} onChange={set('accountNumber')} className={`${INPUT} ${errors.accountNumber ? 'border-red-400' : ''}`} /></div><FieldError message={errors.accountNumber} /></div>
+        <div><label htmlFor="ifscCode" className={LABEL}>IFSC Code</label><div className="relative"><ShieldCheck size={15} className={ICON} /><input id="ifscCode" type="text" placeholder="ABCD0123456" maxLength={11} value={form.ifscCode} onChange={set('ifscCode')} className={`${INPUT} uppercase ${errors.ifscCode ? 'border-red-400' : ''}`} /></div><FieldError message={errors.ifscCode} /></div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label htmlFor="bankBranch" className={LABEL}>Branch <span className={MUTED}>(Optional)</span></label><div className="relative"><Building2 size={15} className={ICON} /><input id="bankBranch" type="text" placeholder="Branch name" value={form.bankBranch} onChange={set('bankBranch')} className={INPUT} /></div></div>
+        <div><label htmlFor="accountType" className={LABEL}>Account Type</label><select id="accountType" value={form.accountType} onChange={set('accountType')} className={`${INPUT} pl-3`}><option value="Savings">Savings</option><option value="Current Account">Current Account</option><option value="Overdraft">Overdraft</option></select></div>
+      </div>
+      {error && <div className={`rounded-xl px-4 py-2.5 ${ERROR_BOX}`}><span className={`text-[12.5px] ${ERROR_TEXT}`}>{error}</span></div>}
+      <PrimaryButton type="submit" disabled={submitting}><Mail size={18} />{submitting ? 'Please wait...' : 'Start 15-day Trial'}</PrimaryButton>
+    </form>
+  );
+}
+
+function PlanStep({ verifiedEmail, form, plans, plansLoading, errors, setPlan, error, submitting, onBack, onSubmit }) {
   const [expanded, setExpanded] = useState({});
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3" noValidate>
@@ -233,7 +254,7 @@ function PlanStep({ form, plans, plansLoading, errors, setPlan, error, submittin
       })}
       <FieldError message={errors.subscriptionPlan} />
       {error && <div className={`rounded-xl px-4 py-2.5 ${ERROR_BOX}`}><span className={`text-[12.5px] ${ERROR_TEXT}`}>{error}</span></div>}
-      <PrimaryButton type="submit" disabled={submitting}><Mail size={18} />{submitting ? 'Sending OTP...' : 'Send OTP'}</PrimaryButton>
+      <PrimaryButton type="submit" disabled={submitting}><Mail size={18} />{submitting ? 'Please wait...' : verifiedEmail ? 'Create Account' : 'Send OTP'}</PrimaryButton>
     </form>
   );
 }
@@ -258,10 +279,12 @@ function OtpStep({ email, otp, setOtp, error, message, submitting, resending, on
 }
 
 export function RegisterPage() {
+  const { state: emailVerification } = useLocation();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    businessName: '', gstin: '', phone: '', email: '', category: '', retailSubcategory: '',
+    businessName: '', gstin: '', phone: '', email: emailVerification?.email || '', category: '', retailSubcategory: '',
     name: '', password: '', confirmPassword: '', acceptTerms: false,
+    accountHolderName: '', bankName: '', accountNumber: '', ifscCode: '', bankBranch: '', accountType: 'Savings',
     subscriptionPlan: '', subscriptionAmount: 0,
   });
   const [errors, setErrors] = useState({});
@@ -274,7 +297,10 @@ export function RegisterPage() {
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
 
+  const verifiedEmail = Boolean(emailVerification?.signupToken && emailVerification.email === form.email.trim().toLowerCase());
+
   const signupPayload = useMemo(() => ({
+    signupToken: verifiedEmail ? emailVerification.signupToken : undefined,
     name: form.name,
     email: form.email,
     password: form.password,
@@ -283,8 +309,14 @@ export function RegisterPage() {
     retailSubcategory: form.category === 'retail' ? form.retailSubcategory : '',
     phone: form.phone,
     gstin: form.gstin.trim().toUpperCase(),
+    accountHolderName: form.accountHolderName,
+    bankName: form.bankName,
+    accountNumber: form.accountNumber.replace(/\D/g, ''),
+    ifscCode: form.ifscCode.trim().toUpperCase(),
+    bankBranch: form.bankBranch,
+    accountType: form.accountType,
     subscriptionPlan: form.subscriptionPlan,
-  }), [form]);
+  }), [form, verifiedEmail, emailVerification]);
 
   useEffect(() => {
     if (!form.category) return;
@@ -331,7 +363,13 @@ export function RegisterPage() {
     setErrors({});
     setError('');
     setMessage('');
-    setStep((s) => Math.max(0, s - 1));
+    setStep((s) => {
+      if (s <= 0) {
+        redirectTo('/login');
+        return 0;
+      }
+      return s - 1;
+    });
   }
 
   function choosePlan(plan) {
@@ -345,8 +383,8 @@ export function RegisterPage() {
   }
 
   async function handleSendOtp(event) {
-    event.preventDefault();
-    const validationErrors = validatePlanStep(form);
+    event?.preventDefault?.();
+    const validationErrors = validateBankStep(form);
     setErrors(validationErrors);
     setError('');
     setMessage('');
@@ -355,9 +393,10 @@ export function RegisterPage() {
     setSubmitting(true);
     try {
       const data = await sendRegisterOtp(signupPayload);
+      if (data.token && data.user) { redirectTo('/dashboard'); return; }
       setOtp('');
       setMessage(data.message || 'OTP sent to your email');
-      setStep(5);
+      setStep(4);
     } catch (err) {
       setError(err.message || 'Unable to send OTP');
     } finally {
@@ -376,10 +415,7 @@ export function RegisterPage() {
         redirectTo('/dashboard');
         return;
       }
-      if (!verification.paymentRequired || !verification.checkout) throw new Error('Payment order was not created');
-      const payment = await openRazorpayCheckout(verification.checkout);
-      await verifyRegistrationPayment(payment);
-      redirectTo('/dashboard');
+      throw new Error('Account could not be created');
     } catch (err) {
       setError(err.message || 'Unable to verify OTP or payment');
     } finally {
@@ -405,13 +441,12 @@ export function RegisterPage() {
   return (
     <AuthLayout cardMaxWidth={500}>
       <div className="flex justify-center mb-4"><div className="inline-flex bg-white rounded-2xl px-4 py-2.5"><img src="/gobook-logo-full.png" alt="GoBook" className="h-9 sm:h-10 w-auto object-contain" /></div></div>
-      {step > 0 && <StepProgress step={step} />}
-      {step === 0 && <WelcomeStep onNext={() => setStep(1)} />}
-      {step === 1 && <CompanyDetailsStep form={form} errors={errors} set={set} onNext={() => goNext(validateCompanyStep)} onBack={goBack} />}
-      {step === 2 && <CategoryStep form={form} errors={errors} setCategory={(value) => set('category')({ target: { type: 'text', value } })} setRetailSubcategory={(value) => set('retailSubcategory')({ target: { type: 'text', value } })} onNext={() => goNext(validateCategoryStep)} onBack={goBack} />}
-      {step === 3 && <AccountStep form={form} errors={errors} set={set} showPassword={showPassword} setShowPassword={setShowPassword} onBack={goBack} onNext={() => goNext(validateAccountStep)} />}
-      {step === 4 && <PlanStep form={form} plans={plans} plansLoading={plansLoading} errors={errors} setPlan={choosePlan} error={error} submitting={submitting} onBack={goBack} onSubmit={handleSendOtp} />}
-      {step === 5 && <OtpStep email={form.email} otp={otp} setOtp={setOtp} error={error} message={message} submitting={submitting} resending={resending} onBack={goBack} onSubmit={handleVerifyOtp} onResend={handleResendOtp} />}
+      <StepProgress step={step} />
+      {step === 0 && <CompanyDetailsStep form={form} errors={errors} set={set} onNext={() => goNext(validateCompanyStep)} onBack={goBack} />}
+      {step === 1 && <CategoryStep form={form} errors={errors} setCategory={(value) => set('category')({ target: { type: 'text', value } })} setRetailSubcategory={(value) => set('retailSubcategory')({ target: { type: 'text', value } })} onNext={() => goNext(validateCategoryStep)} onBack={goBack} />}
+      {step === 2 && <AccountStep form={form} errors={errors} set={set} showPassword={showPassword} setShowPassword={setShowPassword} onBack={goBack} onNext={() => goNext(validateAccountStep)} />}
+      {step === 3 && <BankDetailsStep form={form} errors={errors} set={set} error={error} submitting={submitting} onBack={goBack} onSubmit={handleSendOtp} />}
+      {step === 4 && <OtpStep email={form.email} otp={otp} setOtp={setOtp} error={error} message={message} submitting={submitting} resending={resending} onBack={goBack} onSubmit={handleVerifyOtp} onResend={handleResendOtp} />}
     </AuthLayout>
   );
 }

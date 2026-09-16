@@ -32,6 +32,7 @@ function removeSensitiveFields(doc, collection) {
   delete clean.__v;
   for (const field of collection.sensitiveFields || []) delete clean[field];
   if (collection.key === 'businessSettings') {
+    // Keep retired integration credentials out of exports of older records.
     delete clean.gspClientSecret;
     delete clean.gspPassword;
     delete clean.emailSmtpPass;

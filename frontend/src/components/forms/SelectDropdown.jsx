@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
@@ -6,7 +6,20 @@ import { ChevronDown } from 'lucide-react';
 // browser's native option-list rendering (which ignores page CSS and instead
 // follows OS-level text scaling) makes the options render far larger than the
 // rest of the page, especially on mobile/Chrome+Windows.
-export function SelectDropdown({ value, onChange, options, placeholder = 'Select...', className = '', buttonClassName = '', disabled = false, portal = false, ...buttonProps }) {
+export function SelectDropdown({
+  value,
+  onChange,
+  options,
+  placeholder = 'Select...',
+  className = '',
+  buttonClassName = '',
+  selectedLabelClassName = '',
+  optionLabelClassName = '',
+  disabled = false,
+  hideChevron = false,
+  portal = false,
+  ...buttonProps
+}) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
   const [dropUp, setDropUp] = useState(false);
@@ -33,7 +46,7 @@ export function SelectDropdown({ value, onChange, options, placeholder = 'Select
     return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
-  function updateMenuPosition() {
+  const updateMenuPosition = useCallback(() => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
@@ -47,7 +60,7 @@ export function SelectDropdown({ value, onChange, options, placeholder = 'Select
         bottom: nextDropUp ? window.innerHeight - rect.top + 4 : undefined,
       });
     }
-  }
+  }, [portal]);
 
   useEffect(() => {
     if (!open || !portal) return undefined;
@@ -58,7 +71,7 @@ export function SelectDropdown({ value, onChange, options, placeholder = 'Select
       window.removeEventListener('resize', updateMenuPosition);
       window.removeEventListener('scroll', updateMenuPosition, true);
     };
-  }, [open, portal]);
+  }, [open, portal, updateMenuPosition]);
 
   // On short/scrolled mobile viewports the trigger can sit close to the
   // bottom of the page's scroll container, leaving no room for the list to
@@ -117,7 +130,7 @@ export function SelectDropdown({ value, onChange, options, placeholder = 'Select
             opt.activeOption || opt.value === value ? 'text-blue-700 font-semibold bg-blue-100 shadow-[inset_3px_0_0_#2563eb]' : index === highlighted ? 'bg-blue-50 text-[#0f172a] shadow-[inset_3px_0_0_#3b82f6]' : 'bg-transparent text-[#111827]'
           }`}
         >
-          <span className="truncate">{opt.label}</span>
+          <span className={optionLabelClassName || 'truncate'}>{opt.label}</span>
           {opt.badge && (
             <span className="flex-none text-[10px] font-semibold uppercase tracking-wide text-[#64748b] bg-[#f1f5f9] rounded px-1.5 py-0.5">
               {opt.badge}
@@ -137,8 +150,8 @@ export function SelectDropdown({ value, onChange, options, placeholder = 'Select
         onClick={() => (open ? setOpen(false) : openList())}
         className={`flex items-center justify-between gap-2 border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] w-full outline-none bg-white font-[inherit] focus:border-blue-500 ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${buttonClassName}`}
       >
-        <span className={`truncate ${selected ? 'text-[#111827]' : 'text-[#94a3b8]'}`}>{selected ? selected.label : placeholder}</span>
-        <ChevronDown size={14} className={`text-[#94a3b8] transition-transform flex-none ${open ? 'rotate-180' : ''}`} />
+        <span className={`${selectedLabelClassName || 'truncate'} ${selected ? 'text-[#111827]' : 'text-[#94a3b8]'}`}>{selected ? selected.label : placeholder}</span>
+        {!hideChevron && <ChevronDown size={14} className={`text-[#94a3b8] transition-transform flex-none ${open ? 'rotate-180' : ''}`} />}
       </button>
 
       {portal ? createPortal(menu, document.body) : menu}

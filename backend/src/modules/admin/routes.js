@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { archiveAdminNotification, createAdminRecord, deleteAdminRecord, deleteAdminSectionRow, getAdminDashboard, getAdminNotifications, getAdminRecords, getAdminSection, getAdminStats, getSubscriptionPayments, getSubscriptionPlans, loginAdmin, markAllAdminNotificationsRead, sendSubscriptionPaymentInvoice, updateAdminNotification, updateAdminRecord, updateAdminSectionRow, updateSubscriptionPlan, sendRenewalReminder } from './adminController.js';
 import { adminStorageUpload, downloadStorageFile, exportStorageCollections, getDailyReports, getStorageOverview, listStorageBusinesses, listStorageFiles, uploadStorageFile } from './storageController.js';
 import { requireEmployeeManagementAdminAuth, requireEmployeePortalRole } from '../../middleware/employeePortalAuth.js';
+import { getWhatsAppProviderAdminOverview, updateWhatsAppProviderStatus } from './whatsAppProviderAdminController.js';
 import { adminCorrections, adminDashboard, adminHolidays, adminLeaves, adminMonthlyAttendance, adminNotices, adminPayroll, adminTodayAttendance, approveAdminPayroll, createAdminCorrection, createAdminEmployee, createAdminLeave, createHoliday, createNotice, deleteAdminEmployee, employeePhotoUpload, generateAdminPayroll, leaveAttachmentUpload, listAdminEmployees, markAdminAttendance, updateAdminEmployee, updateAdminPayroll, updateCorrection, updateLeaveStatus } from '../employee-portal/portalController.js';
 import { requireAdminAuth } from './adminAuth.js';
 
@@ -36,6 +37,9 @@ adminRouter.put('/subscription-plans/:id', requireAdminAuth, updateSubscriptionP
 adminRouter.get('/subscription-payments', requireAdminAuth, getSubscriptionPayments);
 adminRouter.post('/subscription-payments/:id/send-invoice', requireAdminAuth, sendSubscriptionPaymentInvoice);
 
+adminRouter.get('/whatsapp-provider', requireAdminAuth, getWhatsAppProviderAdminOverview);
+adminRouter.put('/whatsapp-provider/businesses/:businessId/status', requireAdminAuth, updateWhatsAppProviderStatus);
+adminRouter.put('/whatsapp-provider/:id/status', requireAdminAuth, updateWhatsAppProviderStatus);
 
 
 const requireHrAdmin = [requireEmployeeManagementAdminAuth];

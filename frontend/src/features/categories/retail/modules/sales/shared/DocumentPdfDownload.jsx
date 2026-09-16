@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
-import { getInvoicePrintTemplate } from './invoiceTemplatePreference.js';
 
 export function calcDocumentTotals(items = [], charges = [], additionalDiscount, tds, tcs, advanceReceived, showGst = true) {
   const acc = { subtotal: 0, discount: 0, taxable: 0, totalGst: 0, grandTotal: 0, gstByRate: {} };
@@ -65,7 +64,6 @@ function applySavedTotalOverride(calculatedTotals, savedTotals) {
 export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
   const documentType = doc.documentType || 'invoice';
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
-  const printTemplate = getInvoicePrintTemplate();
   const docMeta = {
     ...doc.meta,
     number: doc.number,
@@ -110,7 +108,6 @@ export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
         downloadAsPdf
         pdfMode
         invoiceNumber={docMeta.number}
-        printTemplate={printTemplate}
         onPdfDownloaded={onDone}
       />
     </div>

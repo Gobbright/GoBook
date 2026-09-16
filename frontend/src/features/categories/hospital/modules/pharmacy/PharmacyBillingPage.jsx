@@ -26,7 +26,6 @@ import {
 import { useKeyboardMode } from '../../../../../app/KeyboardModeContext.jsx';
 import { api, SERVER_ORIGIN } from '../../../../../services/api.js';
 import { useModuleRecords } from '../../../shared/recordUi/useModuleRecords.js';
-import { getInvoicePrintTemplate, setInvoicePrintTemplate } from '../../../retail/modules/sales/shared/invoiceTemplatePreference.js';
 
 const INPUT = 'border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none focus:border-blue-500 font-[inherit] bg-white';
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Card'];
@@ -162,7 +161,6 @@ export function PharmacyBillingPage() {
   const [message, setMessage] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [bizSettings, setBizSettings] = useState({});
-  const [printTemplate, setPrintTemplate] = useState(() => getInvoicePrintTemplate());
 
   const billNo = useMemo(() => nextBillNo(pharmacyBills.records), [pharmacyBills.records]);
   const nextReceiptNo = useMemo(() => {
@@ -213,10 +211,6 @@ export function PharmacyBillingPage() {
   useEffect(() => {
     api.getSettings().then(setBizSettings).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    setInvoicePrintTemplate(printTemplate);
-  }, [printTemplate]);
 
   useEffect(() => {
     setMedicineLoading(true);
@@ -694,138 +688,11 @@ export function PharmacyBillingPage() {
                 <p className="m-0 mt-0.5 text-[12px] font-semibold text-[#64748b]">Bill #{billNo}</p>
               </div>
               <div className="flex items-center gap-2">
-                <select className={INPUT} value={printTemplate} onChange={(event) => setPrintTemplate(event.target.value)}>
-                  <option value="modern">Modern</option>
-                  <option value="classic">Classic</option>
-                </select>
                 <Button onClick={() => window.print()}><Printer size={14} />Print</Button>
                 <button type="button" onClick={() => setPreviewOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[#334155] cursor-pointer"><X size={16} /></button>
               </div>
             </div>
             <div className="p-5">
-              {printTemplate === 'classic' ? (
-              <div id="document-preview-print" className="invoice-pages-stack invoice-classic-stack">
-                <section className="invoice-page invoice-classic-page">
-                  <div className="invoice-classic-outer">
-                    <div className="invoice-classic-title-row">
-                      <span />
-                      <strong>Pharmacy Invoice</strong>
-                      <em>Original for Recipient</em>
-                    </div>
-
-                    <div className="invoice-classic-top-grid">
-                      <div className="invoice-classic-business">
-                        {bizSettings.logoUrl && (
-                          <img src={`${SERVER_ORIGIN}${bizSettings.logoUrl}`} alt="logo" className="invoice-classic-logo" />
-                        )}
-                        <div>
-                          <h2>{bizSettings.businessName || '-'}</h2>
-                          <p>{businessAddress(bizSettings) || '-'}</p>
-                          {bizSettings.phone && <p>{bizSettings.phone}</p>}
-                          {bizSettings.businessEmail && <p>{bizSettings.businessEmail}</p>}
-                          {bizSettings.gstin && <h3>GSTIN: {bizSettings.gstin}</h3>}
-                        </div>
-                      </div>
-
-                      <div className="invoice-classic-meta-grid">
-                        <div>
-                          <div className="invoice-classic-field"><span>Invoice No.</span><b>:</b><strong className="invoice-classic-emphasis">{billNo}</strong></div>
-                          <div className="invoice-classic-field"><span>Sale Type</span><b>:</b><strong>{walkIn ? 'Walk-in' : 'Patient'}</strong></div>
-                          <div className="invoice-classic-field"><span>Items</span><b>:</b><strong>{items.length}</strong></div>
-                          <div className="invoice-classic-field"><span>Pay Status</span><b>:</b><strong>Paid</strong></div>
-                        </div>
-                        <div>
-                          <div className="invoice-classic-field"><span>Invoice Date</span><b>:</b><strong className="invoice-classic-emphasis">{new Date().toLocaleDateString('en-IN')}</strong></div>
-                          <div className="invoice-classic-field"><span>Pay. Mode</span><b>:</b><strong>{paymentMethod}</strong></div>
-                          <div className="invoice-classic-field"><span>Receipt No.</span><b>:</b><strong>{nextReceiptNo}</strong></div>
-                          <div className="invoice-classic-field"><span>Prescription</span><b>:</b><strong>{prescription || '-'}</strong></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="invoice-classic-party-grid">
-                      <div className="invoice-classic-customer">
-                        <div className="invoice-classic-section-caption">Customer</div>
-                        <h2>{walkIn ? 'Walk-in Customer' : selectedPatient?.data?.name || '-'}</h2>
-                        <p>Patient ID : {walkIn ? '-' : selectedPatient?.data?.patientId || '-'}</p>
-                        <p>Mobile : {walkIn ? '-' : phoneOf(selectedPatient?.data) || '-'}</p>
-                        <p>Billing Mode : {walkIn ? 'Counter pharmacy sale' : 'Patient linked pharmacy sale'}</p>
-                      </div>
-                      <div className="invoice-classic-ledger">
-                        <div className="invoice-classic-ledger-heading">Pharmacy Details:</div>
-                        <p>Prescription : {prescription || 'Manual sale'}</p>
-                        <div className="invoice-classic-ledger-row"><span>Total Qty</span><b>=</b><strong>{items.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</strong></div>
-                        <div className="invoice-classic-ledger-row"><span>Stock Check</span><b>=</b><strong>{hasInvalidStock ? 'Needs Review' : 'Passed'}</strong></div>
-                        <div className="invoice-classic-ledger-row invoice-classic-ledger-total"><span>Balance Due</span><b>=</b><strong>{amount(0)}</strong></div>
-                      </div>
-                    </div>
-
-                    <table className="invoice-classic-table invoice-classic-table-no-gst">
-                      <thead>
-                        <tr>
-                          <th className="classic-col-sno">S/N</th>
-                          <th className="classic-col-desc">Description Of Goods / Service</th>
-                          <th className="classic-col-qty">Billed<br />Quantity</th>
-                          <th className="classic-col-uqc">Batch</th>
-                          <th className="classic-col-price">Price</th>
-                          <th className="classic-col-amount">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((item, index) => (
-                          <tr key={`classic-pharmacy-${item.id}-${index}`}>
-                            <td className="classic-col-sno">{index + 1})</td>
-                            <td className="classic-col-desc">
-                              <div className="invoice-classic-item-title">{item.name || '-'}</div>
-                              <div className="invoice-classic-item-sub">{item.code || item.barcode || ''} {item.expiry ? `| Exp ${expiryLabel(item.expiry)}` : ''}</div>
-                            </td>
-                            <td className="classic-col-qty">{item.qty || 0}</td>
-                            <td className="classic-col-uqc">{item.batch || '-'}</td>
-                            <td className="classic-col-price">{amount(item.rate)}</td>
-                            <td className="classic-col-amount">{amount(itemAmount(item))}</td>
-                          </tr>
-                        ))}
-                        <tr className="invoice-classic-subtotal-row"><td className="classic-col-sno" /><td className="classic-col-desc" /><td className="classic-col-qty">{items.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</td><td className="classic-col-uqc" /><td className="classic-col-price" /><td className="classic-col-amount">{amount(subtotal)}</td></tr>
-                        <tr className="invoice-classic-total-line"><td colSpan={5}>Discount</td><td className="classic-col-amount">-{amount(discount)}</td></tr>
-                        <tr className="invoice-classic-total-line"><td colSpan={5}>GST</td><td className="classic-col-amount">{amount(gst)}</td></tr>
-                        <tr className="invoice-classic-grand-total"><td colSpan={5}>Grand Total</td><td className="classic-col-amount">{amount(total)}</td></tr>
-                      </tbody>
-                    </table>
-
-                    <div className="invoice-classic-summary">
-                      <div className="invoice-classic-tax-summary">
-                        <h3>Amount in Words</h3>
-                        <p>{amountWords(total)}</p>
-                      </div>
-                      <table className="invoice-classic-payment-summary">
-                        <tbody>
-                          <tr><td>Payment Mode</td><td>{paymentMethod}</td></tr>
-                          <tr><td>Amount Paid</td><td>{amount(total)}</td></tr>
-                          <tr className="invoice-classic-payment-grand"><td>Grand Total</td><td>{amount(total)}</td></tr>
-                          <tr className="invoice-classic-payment-due"><td>Balance Due</td><td>{amount(0)}</td></tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="invoice-classic-bottom">
-                      <div className="invoice-classic-terms"><h3>Terms & Notes</h3><ul><li>Medicines are dispensed against the listed batches.</li><li>Verify batch and expiry before handover.</li></ul></div>
-                      <div className="invoice-classic-declaration"><h3>Declaration</h3><p>This invoice is generated from existing pharmacy bill data.</p></div>
-                      <div className="invoice-classic-sign"><strong>For {bizSettings.businessName || '-'}</strong><b>Pharmacist / Authorised Signatory</b></div>
-                    </div>
-
-                    <div className="invoice-classic-footer">
-                      <span>{bizSettings.phone || '-'}</span>
-                      <strong>Generated by GoBook</strong>
-                      <strong>{bizSettings.website || bizSettings.businessWebsite || ''}</strong>
-                    </div>
-
-                    <div className="mt-4 flex justify-end gap-2 print:hidden">
-                      <Button tone="green" onClick={payBill} disabled={hasInvalidStock || hasExpiredItem}>Pay {money(total)}</Button>
-                    </div>
-                  </div>
-                </section>
-              </div>
-              ) : (
               <div id="document-preview-print" className="hospital-invoice-print">
                 <section className="hospital-invoice-page">
                   <div className="hospital-invoice-top">
@@ -984,7 +851,6 @@ export function PharmacyBillingPage() {
                   </div>
                 </section>
               </div>
-              )}
             </div>
           </div>
         </div>

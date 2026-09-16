@@ -5,4 +5,6 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: { proxy: { '/auth/meta': 'http://localhost:5000', '/meta': 'http://localhost:5000' } },
+  preview: { proxy: { '/auth/meta': 'http://localhost:5000', '/meta': 'http://localhost:5000' } },
 })

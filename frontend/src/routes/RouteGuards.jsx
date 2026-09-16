@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Outlet as RouterOutlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { AppShell } from '../app/AppShell.jsx';
@@ -66,7 +66,16 @@ export function RouteMemory() {
 }
 
 export function PublicRoute({ children }) {
+  const user = getCurrentUser();
+  if (user?.needsOnboarding && !user.businessId && !user.isPlatformOwner) return children;
   return isAuthenticated() ? <Navigate to={getLastRoute()} replace /> : children;
+}
+
+export function LegacyOnboardingRedirect() {
+  const user = getCurrentUser();
+  if (!isAuthenticated()) return <Navigate to="/login" replace />;
+  if (user?.isPlatformOwner) return <Navigate to="/platform-admin" replace />;
+  return <Navigate to={user?.businessId || user?.onboardingCompleted ? '/dashboard' : '/register'} state={{ email: user?.email }} replace />;
 }
 
 export function AdminProtectedRoute({ children }) {
@@ -82,12 +91,26 @@ export function ProtectedRoute({ children }) {
 export function ProtectedShell() {
   const location = useLocation();
   const user = getCurrentUser();
+  const [trialExpiredByClock, setTrialExpiredByClock] = useState(false);
+
+  useEffect(() => {
+    setTrialExpiredByClock(Boolean(
+      user?.subscriptionStatus === 'trial'
+      && user?.trialEndsAt
+      && new Date(user.trialEndsAt).getTime() <= Date.now(),
+    ));
+  }, [user?.subscriptionStatus, user?.trialEndsAt]);
+
+  const trialExpired = Boolean(user?.trialExpired || trialExpiredByClock);
 
   if (user?.needsEmailVerification && location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
-  if (user?.needsOnboarding && location.pathname !== '/google-onboarding') {
-    return <Navigate to="/google-onboarding" replace />;
+  if (user?.needsOnboarding && !user.businessId && !user.isPlatformOwner) {
+    return <Navigate to="/register" state={{ email: user.email }} replace />;
+  }
+  if (trialExpired && location.pathname !== '/payment') {
+    return <Navigate to="/payment" replace />;
   }
   if (user && !canAccessPath(location.pathname, user)) {
     return <Navigate to="/dashboard" replace />;

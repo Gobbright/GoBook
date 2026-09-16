@@ -1,4 +1,6 @@
 import { Invoice } from '../../../../models/Invoice.js';
+import { createSupplierReturn, updateSupplierReturn, deleteSupplierReturn } from '../supplier-return/supplierReturnController.js';
+import { createSalesReturn, updateSalesReturn, deleteSalesReturn } from '../sales-return/salesReturnController.js';
 import { Payment } from '../../../../models/Payment.js';
 import { BusinessSettings } from '../../../../models/BusinessSettings.js';
 import { httpError } from '../../../../utils/httpError.js';
@@ -93,6 +95,8 @@ export async function getInvoice(req, res, next) {
 
 // POST /api/sales/invoices
 export async function createInvoice(req, res, next) {
+  if (req.body.documentType === 'sales-return') return createSalesReturn(req, res, next);
+  if (req.body.documentType === 'supplier-return') return createSupplierReturn(req, res, next);
   try {
     const payload = normalizeInvoicePayload(req.body);
     const invoice = await Invoice.create({ ...payload, userId: req.user.id, businessId: req.user.businessId, branch: await branchForNewRecord(req, payload.branch) });
@@ -124,6 +128,10 @@ export async function updateInvoice(req, res, next) {
     const payload = normalizeInvoicePayload(req.body);
     const existing = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id }));
     if (!existing) return next(httpError(404, 'Invoice not found'));
+    if (existing.documentType === 'sales-return') return updateSalesReturn(req, res, next);
+    if (existing.documentType === 'supplier-return') return updateSupplierReturn(req, res, next);
+    if (payload.documentType === 'sales-return') return next(httpError(400, 'Create a separate sales return instead of changing this document type'));
+    if (payload.documentType === 'supplier-return') return next(httpError(400, 'Create a separate supplier return instead of changing this document type'));
     const nextInvoice = new Invoice({
       ...existing.toObject(),
       ...payload,
@@ -167,6 +175,9 @@ export async function updateInvoice(req, res, next) {
 // DELETE /api/sales/invoices/:id
 export async function deleteInvoice(req, res, next) {
   try {
+    const target = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id })).lean();
+    if (target?.documentType === 'sales-return') return deleteSalesReturn(req, res, next);
+    if (target?.documentType === 'supplier-return') return deleteSupplierReturn(req, res, next);
     const invoice = await Invoice.findOneAndDelete(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!invoice) return next(httpError(404, 'Invoice not found'));
     await reverseInventoryForDocument(invoice, req.user.id);

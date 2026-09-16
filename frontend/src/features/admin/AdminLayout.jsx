@@ -45,6 +45,7 @@ const PAGE_TITLES = [
   ['/admin/storage/collections', 'Database Collections'],
   ['/admin/storage/daily-reports', 'Daily Reports'],
   ['/admin/storage', 'Storage'],
+  ['/admin/whatsapp-provider', 'WhatsApp API Provider'],
   ['/admin/reports/user-report', 'User Report'],
   ['/admin/reports/renewal-report', 'Renewal Report'],
   ['/admin/reports/expiry-report', 'Expiry Report'],

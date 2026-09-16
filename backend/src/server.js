@@ -9,6 +9,8 @@ import { connectDatabase, getDatabaseStatus } from './services/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { apiRouter } from './routes/index.js';
+import { closeInvoicePdfBrowser } from './services/invoicePdf.js';
+import { metaApiRouter, metaPublicRouter } from './modules/meta/routes.js';
 import { startScheduledJobs } from './jobs/scheduler.js';
 import { ensureDefaultSubscriptionPlans } from './services/subscriptionPlans.js';
 
@@ -40,7 +42,7 @@ const localNetworkOrigin = /^http:\/\/((localhost|127\.0\.0\.1)|10\.\d+\.\d+\.\d
 const productionOrigins = configuredOrigins;
 const corsOrigin = env.nodeEnv === 'production'
   ? (origin, callback) => {
-      if (!origin || productionOrigins.has(origin)) {
+      if (!origin || productionOrigins.has(origin) || localNetworkOrigin.test(origin)) {
         callback(null, true);
         return;
       }
@@ -55,6 +57,12 @@ const corsOrigin = env.nodeEnv === 'production'
     };
 
 app.use(cors({ origin: corsOrigin, credentials: true }));
+// Meta callbacks must run before request logging so codes and signed requests never enter logs.
+app.use((req, res, next) => {
+  if (req.path.startsWith('/auth/meta/') || req.path.startsWith('/meta/')) return metaPublicRouter(req, res, next);
+  next();
+});
+app.use('/api/meta', metaApiRouter);
 app.use(express.json({
   limit: '10mb',
   verify: (req, _res, buffer) => {
@@ -113,7 +121,8 @@ async function connectDatabaseWithRetry() {
 // Start HTTP first so Hostinger can reach /health while MongoDB DNS/network is warming up.
 connectDatabaseWithRetry();
 
-function shutdown() {
+async function shutdown() {
+  await closeInvoicePdfBrowser().catch(() => {});
   server.close(() => process.exit(0));
 }
 process.on('SIGTERM', shutdown);

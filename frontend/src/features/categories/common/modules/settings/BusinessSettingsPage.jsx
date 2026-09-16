@@ -1,10 +1,11 @@
+import { getInvoiceLayoutSettings, updateInvoiceLayoutSettings } from '../../../../../utils/invoiceLayoutSettings.js';
 import { useEffect, useRef, useState } from 'react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
 import { API_BASE_URL, SERVER_ORIGIN } from '../../../../../services/apiBase.js';
 import { getToken } from '../../../../../services/authToken.js';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
-import { RETAIL_SUBCATEGORIES, RETAIL_SUBCATEGORY_LABELS } from '../../../../../constants/categories.js';
+import { RETAIL_SUBCATEGORY_LABELS } from '../../../../../constants/categories.js';
 
 const API_BASE = API_BASE_URL;
 
@@ -21,8 +22,16 @@ const EMPTY = {
   emailNotifications: true, smsNotifications: true, whatsappNotifications: true,
   autoBackup: true, maintainAuditLog: true,
   paymentQrUrl: '',
+  invoiceShowLogo: true,
+  invoiceShowAmountWords: true,
+  invoiceShowBankDetails: true,
+  invoiceShowPaymentQr: true,
+  invoiceShowNotes: true,
+  invoiceShowTerms: true,
+  invoiceShowSignature: true,
+  invoiceShowGoBookBranding: true,
+  invoicePrintFormat: 'normal',
   bankName: '', accountHolderName: '', accountNumber: '', ifscCode: '', bankBranch: '', accountType: 'Savings',
-  gspProvider: '', gspClientId: '', gspClientSecret: '', gspUsername: '', gspPassword: '', gspSandbox: true,
   emailSmtpHost: '', emailSmtpPort: 587, emailSmtpSecure: false, emailSmtpUser: '', emailSmtpPass: '',
 };
 
@@ -141,8 +150,12 @@ export function BusinessSettingsPage() {
 
   
 
-  async function togglePref(key) {
-    const next = { ...settings, [key]: !settings[key] };
+  const billSettings = editingSection === 'bill' ? draft : settings;
+  const billOptions = getInvoiceLayoutSettings(billSettings || {});
+
+  async function togglePref(key, value) {
+    const nextValue = value === undefined ? !settings[key] : value;
+    const next = { ...settings, [key]: nextValue };
     setSettings(next);
     notifySettingsUpdated(next);
     apiClient('/settings', { method: 'PUT', body: JSON.stringify(next) }).catch(() => setSettings(settings));
@@ -316,13 +329,9 @@ export function BusinessSettingsPage() {
               ))}
               <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 sm:items-center">
                 <label className="text-[13px] text-[#536173] sm:w-36 sm:flex-none">Retail Subcategory</label>
-                <SelectDropdown
-                  value={draft.retailSubcategory ?? ''}
-                  onChange={(v) => setDraft((p) => ({ ...p, retailSubcategory: v }))}
-                  buttonClassName="flex-1 border border-[#dbe4ef] rounded-md px-3 py-1.5 text-[13px] outline-none focus:border-blue-500 font-[inherit] bg-white"
-                  disabled={saving}
-                  options={[{ value: '', label: 'Not selected' }, ...RETAIL_SUBCATEGORIES.map((item) => ({ value: item.value, label: item.label }))]}
-                />
+                <div className="flex-1 border border-[#dbe4ef] rounded-md bg-[#f8fafc] px-3 py-1.5 text-[13px] font-medium text-[#111827]">
+                  {RETAIL_SUBCATEGORY_LABELS[settings.retailSubcategory] || settings.retailSubcategory || 'Not selected'}
+                </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 sm:items-center">
                 <label className="text-[13px] text-[#536173] sm:w-36 sm:flex-none">City</label>
@@ -590,82 +599,96 @@ export function BusinessSettingsPage() {
           </div>
         </div>
 
-        {/* GSP Integration — full width */}
+        {/* Bill Customization */}
         <div className="md:col-span-2 bg-white border border-[#dfe7f1] rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-[15px] font-semibold text-[#111827] m-0">GSP Integration (E-Way Bill API)</h3>
-              <p className="text-[12.5px] text-[#536173] mt-1 m-0">Connect a GST Suvidha Provider so GoBook can generate E-Way Bill numbers automatically without visiting the government portal.</p>
+          <SectionHeader
+            title="Bill Customization"
+            editing={editingSection === 'bill'}
+            onEdit={() => startEdit('bill')}
+            onSave={saveSection}
+            onCancel={cancelEdit}
+          />
+          <p className="mt-0 mb-4 text-[12.5px] text-[#536173]">Choose what should appear on printed and downloaded bills.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
+            <div className="space-y-3">
+              <div className="rounded-lg border border-[#edf2f7] bg-[#fbfdff] px-4 py-3">
+                <div className="mb-2 text-[13px] font-semibold text-[#111827]">Bill Size</div>
+                <SelectDropdown
+                  buttonClassName="h-10 rounded-md border border-[#dbe4ef] bg-white px-3 text-[13px] text-[#111827]"
+                  value={(editingSection === 'bill' ? draft : settings)?.invoicePrintFormat || 'normal'}
+                  onChange={(value) => {
+                    if (editingSection === 'bill') {
+                      setDraft((p) => ({ ...p, invoicePrintFormat: value }));
+                    } else {
+                      togglePref('invoicePrintFormat', value);
+                    }
+                  }}
+                  options={[
+                    { value: 'normal', label: 'Normal Bill' },
+                    { value: 'thermal80', label: '80mm Bill' },
+                  ]}
+                />
+                <div className="mt-1.5 text-[11.5px] text-[#64748b]">Select normal A4 invoice or 80mm thermal receipt layout.</div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { key: 'invoiceShowLogo', label: 'Business Logo', hint: 'Show logo in bill header' },
+                  { key: 'invoiceShowAmountWords', label: 'Amount in Words', hint: 'Print total amount in words' },
+                  { key: 'invoiceShowBankDetails', label: 'Bank Details', hint: 'Show account and IFSC details' },
+                  { key: 'invoiceShowPaymentQr', label: 'Payment QR', hint: 'Show UPI QR code on bill' },
+                  { key: 'invoiceShowNotes', label: 'Notes', hint: 'Show customer notes' },
+                  { key: 'invoiceShowTerms', label: 'Terms & Conditions', hint: 'Show bill terms' },
+                  { key: 'invoiceShowSignature', label: 'Authorized Signature', hint: 'Show signature/stamp area' },
+                  { key: 'invoiceShowGoBookBranding', label: 'GoBook Footer', hint: 'Show generated by GoBook footer' },
+                ].map((option) => {
+                  const current = editingSection === 'bill' ? draft : settings;
+                  const enabled = billOptions[option.key];
+                  return (
+                    <div key={option.key} className="flex items-center justify-between gap-3 rounded-lg border border-[#edf2f7] bg-[#fbfdff] px-4 py-3">
+                      <div>
+                        <div className="text-[13px] font-semibold text-[#111827]">{option.label}</div>
+                        <div className="mt-0.5 text-[11.5px] text-[#64748b]">{option.hint}</div>
+                      </div>
+                      <Toggle
+                        on={enabled}
+                        onChange={(value) => {
+                          if (editingSection === 'bill') {
+                            setDraft((p) => ({ ...p, invoiceLayoutSettings: updateInvoiceLayoutSettings(p, option.key, value) }));
+                          } else {
+                            togglePref('invoiceLayoutSettings', updateInvoiceLayoutSettings(current, option.key, value));
+                          }
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            {editingSection !== 'gsp' && (
-              <button type="button" className="text-[13px] text-blue-600 font-medium cursor-pointer hover:underline bg-transparent border-0 font-[inherit]" onClick={() => startEdit('gsp')}>Edit</button>
-            )}
-          </div>
 
-          {editingSection === 'gsp' ? (
-            <div className="flex flex-col gap-4">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-800">
-                <strong>How to get credentials:</strong> Register at{' '}
-                <a href="https://www.mastersindia.co/gst-api/" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Masters India GSP</a>
-                {' '}(or any NIC-approved GSP). After registration, they will provide your Client ID, Client Secret, Username and Password.
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-[#536173] font-medium">GSP Provider</label>
-                  <SelectDropdown
-                    buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] outline-none bg-white font-[inherit]"
-                    value={draft.gspProvider}
-                    onChange={v => setDraft(p => ({ ...p, gspProvider: v }))}
-                    options={[{ value: '', label: '— Select Provider —' }, { value: 'masters-india', label: 'Masters India (MasterGST)' }]}
-                  />
+            <div className="rounded-xl border border-[#dbe4ef] bg-[#f8fbff] p-4">
+              <div className="mb-3 text-[12px] font-bold uppercase tracking-wide text-[#536173]">Bill Preview</div>
+              <div className="rounded-lg border border-[#dbe4ef] bg-white p-3 shadow-sm">
+                <div className="mb-3 inline-flex rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-600">
+                  {((editingSection === 'bill' ? draft : settings)?.invoicePrintFormat || 'normal') === 'thermal80' ? '80mm BILL' : 'NORMAL BILL'}
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-[#536173] font-medium">Mode</label>
-                  <SelectDropdown
-                    buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-[#111827] outline-none bg-white font-[inherit]"
-                    value={draft.gspSandbox ? 'sandbox' : 'production'}
-                    onChange={v => setDraft(p => ({ ...p, gspSandbox: v === 'sandbox' }))}
-                    options={[{ value: 'sandbox', label: 'Sandbox (Testing)' }, { value: 'production', label: 'Production (Live)' }]}
-                  />
+                {billOptions.invoiceShowLogo !== false && (
+                  <div className="mb-3 flex h-9 w-24 items-center justify-center rounded-md bg-blue-50 text-[11px] font-bold text-blue-600">LOGO</div>
+                )}
+                <div className="mb-2 h-3 w-36 rounded bg-[#dbe7ff]" />
+                <div className="mb-4 h-2 w-56 rounded bg-[#edf2f7]" />
+                <div className="space-y-1.5">
+                  <div className="h-2 rounded bg-[#e5edf7]" />
+                  <div className="h-2 rounded bg-[#e5edf7]" />
+                  <div className="h-2 w-4/5 rounded bg-[#e5edf7]" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-[#536173] font-medium">Client ID</label>
-                  <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Provided by GSP" value={draft.gspClientId} onChange={e => setDraft(p => ({ ...p, gspClientId: e.target.value }))} />
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {billOptions.invoiceShowBankDetails !== false && <div className="h-10 rounded bg-[#f1f5f9]" />}
+                  {billOptions.invoiceShowPaymentQr !== false && <div className="h-10 rounded bg-[#eef5ff]" />}
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-[#536173] font-medium">Client Secret</label>
-                  <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" type="password" placeholder="Provided by GSP" value={draft.gspClientSecret} onChange={e => setDraft(p => ({ ...p, gspClientSecret: e.target.value }))} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-[#536173] font-medium">GSP Username (your GSTIN)</label>
-                  <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Your 15-digit GSTIN" value={draft.gspUsername} onChange={e => setDraft(p => ({ ...p, gspUsername: e.target.value.toUpperCase() }))} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-[#536173] font-medium">GSP Password</label>
-                  <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" type="password" placeholder="Your GSP portal password" value={draft.gspPassword} onChange={e => setDraft(p => ({ ...p, gspPassword: e.target.value }))} />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-1">
-                <button type="button" className="px-4 py-2 bg-blue-600 text-white text-[13px] font-medium rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" disabled={saving} onClick={saveSection}>{saving ? 'Saving…' : 'Save GSP Settings'}</button>
-                <button type="button" className="px-4 py-2 bg-white text-[#536173] text-[13px] font-medium rounded-md cursor-pointer hover:bg-gray-50 border border-[#dbe4ef] font-[inherit]" onClick={cancelEdit}>Cancel</button>
+                {billOptions.invoiceShowSignature !== false && <div className="ml-auto mt-4 h-8 w-28 rounded border border-dashed border-[#cbd5e1]" />}
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { label: 'GSP Provider',  value: settings.gspProvider === 'masters-india' ? 'Masters India (MasterGST)' : settings.gspProvider || '—' },
-                { label: 'Mode',          value: settings.gspSandbox ? 'Sandbox (Testing)' : 'Production (Live)' },
-                { label: 'Client ID',     value: settings.gspClientId ? '••••••••' + settings.gspClientId.slice(-4) : '—' },
-                { label: 'GSP Username',  value: settings.gspUsername || '—' },
-                { label: 'Status',        value: settings.gspProvider && settings.gspClientId ? '✓ Configured' : 'Not configured' },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex flex-col sm:flex-row gap-0.5 sm:gap-3">
-                  <dt className="text-[13px] text-[#536173] sm:w-44 sm:flex-none">{label}</dt>
-                  <dd className={`text-[13px] font-medium m-0 ${value.startsWith('✓') ? 'text-green-600' : 'text-[#111827]'}`}>{value}</dd>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Outgoing Email (SMTP) — full width */}

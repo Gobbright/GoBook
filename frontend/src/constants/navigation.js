@@ -72,7 +72,7 @@ const ROUTE_PERMISSION_RULES = [
   [/^\/whatsapp-business$/, 'marketing'],
   [/^\/email-marketing$/, 'marketing'],
   [/^\/sales-management$/, 'marketing'],
-  [/^\/vendor-management$/, 'marketing'],
+  [/^\/vendor-management$/, 'crm'],
 ];
 
 function userModules(user = {}) {
@@ -152,6 +152,7 @@ const SECTIONS = {
     title: 'Customers',
     items: [
       { label: 'Customers', href: '/customers', icon: 'Users' },
+      { label: 'Vendor Management', href: '/vendor-management', icon: 'UserCheck' },
       { label: 'Leads', href: '/leads', icon: 'UserPlus' },
       { label: 'Follow Ups', href: '/follow-ups', icon: 'Bell' },
       { label: 'Customer Lifecycle', href: '/customer-lifecycle', icon: 'Activity' },
@@ -186,8 +187,6 @@ const SECTIONS = {
     items: [
       { label: 'WhatsApp Business', href: '/whatsapp-business', icon: 'MessageCircle' },
       { label: 'Email Marketing', href: '/email-marketing', icon: 'Mail' },
-      { label: 'Sales Management', href: '/sales-management', icon: 'TrendingUp' },
-      { label: 'Vendor Management', href: '/vendor-management', icon: 'UserCheck' },
     ],
   },
   dataManagement: {

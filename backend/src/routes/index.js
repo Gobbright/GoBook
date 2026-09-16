@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { invoicePdfHandler } from '../services/invoicePdf.js';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireCategoryModule } from '../middleware/requireCategoryModule.js';
@@ -23,6 +24,7 @@ import { inventoryRouter } from '../modules/retail/inventory/routes.js';
 import { moreModulesRouter } from '../modules/retail/more-modules/routes.js';
 import { salesRouter } from '../modules/retail/sales/routes.js';
 import { searchRouter } from '../modules/search/routes.js';
+import { whatsAppProviderRouter } from '../modules/whatsapp-provider/routes.js';
 import { settingsRouter } from '../modules/settings/routes.js';
 import { subscriptionRouter } from '../modules/subscriptions/routes.js';
 import { publicFilesRouter } from '../modules/files/routes.js';
@@ -36,6 +38,7 @@ apiRouter.use('/employee', employeePortalRouter);
 apiRouter.use('/admin', adminRouter);
 
 apiRouter.use(requireAuth);
+apiRouter.post('/documents/pdf', requireModuleAccess('billing'), invoicePdfHandler);
 
 apiRouter.use('/ai', aiRouter);
 apiRouter.use('/audit-logs', auditRouter);
@@ -47,6 +50,7 @@ apiRouter.use('/accounting', requireModuleAccess('accounting'), accountingRouter
 apiRouter.use('/crm', requireModuleAccess('crm'), crmRouter);
 apiRouter.use('/inventory', requireModuleAccess('inventory'), inventoryRouter);
 apiRouter.use('/finance', requireCategoryModule('finance'), financeRouter);
+apiRouter.use('/whatsapp-provider', whatsAppProviderRouter);
 apiRouter.use('/hospital', requireCategoryModule('hospital'), hospitalRouter);
 apiRouter.use('/hr-payroll', requireModuleAccess('employee-management'), hrPayrollRouter);
 apiRouter.use('/more-modules', moreModulesRouter);

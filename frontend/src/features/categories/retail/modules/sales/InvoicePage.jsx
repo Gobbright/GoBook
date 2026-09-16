@@ -12,7 +12,6 @@ import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilter
 import { RecordPaymentModal } from './shared/RecordPaymentModal.jsx';
 import { DocumentPreviewModal } from './shared/DocumentPreviewModal.jsx';
 import { documentConfigs } from './documentConfigs.js';
-import { getInvoicePrintTemplate } from './shared/invoiceTemplatePreference.js';
 import { useFocusTrap } from '../../../../../hooks/useFocusTrap.js';
 import { useDebouncedValue } from '../../../../../hooks/useDebouncedValue.js';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
@@ -286,7 +285,6 @@ function ActionMenu({ invoice, openMenu, setOpenMenu, onShare, onPayment, onDown
 function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
   const documentType = invoice.documentType || 'invoice';
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
-  const printTemplate = getInvoicePrintTemplate();
   const [products, setProducts] = useState([]);
   const docMeta = {
     ...invoice.meta,
@@ -346,7 +344,6 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
         downloadAsPdf
         pdfMode
         invoiceNumber={docMeta.number}
-        printTemplate={printTemplate}
         onPdfDownloaded={onDone}
       />
     </div>

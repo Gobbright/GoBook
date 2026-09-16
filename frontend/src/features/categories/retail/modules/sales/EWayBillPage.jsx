@@ -240,7 +240,7 @@ export function EWayBillPage() {
           href="/billing/e-way-bill/new"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-700 text-white text-[13px] font-semibold rounded-md hover:bg-slate-800 no-underline transition-colors"
         >
-          <Plus size={15} /> Generate E-Way Bill
+          <Plus size={15} /> Create E-Way Bill Record
         </a>
       </div>
 
@@ -328,7 +328,7 @@ export function EWayBillPage() {
               {!loading && docs.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-16 text-[#536173] text-[13px]">
-                    {docs.length === 0 ? 'No e-way bills yet. Generate your first e-way bill.' : 'No e-way bills match your search.'}
+                    {docs.length === 0 ? 'No e-way bills yet. Create your first e-way bill record.' : 'No e-way bills match your search.'}
                   </td>
                 </tr>
               ) : (
@@ -509,9 +509,6 @@ export function EWayBillFormPage({ ewbId }) {
   const [bizSettings, setBizSettings] = useState({});
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError]     = useState('');
-  const [gspLoading, setGspLoading]   = useState(false);
-  const [gspError, setGspError]       = useState('');
-  const [gspResult, setGspResult]     = useState(null);
 
   // Ã¢â€â‚¬Ã¢â€â‚¬ Computed Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
@@ -616,34 +613,6 @@ export function EWayBillFormPage({ ewbId }) {
     }
   }
 
-  async function handleGenerateGSP() {
-    if (!customer.name.trim()) { setGspError('Consignee name is required before generating.'); return; }
-    if (!transport.vehicleNumber.trim()) { setGspError('Vehicle number is required.'); return; }
-    if (!routeInfo.distanceKm || Number(routeInfo.distanceKm) <= 0) { setGspError('Distance (KM) must be greater than 0.'); return; }
-    if (items.length === 0) { setGspError('Add at least one item before generating.'); return; }
-
-    setGspError('');
-    setGspResult(null);
-    setGspLoading(true);
-    try {
-      const result = await api.generateEWayBillGSP(buildPayload());
-      setGspResult(result);
-      // Auto-save the EWB number and validity back to this record
-      const extraMeta = { ewbNumber: result.ewbNo, ewbValidUpto: result.validUpto };
-      const payload = buildPayload(extraMeta);
-      if (ewbId) await api.updateEWayBill(ewbId, payload);
-      else {
-        const saved = await api.createEWayBill(payload);
-        // Stay on the page so user can see the EWB number, update URL to edit mode
-        if (saved?._id) window.history.replaceState(null, '', `/billing/e-way-bill/${saved._id}/edit`);
-      }
-    } catch (err) {
-      setGspError(err.message || 'GSP generation failed. Check your credentials in Business Settings.');
-    } finally {
-      setGspLoading(false);
-    }
-  }
-
   // Ã¢â€â‚¬Ã¢â€â‚¬ Effects Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
   useEffect(() => {
@@ -663,7 +632,6 @@ export function EWayBillFormPage({ ewbId }) {
       e.preventDefault();
       if (num === 1)  window.location.assign('/billing/e-way-bill/new');
       if (num === 2)  handleSave();
-      if (num === 3)  handleGenerateGSP();
       if (num === 5)  addItem();
       if (num === 6)  focus('consignee');
       if (num === 7)  focus('vehicle');
@@ -739,55 +707,12 @@ export function EWayBillFormPage({ ewbId }) {
             <svg fill="none" height="15" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="15"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             {saveLoading ? 'Saving…' : 'Save Record'}
           </button>
-          <button
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white bg-slate-700 border border-slate-700 rounded-md cursor-pointer hover:bg-slate-800 font-[inherit] disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={gspLoading || saveLoading}
-            type="button"
-            onClick={handleGenerateGSP}
-          >
-            <svg fill="none" height="15" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="15"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            {gspLoading ? 'Generating…' : 'Generate EWB Number'}
-          </button>
+
         </div>
       </div>
 
       {saveError && (
         <div className="mb-4 rounded-md bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">{saveError}</div>
-      )}
-
-      {gspError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
-          <svg className="flex-none text-red-500 mt-0.5" fill="none" height="16" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="16"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-          <div className="text-[13px] text-red-700">{gspError}
-            {gspError.includes('Business Settings') && (
-              <a href="/business-settings" className="ml-2 font-semibold underline text-red-800">Go to Settings ?</a>
-            )}
-          </div>
-        </div>
-      )}
-
-      {gspResult && (
-        <div className="mb-5 rounded-xl border-2 border-green-400 bg-green-50 px-5 py-4 flex items-start gap-4">
-          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center flex-none">
-            <svg fill="none" height="20" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24" width="20"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="text-[14px] font-bold text-green-800">E-Way Bill Generated Successfully!</div>
-            <div className="flex items-center gap-3 flex-wrap mt-1">
-              <div className="flex flex-col">
-                <span className="text-[11px] text-green-600 font-medium uppercase tracking-wide">EWB Number</span>
-                <span className="text-[20px] font-black text-green-900 font-mono tracking-widest">{gspResult.ewbNo}</span>
-              </div>
-              {gspResult.validUpto && (
-                <div className="flex flex-col">
-                  <span className="text-[11px] text-green-600 font-medium uppercase tracking-wide">Valid Until</span>
-                  <span className="text-[15px] font-bold text-green-800">{gspResult.validUpto}</span>
-                </div>
-              )}
-            </div>
-            <div className="text-[12px] text-green-700 mt-1">This number has been auto-saved to your record. Keep it with the goods during transport.</div>
-          </div>
-        </div>
       )}
 
       {/* -- Document Card -- */}
@@ -1179,7 +1104,6 @@ export function EWayBillFormPage({ ewbId }) {
           {[
             { key: 'F1',  label: 'New EWB',    action: () => window.location.assign('/billing/e-way-bill/new') },
             { key: 'F2',  label: 'Save',        action: () => handleSave() },
-            { key: 'F3',  label: 'Generate',    action: () => handleGenerateGSP() },
             { key: 'F5',  label: 'Add Item',    action: () => addItem() },
             { key: 'F6',  label: 'Consignee',   action: () => document.querySelector('[data-fkey="consignee"]')?.focus() },
             { key: 'F7',  label: 'Vehicle',     action: () => { const el = document.querySelector('[data-fkey="vehicle"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.focus(); } },

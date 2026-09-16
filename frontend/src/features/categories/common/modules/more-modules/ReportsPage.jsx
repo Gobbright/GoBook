@@ -222,7 +222,7 @@ export function ReportsPage() {
         const response = await fetch(`${API_BASE_URL}/more-modules/reports-download?${query.toString()}`, {
           headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
         });
-        if (!response.ok) throw new Error(err.message || 'Unable to load report data');
+        if (!response.ok) throw new Error(err.message || 'Unable to load report data', { cause: err });
         setReportData(parseCsvTable(await response.text(), report.name));
       } catch (fallbackErr) {
         setReportData({ columns: [], rows: [], title: report.name, count: 0 });

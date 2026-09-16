@@ -659,7 +659,8 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
       : selectedVariantAttributes;
   const activeVariantAttributes = ELECTRONICS_VARIANT_ATTRIBUTES.filter((attr) => selectedVariantAttributes.includes(attr.key));
   const nameInputRef = useRef(null);
-  const modalRef = useFocusTrap({ active: !pageMode, onClose, initialFocusRef: nameInputRef });
+  const barcodeInputRef = useRef(null);
+  const modalRef = useFocusTrap({ active: !pageMode, onClose, initialFocusRef: initialBarcode ? barcodeInputRef : nameInputRef });
 
   useEffect(() => {
     if (!forceServiceMode || form.itemType === 'Service') return;
@@ -676,7 +677,31 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
     }));
   }, [forceServiceMode, form.itemType]);
 
+  useEffect(() => {
+    const scannedBarcode = String(initialBarcode || '').trim();
+    if (mode !== 'add' || forceServiceMode || !scannedBarcode) return;
+    setForm((prev) => {
+      if (prev.barcode === scannedBarcode && prev.productType === 'Standard' && (prev.variants || []).length === 0) return prev;
+      return {
+        ...prev,
+        barcode: scannedBarcode,
+        productType: 'Standard',
+        variants: [],
+      };
+    });
+    window.requestAnimationFrame(() => {
+      barcodeInputRef.current?.focus();
+      barcodeInputRef.current?.select?.();
+    });
+  }, [mode, forceServiceMode, initialBarcode]);
+
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
+
+  function handleBarcodeKeyDown(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
   function setRow(collection, idx, field, value) {
     setForm((f) => ({
       ...f,
@@ -1037,7 +1062,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 <div className="md:col-span-2">
                   <label className={labelClass}>Barcode</label>
                   <div className="grid grid-cols-[minmax(0,1fr)_92px]">
-                    <input className={inputClass} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+                    <input ref={barcodeInputRef} className={inputClass} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                     <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-none border border-l-0 border-[#cfd8e6] bg-white px-3 text-[13px] font-semibold text-[#0f172a] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode())}>
                       <ScanLine size={13} />
                       Scan
@@ -1193,7 +1218,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <div>
                 <label className={labelClass}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_80px] gap-2">
-                  <input className={inputClass} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+                  <input ref={barcodeInputRef} className={inputClass} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                   <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-[#f8fafc] px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode())}>
                     <ScanLine size={14} />
                     Scan
@@ -1443,7 +1468,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <div className="md:col-span-2">
                 <label className={labelClass}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_86px]">
-                  <input className={`${inputClass} rounded-r-none`} placeholder="Scan or enter barcode" value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+                  <input ref={barcodeInputRef} className={`${inputClass} rounded-r-none`} placeholder="Scan or enter barcode" value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                   <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-r-md border border-l-0 border-[#cfd8e6] bg-white px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode())}>
                     <ScanLine size={13} />
                     Scan
@@ -1631,7 +1656,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <div className="md:col-span-2">
                 <label className={labelClass}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_86px]">
-                  <input className={`${inputClass} rounded-r-none`} placeholder="Scan or enter barcode" value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+                  <input ref={barcodeInputRef} className={`${inputClass} rounded-r-none`} placeholder="Scan or enter barcode" value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                   <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-r-md border border-l-0 border-[#cfd8e6] bg-white px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode())}>
                     <ScanLine size={13} />
                     Scan
@@ -1864,7 +1889,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             </FieldBox>
             <FieldBox label="Barcode">
               <div className="grid grid-cols-[minmax(0,1fr)_44px]">
-                <input className={`${inputClass} rounded-r-none border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+                <input ref={barcodeInputRef} className={`${inputClass} rounded-r-none border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                 <button type="button" className="inline-flex h-8 items-center justify-center rounded-r-md border border-[#cfd8e6] bg-white text-[#536173] cursor-pointer hover:bg-[#f8fafc]" onClick={() => set('barcode', genBarcode())}>
                   <ScanLine size={15} />
                 </button>
@@ -2163,6 +2188,14 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 <label className={compactLabel}>Sub Category</label>
                 <input className={compactInput} value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
               </div>
+              <div className="grid grid-cols-[112px_minmax(0,1fr)] items-start gap-3 py-1.5">
+                <label className={`${compactLabel} pt-1.5`}>Description</label>
+                <textarea
+                  className={`${compactInput} h-auto min-h-[58px] resize-y py-1.5 leading-5`}
+                  value={form.productDescription || ''}
+                  onChange={(e) => set('productDescription', e.target.value)}
+                />
+              </div>
               <div className="my-2 h-px bg-[#edf2f7]" />
               <div className={rowClass}>
                 <label className={compactLabel}>Model No.</label>
@@ -2175,7 +2208,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <div className={rowClass}>
                 <label className={compactLabel}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_72px]">
-                  <input className={`${compactInput} border-r-0`} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} />
+                  <input ref={barcodeInputRef} className={`${compactInput} border-r-0`} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                   <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode())}>
                     <ScanLine size={13} />
                     Scan
@@ -2316,7 +2349,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 </FieldBox>
                 <FieldBox label="Barcode" className="md:col-span-2">
                   <div className="grid grid-cols-[minmax(0,1fr)_74px]">
-                    <input className={`${compactInput} border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+                    <input ref={barcodeInputRef} className={`${compactInput} border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                     <button type="button" className={compactButton} onClick={() => set('barcode', genBarcode())}>
                       <span className="inline-flex items-center justify-center gap-1"><ScanLine size={12} />Scan</span>
                     </button>
@@ -2485,7 +2518,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 </FieldBox>
                 <FieldBox label="Barcode" className="md:col-span-2">
                   <div className="grid grid-cols-[minmax(0,1fr)_74px]">
-                    <input className={`${compactInput} border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} />
+                    <input ref={barcodeInputRef} className={`${compactInput} border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                     <button type="button" className={compactButton} onClick={() => set('barcode', genBarcode())}><ScanLine size={12} />Scan</button>
                   </div>
                 </FieldBox>
@@ -2670,6 +2703,14 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             <div className={rowClass}>
               <label className={compactLabel}>Sub Category</label>
               <input className={compactInput} value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+            </div>
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2 py-1.5">
+              <label className={`${compactLabel} pt-1.5`}>Description</label>
+              <textarea
+                className={`${compactInput} h-auto min-h-[58px] resize-y py-1.5 leading-5`}
+                value={form.productDescription || ''}
+                onChange={(e) => set('productDescription', e.target.value)}
+              />
             </div>
             <div className="my-2 h-px bg-[#edf2f7]" />
             <div className={rowClass}>
@@ -3694,7 +3735,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <div className={rowClass}>
                 <label className={compactLabel}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_72px]">
-                  <input className={`${compactInput} border-r-0`} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} />
+                  <input ref={barcodeInputRef} className={`${compactInput} border-r-0`} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                   <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode())}>
                     <ScanLine size={13} />
                     Scan
@@ -4159,7 +4200,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Field label="SKU / Item Code"><input className={INPUT} value={form.code || ''} onChange={(e) => set('code', e.target.value)} /></Field>
                 <Field label="Barcode Type"><input className={INPUT} value={form.barcodeType || ''} onChange={(e) => set('barcodeType', e.target.value)} /></Field>
-                <Field label="Barcode"><div className="flex gap-1.5"><input className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} />{mode === 'add' && <button type="button" title="Generate Barcode" onClick={() => set('barcode', genBarcode())} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[13px] font-semibold">Gen</button>}</div></Field>
+                <Field label="Barcode"><div className="flex gap-1.5"><input ref={barcodeInputRef} className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />{mode === 'add' && <button type="button" title="Generate Barcode" onClick={() => set('barcode', genBarcode())} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[13px] font-semibold">Gen</button>}</div></Field>
                 <Field label="UPC"><input className={INPUT} value={form.upc || ''} onChange={(e) => set('upc', e.target.value)} /></Field>
                 <Field label="EAN"><input className={INPUT} value={form.ean || ''} onChange={(e) => set('ean', e.target.value)} /></Field>
                 <Field label="Alias Code"><input className={INPUT} value={form.aliasCode || ''} onChange={(e) => set('aliasCode', e.target.value)} /></Field>
@@ -4313,279 +4354,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
           ) : isElectronicsRetail && !isService ? (
             isBundleElectronicsProduct ? renderBundleElectronicsProductForm() : isSingleElectronicsProduct ? renderSingleElectronicsProductForm() : renderVariantElectronicsProductForm()
           ) : <div className={isElectronicsRetail && isService ? 'grid grid-cols-1 md:grid-cols-3 gap-3' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
-            {false && (
-            <div className="mx-auto grid w-full max-w-[1820px] grid-cols-1 gap-4">
-              <div className="grid grid-cols-1 gap-4">
-              <Section title="Product Type">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {[
-                    { label: 'Single Product', active: !isMultiVariant && form.productType !== 'Bundle', action: () => { set('productType', 'Standard'); selectStockMode(0); }, helper: 'Create one product with one SKU' },
-                    { label: 'Product with Variants', active: isMultiVariant, action: () => { set('productType', 'Serialized'); selectStockMode(1); }, helper: 'Create multiple models under one family' },
-                    { label: 'Bundle / Kit', active: form.productType === 'Bundle', action: () => { set('productType', 'Bundle'); selectStockMode(0); }, helper: 'Create a kit made from products' },
-                  ].map((type) => (
-                    <button key={type.label} type="button" onClick={type.action} className={`min-h-24 rounded-lg border p-3 text-left cursor-pointer font-[inherit] ${type.active ? 'border-blue-500 bg-blue-50 shadow-[0_0_0_1px_rgba(37,99,235,0.18)]' : 'border-[#dbe4ef] bg-white hover:bg-[#f8fafc]'}`}>
-                      <span className={`mb-3 block h-4 w-4 rounded-full border ${type.active ? 'border-blue-600 bg-blue-600 ring-4 ring-blue-100' : 'border-[#94a3b8] bg-white'}`} />
-                      <span className="block text-[13px] font-bold text-[#111827]">{type.label}</span>
-                      <span className="mt-1 block text-[12px] leading-5 text-[#536173]">{type.helper}</span>
-                    </button>
-                  ))}
-                </div>
-              </Section>
 
-              <Section title="Product Family">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Field label="Product Name" required className="sm:col-span-2">
-                    <input ref={nameInputRef} className={INPUT} value={form.description} onChange={(e) => set('description', e.target.value)} />
-                  </Field>
-                  <Field label="Brand">
-                    <input className={INPUT} value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
-                  </Field>
-                  <Field label="Category">
-                    <input className={INPUT} value={form.category || ''} onChange={(e) => set('category', e.target.value)} />
-                  </Field>
-                  <Field label="Sub Category">
-                    <input className={INPUT} value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
-                  </Field>
-                  <Field label="Model Family">
-                    <input className={INPUT} value={form.modelFamily || ''} onChange={(e) => set('modelFamily', e.target.value)} />
-                  </Field>
-                  <Field label="Model No." className="hidden">
-                    <input className={INPUT} value={form.modelNumber || ''} onChange={(e) => set('modelNumber', e.target.value)} />
-                  </Field>
-                  <Field label="SKU" className="hidden">
-                    <input className={INPUT} value={form.code || ''} onChange={(e) => set('code', e.target.value)} />
-                  </Field>
-                  <Field label="Barcode" className="hidden">
-                    <div className="grid grid-cols-[minmax(0,1fr)_80px] gap-2">
-                      <input className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} />
-                      <button type="button" className="rounded-md border border-[#dbe4ef] bg-white text-[12px] font-semibold text-blue-700 cursor-pointer hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode())}>Scan</button>
-                    </div>
-                  </Field>
-                  <Field label="Description" className="md:col-span-2">
-                    <textarea className={`${INPUT} min-h-20 resize-y`} value={form.productDescription || ''} onChange={(e) => set('productDescription', e.target.value)} />
-                  </Field>
-                </div>
-              </Section>
-              </div>
-
-              {isMultiVariant && (
-                <Section title="Variant Attributes">
-                  <div className="flex flex-col gap-3">
-                    <p className="m-0 text-[13px] text-[#536173]">Select attributes used to differentiate models.</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {ELECTRONICS_VARIANT_ATTRIBUTES.map((attr) => (
-                        <label key={attr.key} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-[13px] font-semibold cursor-pointer ${selectedVariantAttributes.includes(attr.key) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-[#dbe4ef] bg-white text-[#374151]'}`}>
-                          <input type="checkbox" checked={selectedVariantAttributes.includes(attr.key)} onChange={() => toggleVariantAttribute(attr.key)} />
-                          {attr.label}
-                        </label>
-                      ))}
-                    </div>
-                    <button type="button" className="self-start px-3 py-1.5 text-[12px] font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-md cursor-pointer hover:bg-blue-100 font-[inherit]" onClick={() => toggleVariantAttribute('graphics')}>
-                      + Add Custom Attribute
-                    </button>
-                  </div>
-                </Section>
-              )}
-
-              <Section title="Variants">
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <label className={LABEL}>Model Creation</label>
-                    <div className={TOGGLE_WRAP} onKeyDown={(e) => handleToggleArrowKeys(e, selectStockMode)}>
-                      <button type="button" className={toggleBtnClass(!isMultiVariant)} onClick={() => selectStockMode(0)}>Single Model</button>
-                      <button type="button" className={toggleBtnClass(isMultiVariant)} onClick={() => selectStockMode(1)}>Multiple Models</button>
-                    </div>
-                  </div>
-
-                  {!isMultiVariant && (
-                    <div className="rounded-md border border-[#dbe4ef] bg-[#f8fafc] px-3 py-2 text-[12px] text-[#536173]">
-                      Use the Model No., Barcode, Selling Price, and Opening Stock fields for this one model.
-                    </div>
-                  )}
-
-                  {isMultiVariant && (
-                    <>
-                      <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
-                        <div className="grid grid-cols-1 md:grid-cols-[1fr_110px_110px_auto] gap-2 items-end">
-                          <Field label="Add Model Names Once">
-                            <textarea
-                              className={`${INPUT} min-h-20 resize-y bg-white`}
-                              value={bulkVariantText}
-                              onChange={(e) => setBulkVariantText(e.target.value)}
-
-                            />
-                          </Field>
-                          <Field label="Stock">
-                            <input className={`${INPUT} bg-white`} type="number" min="0" value={bulkVariantStock} onChange={(e) => setBulkVariantStock(e.target.value)} />
-                          </Field>
-                          <Field label="Min Stock">
-                            <input className={`${INPUT} bg-white`} type="number" min="0" value={bulkVariantMinStock} onChange={(e) => setBulkVariantMinStock(e.target.value)} />
-                          </Field>
-                          <button type="button" className="h-9 px-3 rounded-md border border-blue-600 bg-blue-600 text-white text-[12px] font-semibold cursor-pointer font-[inherit]" onClick={addBulkVariants}>Add All</button>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {modelPresets.map((name) => (
-                            <button key={name} type="button" className="px-2.5 py-1 rounded-full border border-blue-100 bg-white text-blue-700 text-[11px] font-semibold cursor-pointer font-[inherit]" onClick={() => addVariantNames([name])}>{name}</button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-semibold text-[#374151]">{form.variants.length} models added</span>
-                        <span className="text-[12px] text-[#536173]">Total stock: {variantTotalStock}</span>
-                      </div>
-
-                      <div className="overflow-x-auto rounded-lg border border-[#dbe4ef]">
-                        <table className="w-full min-w-[1100px] border-collapse text-[12px]">
-                          <thead className="bg-[#f3f7fc] text-[#0f2a66]">
-                            <tr>
-                              <th className="border-b border-r border-[#dbe4ef] px-3 py-2 text-left">Variant Code</th>
-                              {activeVariantAttributes.map((attr) => (
-                                <th key={attr.key} className="border-b border-r border-[#dbe4ef] px-3 py-2 text-left">{attr.label}</th>
-                              ))}
-                              <th className="border-b border-r border-[#dbe4ef] px-3 py-2 text-left">SKU</th>
-                              <th className="border-b border-r border-[#dbe4ef] px-3 py-2 text-left">Barcode</th>
-                              <th className="border-b border-r border-[#dbe4ef] px-3 py-2 text-right">Cost Price</th>
-                              <th className="border-b border-r border-[#dbe4ef] px-3 py-2 text-right">Selling Price</th>
-                              <th className="border-b border-r border-[#dbe4ef] px-3 py-2 text-right">MRP</th>
-                              <th className="border-b border-r border-[#dbe4ef] px-3 py-2 text-right">Stock Count</th>
-                              <th className="border-b border-[#dbe4ef] px-3 py-2 text-center">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {form.variants.map((v, idx) => (
-                              <tr key={idx} className="bg-white hover:bg-blue-50/40">
-                                <td className="border-b border-r border-[#edf2f7] px-2 py-2">
-                                  <input className={INPUT} value={v.modelCode || ''} onChange={(e) => updateVariant(idx, 'modelCode', e.target.value)} />
-                                </td>
-                                {activeVariantAttributes.map((attr) => (
-                                  <td key={attr.key} className="border-b border-r border-[#edf2f7] px-2 py-2">
-                                    <input className={INPUT} value={v[attr.key] || ''} onChange={(e) => updateVariant(idx, attr.key, e.target.value)} />
-                                  </td>
-                                ))}
-                                <td className="border-b border-r border-[#edf2f7] px-2 py-2">
-                                  <input className={INPUT} value={v.modelName || ''} onChange={(e) => updateVariant(idx, 'modelName', e.target.value)} />
-                                </td>
-                                <td className="border-b border-r border-[#edf2f7] px-2 py-2">
-                                  <input className={INPUT} value={v.barcode || ''} onChange={(e) => updateVariant(idx, 'barcode', e.target.value)} />
-                                </td>
-                                <td className="border-b border-r border-[#edf2f7] px-2 py-2">
-                                  <input className={INPUT} type="number" min="0" step="0.01" value={v.purchasePrice ?? ''} onChange={(e) => updateVariant(idx, 'purchasePrice', e.target.value)} />
-                                </td>
-                                <td className="border-b border-r border-[#edf2f7] px-2 py-2">
-                                  <input className={INPUT} type="number" min="0" step="0.01" value={v.rate ?? ''} onChange={(e) => updateVariant(idx, 'rate', e.target.value)} />
-                                </td>
-                                <td className="border-b border-r border-[#edf2f7] px-2 py-2">
-                                  <input className={INPUT} type="number" min="0" step="0.01" value={v.mrp ?? ''} onChange={(e) => updateVariant(idx, 'mrp', e.target.value)} />
-                                </td>
-                                <td className="border-b border-r border-[#edf2f7] px-2 py-2">
-                                  <input className={INPUT} type="number" min="0" value={v.stock} onChange={(e) => updateVariant(idx, 'stock', e.target.value)} />
-                                </td>
-                                <td className="border-b border-[#edf2f7] px-2 py-2 text-center">
-                                  <button type="button" onClick={() => removeVariant(idx)} className="w-9 h-9 inline-flex items-center justify-center rounded hover:bg-red-50 text-red-400 bg-transparent border border-[#dbe4ef] cursor-pointer" title="Remove model">
-                                    <TrashIcon />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={addVariantRow} className="px-3 py-1.5 text-[12px] font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-md cursor-pointer hover:bg-blue-100 font-[inherit]">+ Add Variant</button>
-                        <button type="button" onClick={generateVariantRows} className="px-3 py-1.5 text-[12px] font-semibold text-white bg-blue-600 border border-blue-600 rounded-md cursor-pointer hover:bg-blue-700 font-[inherit]">Generate Variants</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </Section>
-
-              {false && (<>
-              <Section title="Technical Specifications">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="Processor">
-                    <input className={INPUT} value={form.processor || ''} onChange={(e) => set('processor', e.target.value)} />
-                  </Field>
-                  <Field label="RAM">
-                    <input className={INPUT} value={form.ram || ''} onChange={(e) => set('ram', e.target.value)} />
-                  </Field>
-                  <Field label="Storage">
-                    <input className={INPUT} value={form.storage || ''} onChange={(e) => set('storage', e.target.value)} />
-                  </Field>
-                  <Field label="Display">
-                    <input className={INPUT} value={form.display || ''} onChange={(e) => set('display', e.target.value)} />
-                  </Field>
-                  <Field label="OS">
-                    <input className={INPUT} value={form.operatingSystem || ''} onChange={(e) => set('operatingSystem', e.target.value)} />
-                  </Field>
-                  <Field label="Serial / IMEI Number">
-                    <input className={INPUT} value={form.serialNumber || ''} onChange={(e) => set('serialNumber', e.target.value)} />
-                  </Field>
-                </div>
-              </Section>
-
-              <Section title="Pricing">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="Purchase Price">
-                    <input className={INPUT} type="number" min="0" step="0.01" value={form.purchasePrice} onChange={(e) => set('purchasePrice', e.target.value)} />
-                  </Field>
-                  <Field label="Landing Cost">
-                    <input className={INPUT} type="number" min="0" step="0.01" value={form.landingCost} onChange={(e) => set('landingCost', e.target.value)} />
-                  </Field>
-                  <Field label="MRP">
-                    <input className={INPUT} type="number" min="0" step="0.01" value={form.mrp} onChange={(e) => set('mrp', e.target.value)} />
-                  </Field>
-                  <Field label="Selling Price" required={!isMultiVariant}>
-                    <input className={INPUT} type="number" min="0" step="0.01" value={form.rate} onChange={(e) => set('rate', e.target.value)} />
-                  </Field>
-                  <div className="sm:col-span-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-[13px] text-blue-900">
-                    <span className="font-semibold">Margin</span>
-                    <span className="ml-2">{formatINR(Math.max(0, Number(form.rate || 0) - Number(form.landingCost || form.purchasePrice || 0)))}</span>
-                    <span className="ml-1 text-blue-700">
-                      ({Number(form.rate || 0) > 0 ? (((Number(form.rate || 0) - Number(form.landingCost || form.purchasePrice || 0)) / Number(form.rate || 0)) * 100).toFixed(2) : '0.00'}%)
-                    </span>
-                  </div>
-                </div>
-              </Section>
-
-              <Section title="Warranty">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="Manufacturer Warranty">
-                    <input className={INPUT} value={form.warrantyPeriod || ''} onChange={(e) => set('warrantyPeriod', e.target.value)} />
-                  </Field>
-                  <Field label="Warranty Type">
-                    <input className={INPUT} value={form.warrantyType || ''} onChange={(e) => set('warrantyType', e.target.value)} />
-                  </Field>
-                </div>
-              </Section>
-
-              <Section title="Tax">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="HSN Code">
-                    <input className={INPUT} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} />
-                  </Field>
-                  <Field label="GST Rate">
-                    <input className={INPUT} inputMode="decimal" value={form.gstRate || ''} onChange={(e) => set('gstRate', e.target.value)} />
-                  </Field>
-                  {isMultiVariant ? (
-                    <div className="sm:col-span-2 rounded-md border border-[#dbe4ef] bg-[#f8fafc] px-3 py-2 text-[13px] text-[#374151]">
-                      Stock is maintained model-wise. Total stock: <span className="font-semibold text-[#111827]">{variantTotalStock}</span>
-                    </div>
-                  ) : (
-                    <>
-                      <Field label="Opening Stock">
-                        <input className={`${INPUT} ${mode === 'edit' ? 'bg-[#f8fafc] text-[#94a3b8] cursor-not-allowed' : ''}`} type="number" min="0" value={form.stock} disabled={mode === 'edit'} onChange={(e) => set('stock', e.target.value)} />
-                      </Field>
-                      <Field label="Min. Stock Level">
-                        <input className={INPUT} type="number" min="0" value={form.minStockLevel} onChange={(e) => set('minStockLevel', e.target.value)} />
-                      </Field>
-                    </>
-                  )}
-                </div>
-              </Section>
-              </>)}
-            </div>
-            )}
             {!isElectronicsRetail && (
               <div className="sm:col-span-2">
                 <label className={LABEL}>{itemTypeLabel}</label>
@@ -4851,7 +4620,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             <div>
               <label className={LABEL}>Barcode</label>
               <div className="flex gap-1.5">
-                <input className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} />
+                <input ref={barcodeInputRef} className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                 {mode === 'add' && (
                   <button type="button" title="Regenerate" onClick={() => set('barcode', genBarcode())} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[16px] leading-none">↺</button>
                 )}
@@ -5092,7 +4861,7 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
   const itemNameHeader = isServiceSection ? 'Service Name' : isElectronicsRetail ? 'Product / Device' : isFashionRetail ? 'Product / Style' : isFoodGroceryRetail || isHomeLivingRetail || isSpecialtyPersonalRetail || isBusinessSpecialtyRetail || isProductSection ? 'Product Name' : 'Item Name';
   const searchPlaceholder = isServiceSection ? 'Search services...' : isElectronicsRetail ? 'Search devices, brand, model, serial...' : isFashionRetail ? 'Search fashion products, brand, SKU...' : isFoodGroceryRetail ? 'Search grocery products, brand, barcode...' : isHomeLivingRetail ? 'Search furniture, decor, brand, barcode...' : isSpecialtyPersonalRetail ? 'Search specialty products, brand, barcode...' : isBusinessSpecialtyRetail ? 'Search business products, brand, barcode...' : 'Search products... (/)';
   const scanPlaceholder = isServiceSection ? 'Search service code and press Enter' : isElectronicsRetail ? 'Scan barcode, serial / IMEI, or item code and press Enter' : isFashionRetail ? 'Scan barcode, SKU, or product code and press Enter' : isFoodGroceryRetail || isHomeLivingRetail || isSpecialtyPersonalRetail || isBusinessSpecialtyRetail ? 'Scan barcode or product code and press Enter' : 'Scan barcode here and press Enter';
-  const addButtonLabel = isServiceSection ? 'Add Service' : isElectronicsRetail ? 'Add Device' : 'Add Product';
+  const addButtonLabel = isServiceSection ? 'Add Service' : 'Add Product';
   const itemTypeOptions = isElectronicsRetail
     ? [
         { value: 'All Items', label: 'All Devices' },
@@ -5199,7 +4968,13 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
       navigate('/services/new');
       return;
     }
-    setModal({ mode: 'add', nextCode: '', initialBarcode: newBarcode, forceServiceMode: isServiceSection });
+    setModal({
+      mode: 'add',
+      nextCode: '',
+      initialBarcode: newBarcode,
+      initialProductType: 'Standard',
+      forceServiceMode: isServiceSection,
+    });
     params.delete('newBarcode');
     const rest = params.toString();
     window.history.replaceState(null, '', rest ? `${window.location.pathname}?${rest}` : window.location.pathname);
@@ -5300,7 +5075,13 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
           setScanMessage('Add the new service details once to save it.');
           return;
         }
-        setModal({ mode: 'add', nextCode: '', initialBarcode: isServiceSection ? '' : code, initialProductType: isServiceSection ? 'Service' : '', forceServiceMode: isServiceSection });
+        setModal({
+          mode: 'add',
+          nextCode: '',
+          initialBarcode: isServiceSection ? '' : code,
+          initialProductType: isServiceSection ? 'Service' : 'Standard',
+          forceServiceMode: isServiceSection,
+        });
         setScanMessage('New barcode scanned. Add item details once to save it.');
       }
     } catch (err) {

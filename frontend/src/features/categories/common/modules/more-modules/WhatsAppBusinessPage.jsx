@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 import { api } from '../../../../../services/api.js';
+import { MetaConnectionCard } from '../../../../meta/MetaConnectionCard.jsx';
 import { apiClient } from '../../../../../services/apiClient.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
@@ -3416,6 +3417,7 @@ export function WhatsAppBusinessPage() {
         </aside>
 
         <main className="min-w-0 flex-1 p-4 md:p-6">
+          <MetaConnectionCard />
           <header className="mb-5 flex flex-col gap-3 border-b border-[#dfe7f1] pb-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <h1 className="m-0 text-[24px] font-black text-[#17233c]">{moduleTitle}</h1>

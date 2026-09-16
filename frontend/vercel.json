@@ -1,6 +1,14 @@
 {
   "routes": [
     {
+      "src": "/auth/meta/(.*)",
+      "dest": "https://api.gobooksuite.com/auth/meta/$1"
+    },
+    {
+      "src": "/meta/(.*)",
+      "dest": "https://api.gobooksuite.com/meta/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {

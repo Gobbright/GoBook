@@ -1,10 +1,10 @@
 import { redirectTo } from '../../routes/navigation.js';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Building2, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, CheckCircle2, CreditCard, Eye, EyeOff, Lock, Mail, Phone, ShieldCheck, User } from 'lucide-react';
 
 import { CATEGORIES, RETAIL_SUBCATEGORIES } from '../../constants/categories.js';
-import { completeGoogleOnboarding, getCurrentUser, logout } from '../../services/authService.js';
-import { fetchSubscriptionPlans, openRazorpayCheckout, verifyRegistrationPayment } from '../../services/subscriptionService.js';
+import { completeOnboarding, getCurrentUser, logout } from '../../services/authService.js';
+import { fetchSubscriptionPlans } from '../../services/subscriptionService.js';
 import { AuthLayout } from './AuthLayout.jsx';
 import { ERROR_BOX, ERROR_TEXT, EYE_BUTTON, HEADING, ICON, INPUT, LABEL, MUTED, SUBTEXT } from './authTheme.jsx';
 
@@ -53,7 +53,20 @@ function validatePlan(form) {
   return errors;
 }
 
-export function GoogleOnboardingPage() {
+function validateBank(form) {
+  const errors = {};
+  if (!form.accountHolderName.trim()) errors.accountHolderName = 'Account holder name is required';
+  if (!form.bankName.trim()) errors.bankName = 'Bank name is required';
+  const accountNumber = form.accountNumber.replace(/\D/g, '');
+  if (!form.accountNumber.trim()) errors.accountNumber = 'Account number is required';
+  else if (!/^\d{6,18}$/.test(accountNumber)) errors.accountNumber = 'Enter a valid account number';
+  const ifscCode = form.ifscCode.trim().toUpperCase();
+  if (!ifscCode) errors.ifscCode = 'IFSC code is required';
+  else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) errors.ifscCode = 'Enter a valid IFSC code';
+  return errors;
+}
+
+export function OnboardingPage() {
   const user = getCurrentUser();
   const [step, setStep] = useState('details');
   const [form, setForm] = useState({
@@ -66,6 +79,12 @@ export function GoogleOnboardingPage() {
     subscriptionAmount: user?.subscriptionAmount || 0,
     password: '',
     confirmPassword: '',
+    accountHolderName: '',
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    bankBranch: '',
+    accountType: 'Savings',
   });
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
@@ -73,7 +92,6 @@ export function GoogleOnboardingPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
-  const [pendingCheckout, setPendingCheckout] = useState(null);
 
   useEffect(() => {
     if (user && !user.needsOnboarding) redirectTo('/dashboard');
@@ -136,7 +154,6 @@ export function GoogleOnboardingPage() {
   }
 
   function choosePlan(plan) {
-    if (pendingCheckout) return;
     setForm((current) => ({ ...current, subscriptionPlan: plan.tier, subscriptionAmount: plan.amount }));
     setErrors((current) => {
       if (!current.subscriptionPlan) return current;
@@ -146,44 +163,40 @@ export function GoogleOnboardingPage() {
     });
   }
 
-  function goToPlan() {
+  function goToPlan(event) {
+    event?.preventDefault?.();
     const nextErrors = validateDetails(form);
     setErrors(nextErrors);
     setError('');
     if (Object.keys(nextErrors).length > 0) return;
-    setStep('plan');
+    setStep('bank');
   }
 
   async function handleSubmit(event) {
-    event.preventDefault();
-    const selectedPlan = plans.find((plan) => plan.tier === form.subscriptionPlan);
-    const nextErrors = validatePlan(form);
+    event?.preventDefault?.();
+    const nextErrors = { ...validateDetails(form), ...validateBank(form) };
     setErrors(nextErrors);
     setError('');
     if (Object.keys(nextErrors).length > 0) return;
 
     setSubmitting(true);
     try {
-      let checkout = pendingCheckout;
-      if (!checkout) {
-        const verification = await completeGoogleOnboarding({
-          ...form,
-          subscriptionAmount: selectedPlan?.amount || form.subscriptionAmount,
-          gstin: form.gstin.trim().toUpperCase(),
-        });
-        if (verification.token && verification.user) {
-          redirectTo('/dashboard');
-          return;
-        }
-        if (!verification.paymentRequired || !verification.checkout) throw new Error('Payment order was not created');
-        checkout = verification.checkout;
-        setPendingCheckout(checkout);
-      }
-      const payment = await openRazorpayCheckout(checkout);
-      await verifyRegistrationPayment(payment);
+      const verification = await completeOnboarding({
+        ...form,
+        subscriptionPlan: '',
+        subscriptionAmount: 0,
+        gstin: form.gstin.trim().toUpperCase(),
+        accountHolderName: form.accountHolderName,
+        bankName: form.bankName,
+        accountNumber: form.accountNumber.replace(/\D/g, ''),
+        ifscCode: form.ifscCode.trim().toUpperCase(),
+        bankBranch: form.bankBranch,
+        accountType: form.accountType,
+      });
+      if (!verification.token || !verification.user) throw new Error('Account could not be created');
       redirectTo('/dashboard');
     } catch (err) {
-      setError(err.message || 'Unable to complete secure payment');
+      setError(err.message || 'Unable to complete setup');
     } finally {
       setSubmitting(false);
     }
@@ -192,17 +205,17 @@ export function GoogleOnboardingPage() {
   return (
     <AuthLayout compact cardMaxWidth={500}>
       <div className="text-center mb-2">
-        <h2 className={`text-[18px] sm:text-[20px] font-bold m-0 mb-1 ${HEADING}`}>{step === 'details' ? 'Complete setup' : 'Choose plan'}</h2>
-        <p className={`text-[12px] m-0 ${SUBTEXT}`}>{step === 'details' ? 'Select category and create password' : 'Choose package and finish setup'}</p>
+        <h2 className={`text-[18px] sm:text-[20px] font-bold m-0 mb-1 ${HEADING}`}>{step === 'details' ? 'Complete setup' : step === 'bank' ? 'Bank details' : 'Choose plan'}</h2>
+        <p className={`text-[12px] m-0 ${SUBTEXT}`}>{step === 'details' ? 'Select category and create password' : step === 'bank' ? 'Saved for billing and plan purchase after trial' : 'Choose package and finish setup'}</p>
       </div>
 
       {step === 'details' && (
         <div className="flex flex-col gap-2">
           <div>
-            <label htmlFor="googleEmail" className={COMPACT_LABEL}>Email</label>
+            <label htmlFor="onboardingEmail" className={COMPACT_LABEL}>Email</label>
             <div className="relative">
               <Mail size={15} className={ICON} />
-              <input id="googleEmail" value={user?.email || ''} readOnly className={`${COMPACT_INPUT} bg-slate-50 text-slate-500`} />
+              <input id="onboardingEmail" value={user?.email || ''} readOnly className={`${COMPACT_INPUT} bg-slate-50 text-slate-500`} />
             </div>
           </div>
 
@@ -281,10 +294,10 @@ export function GoogleOnboardingPage() {
               </div>
             </div>
             <div>
-              <label htmlFor="googlePassword" className={COMPACT_LABEL}>Password</label>
+              <label htmlFor="onboardingPassword" className={COMPACT_LABEL}>Password</label>
               <div className="relative">
                 <Lock size={15} className={ICON} />
-                <input id="googlePassword" type={showPassword ? 'text' : 'password'} value={form.password} onChange={set('password')} className={`${COMPACT_INPUT} pr-10 ${errors.password ? 'border-red-400' : ''}`} placeholder="Min 8 chars" />
+                <input id="onboardingPassword" type={showPassword ? 'text' : 'password'} value={form.password} onChange={set('password')} className={`${COMPACT_INPUT} pr-10 ${errors.password ? 'border-red-400' : ''}`} placeholder="Min 8 chars" />
                 <button type="button" onClick={() => setShowPassword((s) => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-0 flex items-center ${EYE_BUTTON}`} aria-label={showPassword ? 'Hide password' : 'Show password'}>
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
@@ -294,20 +307,95 @@ export function GoogleOnboardingPage() {
           </div>
 
           <div>
-            <label htmlFor="confirmGooglePassword" className={COMPACT_LABEL}>Confirm Password</label>
+            <label htmlFor="confirmOnboardingPassword" className={COMPACT_LABEL}>Confirm Password</label>
             <div className="relative">
               <Lock size={15} className={ICON} />
-              <input id="confirmGooglePassword" type={showPassword ? 'text' : 'password'} value={form.confirmPassword} onChange={set('confirmPassword')} className={`${COMPACT_INPUT} ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Re-enter password" />
+              <input id="confirmOnboardingPassword" type={showPassword ? 'text' : 'password'} value={form.confirmPassword} onChange={set('confirmPassword')} className={`${COMPACT_INPUT} ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Re-enter password" />
             </div>
             <FieldError message={errors.confirmPassword} />
           </div>
 
           <button type="button" onClick={goToPlan} className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-white font-bold text-[13px] border-0 cursor-pointer" style={{ background: 'linear-gradient(135deg, #4f90ff 0%, #6366f1 100%)' }}>
-            Next <ArrowRight size={16} />
+            Start 15-day Trial <ArrowRight size={16} />
           </button>
 
           <button type="button" onClick={logout} className="bg-transparent border-0 cursor-pointer text-[11px] font-bold text-slate-500">Use another account</button>
         </div>
+      )}
+
+      {step === 'bank' && (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2.5" noValidate>
+          <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 text-[12px] text-slate-600">
+            <strong className="text-slate-800">{form.businessName}</strong><br />
+            {user?.email}
+          </div>
+
+          <div>
+            <label htmlFor="accountHolderName" className={COMPACT_LABEL}>Account Holder Name</label>
+            <div className="relative">
+              <User size={15} className={ICON} />
+              <input id="accountHolderName" value={form.accountHolderName} onChange={set('accountHolderName')} className={`${COMPACT_INPUT} ${errors.accountHolderName ? 'border-red-400' : ''}`} placeholder="Account holder name" />
+            </div>
+            <FieldError message={errors.accountHolderName} />
+          </div>
+
+          <div>
+            <label htmlFor="bankName" className={COMPACT_LABEL}>Bank Name</label>
+            <div className="relative">
+              <Building2 size={15} className={ICON} />
+              <input id="bankName" value={form.bankName} onChange={set('bankName')} className={`${COMPACT_INPUT} ${errors.bankName ? 'border-red-400' : ''}`} placeholder="Bank name" />
+            </div>
+            <FieldError message={errors.bankName} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label htmlFor="accountNumber" className={COMPACT_LABEL}>Account Number</label>
+              <div className="relative">
+                <CreditCard size={15} className={ICON} />
+                <input id="accountNumber" inputMode="numeric" value={form.accountNumber} onChange={set('accountNumber')} className={`${COMPACT_INPUT} ${errors.accountNumber ? 'border-red-400' : ''}`} placeholder="Account number" />
+              </div>
+              <FieldError message={errors.accountNumber} />
+            </div>
+            <div>
+              <label htmlFor="ifscCode" className={COMPACT_LABEL}>IFSC Code</label>
+              <div className="relative">
+                <ShieldCheck size={15} className={ICON} />
+                <input id="ifscCode" value={form.ifscCode} onChange={set('ifscCode')} className={`${COMPACT_INPUT} uppercase ${errors.ifscCode ? 'border-red-400' : ''}`} maxLength={11} placeholder="ABCD0123456" />
+              </div>
+              <FieldError message={errors.ifscCode} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label htmlFor="bankBranch" className={COMPACT_LABEL}>Branch <span className={MUTED}>(Optional)</span></label>
+              <div className="relative">
+                <Building2 size={15} className={ICON} />
+                <input id="bankBranch" value={form.bankBranch} onChange={set('bankBranch')} className={COMPACT_INPUT} placeholder="Branch name" />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="accountType" className={COMPACT_LABEL}>Account Type</label>
+              <select id="accountType" value={form.accountType} onChange={set('accountType')} className={`${COMPACT_INPUT} pl-3`}>
+                <option value="Savings">Savings</option>
+                <option value="Current Account">Current Account</option>
+                <option value="Overdraft">Overdraft</option>
+              </select>
+            </div>
+          </div>
+
+          {error && <div className={`rounded-xl px-3 py-2 ${ERROR_BOX}`}><span className={`text-[12px] ${ERROR_TEXT}`}>{error}</span></div>}
+
+          <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-white font-bold text-[14px] border-0 cursor-pointer disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #4f90ff 0%, #6366f1 100%)' }}>
+            <CheckCircle2 size={17} />
+            {submitting ? 'Starting trial...' : 'Start 15-day Trial'}
+          </button>
+
+          <button type="button" onClick={() => setStep('details')} className="bg-transparent border-0 cursor-pointer text-[11.5px] font-bold text-slate-500 inline-flex items-center justify-center gap-1 disabled:opacity-40">
+            <ArrowLeft size={13} /> Back
+          </button>
+        </form>
       )}
 
       {step === 'plan' && (
@@ -346,10 +434,10 @@ export function GoogleOnboardingPage() {
 
           <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-white font-bold text-[14px] border-0 cursor-pointer disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #4f90ff 0%, #6366f1 100%)' }}>
             <CheckCircle2 size={17} />
-            {submitting ? 'Creating account...' : pendingCheckout ? 'Retry Setup' : 'Create Account'}
+            {submitting ? 'Creating account...' : 'Create Account'}
           </button>
 
-          <button type="button" onClick={() => setStep('details')} disabled={Boolean(pendingCheckout)} className="bg-transparent border-0 cursor-pointer text-[11.5px] font-bold text-slate-500 inline-flex items-center justify-center gap-1 disabled:opacity-40">
+          <button type="button" onClick={() => setStep('details')} className="bg-transparent border-0 cursor-pointer text-[11.5px] font-bold text-slate-500 inline-flex items-center justify-center gap-1 disabled:opacity-40">
             <ArrowLeft size={13} /> Back
           </button>
         </form>

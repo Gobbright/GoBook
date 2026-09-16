@@ -11,6 +11,7 @@ import { createAdminNotification } from './adminNotifications.js';
 import { sendSubscriptionInvoice } from './subscriptionInvoice.js';
 
 const CHECKOUT_MINUTES = 30;
+const TRIAL_DAYS = 15;
 
 export async function createRegistrationOrder(pending) {
   const plan = await getActivePlan(pending.category, pending.subscriptionPlan);
@@ -82,7 +83,14 @@ function subscriptionEndDate(start) {
   return end;
 }
 
+function trialEndDate(start) {
+  const end = new Date(start);
+  end.setDate(end.getDate() + TRIAL_DAYS);
+  return end;
+}
+
 async function applyPendingSignupToExistingUser(existing, pending, { paymentId, amount } = {}) {
+  if (existing.onboardingCompleted || existing.businessId) throw httpError(409, 'Account already exists. Please sign in.');
   let businessId = existing.businessId;
   if (!businessId) {
     const business = await Business.create({ name: pending.businessName, category: pending.category, retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '' });
@@ -105,9 +113,11 @@ async function applyPendingSignupToExistingUser(existing, pending, { paymentId, 
   existing.accountType = existing.accountType || 'owner';
   existing.subscriptionPlan = pending.subscriptionPlan;
   existing.subscriptionAmount = amount ?? pending.subscriptionAmount;
-  existing.subscriptionStatus = 'active';
+  existing.subscriptionStatus = 'trial';
   existing.subscriptionStartDate = startDate;
-  existing.subscriptionExpiresAt = subscriptionEndDate(startDate);
+  existing.subscriptionExpiresAt = undefined;
+  existing.trialStartedAt = startDate;
+  existing.trialEndsAt = trialEndDate(startDate);
   existing.lastSubscriptionPaymentId = paymentId || existing.lastSubscriptionPaymentId;
   existing.onboardingCompleted = true;
   existing.status = 'Active';
@@ -123,6 +133,12 @@ async function applyPendingSignupToExistingUser(existing, pending, { paymentId, 
         businessEmail: pending.email,
         phone: pending.phone || '',
         gstin: pending.gstin || '',
+        bankName: pending.bankName || '',
+        accountHolderName: pending.accountHolderName || '',
+        accountNumber: pending.accountNumber || '',
+        ifscCode: pending.ifscCode || '',
+        bankBranch: pending.bankBranch || '',
+        accountType: pending.accountType || 'Savings',
       },
       $setOnInsert: { userId: existing._id },
     },
@@ -151,14 +167,21 @@ export async function completeFreeSignup(pending) {
     googleId: pending.googleId || '', authProvider: pending.authProvider || 'email',
     googleProfile: pending.googleProfile,
     lastLogin: new Date().toISOString(), subscriptionPlan: pending.subscriptionPlan,
-    subscriptionAmount: pending.subscriptionAmount, subscriptionStatus: 'active',
-    subscriptionStartDate: startDate, subscriptionExpiresAt: subscriptionEndDate(startDate),
+    subscriptionAmount: pending.subscriptionAmount, subscriptionStatus: 'trial',
+    subscriptionStartDate: startDate, subscriptionExpiresAt: undefined,
+    trialStartedAt: startDate, trialEndsAt: trialEndDate(startDate),
     onboardingCompleted: true, emailVerified: true,
   });
   await BusinessSettings.create({
     userId: user._id, businessName: pending.businessName, businessEmail: pending.email,
     retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '',
     phone: pending.phone, gstin: pending.gstin,
+    bankName: pending.bankName || '',
+    accountHolderName: pending.accountHolderName || '',
+    accountNumber: pending.accountNumber || '',
+    ifscCode: pending.ifscCode || '',
+    bankBranch: pending.bankBranch || '',
+    accountType: pending.accountType || 'Savings',
   });
   await PendingSignup.deleteOne({ _id: pending._id });
   await createAdminNotification({ dedupeKey: `new-user:${user._id}`, type: 'new_user', title: 'New user registration', message: `${user.businessName} account was created (payment skipped)`, relatedUser: user.businessName, userId: user._id, businessId: user.businessId }).catch(() => {});
@@ -196,6 +219,11 @@ export async function completePaidSignup(transaction, paymentData = {}, signatur
     const existing = await AppUser.findOne({ email: pending.email });
     if (existing) {
       await applyPendingSignupToExistingUser(existing, pending, { paymentId: claimed._id, amount: claimed.amount });
+      existing.subscriptionStatus = 'active';
+      existing.subscriptionExpiresAt = subscriptionEndDate(existing.subscriptionStartDate || new Date());
+      existing.trialStartedAt = undefined;
+      existing.trialEndsAt = undefined;
+      await existing.save();
       claimed.status = 'successful';
       claimed.userId = existing._id;
       claimed.businessId = existing.businessId;
@@ -218,12 +246,19 @@ export async function completePaidSignup(transaction, paymentData = {}, signatur
       lastLogin: new Date().toISOString(), subscriptionPlan: pending.subscriptionPlan,
       subscriptionAmount: claimed.amount, subscriptionStatus: 'active',
       subscriptionStartDate: startDate, subscriptionExpiresAt: subscriptionEndDate(startDate),
+      trialStartedAt: undefined, trialEndsAt: undefined,
       lastSubscriptionPaymentId: claimed._id, onboardingCompleted: true, emailVerified: true,
     });
     await BusinessSettings.create({
       userId: user._id, businessName: pending.businessName, businessEmail: pending.email,
       retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '',
       phone: pending.phone, gstin: pending.gstin,
+      bankName: pending.bankName || '',
+      accountHolderName: pending.accountHolderName || '',
+      accountNumber: pending.accountNumber || '',
+      ifscCode: pending.ifscCode || '',
+      bankBranch: pending.bankBranch || '',
+      accountType: pending.accountType || 'Savings',
     });
 
     Object.assign(claimed, {

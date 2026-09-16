@@ -12,29 +12,34 @@ export async function refreshCurrentUser() {
   return user;
 }
 
-export async function login(email, password) {
+export function commitAuthSession(token, user) {
+  if (token && user) setSession(token, user);
+}
+
+export async function login(email, password, { deferSession = false } = {}) {
   const data = await apiClient('/auth/login', { method: 'POST', body: JSON.stringify({ email: email.trim(), password }) });
+  if (deferSession) return data;
   setSession(data.token, data.user);
   return data.user;
 }
 
-export async function startGoogleOtpLogin(credential) {
-  const data = await apiClient('/auth/google-otp/start', {
-    method: 'POST',
-    body: JSON.stringify({ credential }),
-  });
+export async function googleLogin(credential, { deferSession = false } = {}) {
+  const data = await apiClient('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
+  if (deferSession || data.registrationRequired) return data;
+  if (data.token && data.user) setSession(data.token, data.user);
+  return data.user;
+}
+
+export async function startEmailOtpLogin(email) {
+  return apiClient('/auth/email-otp/start', { method: 'POST', body: JSON.stringify({ email: email.trim() }) });
+}
+
+export async function verifyEmailOtpLogin({ email, otp }) {
+  const data = await apiClient('/auth/email-otp/verify', { method: 'POST', body: JSON.stringify({ email: email.trim(), otp }) });
   if (data.token && data.user) setSession(data.token, data.user);
   return data;
 }
 
-export async function verifyGoogleOtpLogin({ email, otp }) {
-  const data = await apiClient('/auth/google-otp/verify', {
-    method: 'POST',
-    body: JSON.stringify({ email: email.trim(), otp }),
-  });
-  setSession(data.token, data.user);
-  return data.user;
-}
 export async function resendEmailVerificationOtp() {
   return apiClient('/auth/resend-email-otp', { method: 'POST', body: JSON.stringify({}) });
 }
@@ -44,8 +49,8 @@ export async function verifyEmailOtp(otp) {
   setSession(data.token, data.user);
   return data.user;
 }
-export async function completeGoogleOnboarding(payload) {
-  const data = await apiClient('/auth/complete-google-onboarding', {
+export async function completeOnboarding(payload) {
+  const data = await apiClient('/auth/complete-onboarding', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -53,10 +58,12 @@ export async function completeGoogleOnboarding(payload) {
   return data;
 }
 export async function sendRegisterOtp(payload) {
-  return apiClient('/auth/register', {
+  const data = await apiClient('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ ...payload, email: payload.email.trim() }),
   });
+  if (data.token && data.user) setSession(data.token, data.user);
+  return data;
 }
 
 export async function verifyRegisterOtp({ email, otp }) {

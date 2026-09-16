@@ -91,6 +91,8 @@ export const api = {
 
   // ── Sales Returns ─────────────────────────────────────────────────────────
   getSalesReturnNextNumber: ()          => request('GET',    '/sales/sales-returns/next-number'),
+  listSalesReturnInvoices: (params)     => request('GET',    `/sales/sales-returns/invoices${qs(params ?? {})}`),
+  getSalesReturnInvoice: (id, excludeId) => request('GET',   `/sales/sales-returns/invoices/${id}${qs({ excludeId })}`),
   listSalesReturns: (params)            => request('GET',    `/sales/sales-returns${qs(params ?? {})}`),
   getSalesReturn:   (id)                => request('GET',    `/sales/sales-returns/${id}`),
   createSalesReturn: (payload)          => request('POST',   '/sales/sales-returns', payload),
@@ -99,6 +101,8 @@ export const api = {
 
   // ── Supplier Returns ──────────────────────────────────────────────────────
   getSupplierReturnNextNumber: ()          => request('GET',    '/sales/supplier-returns/next-number'),
+  listSupplierReturnPurchases: (params) => request('GET', `/sales/supplier-returns/purchases${qs(params ?? {})}`),
+  getSupplierReturnPurchase: (id, excludeId) => request('GET', `/sales/supplier-returns/purchases/${id}${qs({ excludeId })}`),
   listSupplierReturns: (params)            => request('GET',    `/sales/supplier-returns${qs(params ?? {})}`),
   getSupplierReturn:   (id)                => request('GET',    `/sales/supplier-returns/${id}`),
   createSupplierReturn: (payload)          => request('POST',   '/sales/supplier-returns', payload),
@@ -128,7 +132,6 @@ export const api = {
   createEWayBill: (payload)          => request('POST',   '/sales/e-way-bills', payload),
   updateEWayBill: (id, payload)      => request('PUT',    `/sales/e-way-bills/${id}`, payload),
   deleteEWayBill: (id)               => request('DELETE', `/sales/e-way-bills/${id}`),
-  generateEWayBillGSP: (payload)     => request('POST',   '/sales/e-way-bills/gsp-generate', payload),
   updateSettings: (payload)          => request('PUT',    '/settings', payload),
 
   // ── Customers ─────────────────────────────────────────────────────────────

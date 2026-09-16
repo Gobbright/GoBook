@@ -1,17 +1,18 @@
 import { Router } from 'express';
 
 import { requireAuth } from '../../middleware/auth.js';
-import { completeGoogleOnboarding, forgotPassword, getMe, login, register, resendEmailVerificationOtp, resetPassword, startGoogleOtpLogin, verifyEmailOtp, verifyGoogleOtpLogin, verifyRegistrationOtp } from './authController.js';
+import { emailOtpRateLimit } from '../../middleware/emailOtpRateLimit.js';
+import { completeOnboarding, forgotPassword, getMe, googleLogin, login, register, resendEmailVerificationOtp, resetPassword, startEmailOtpLogin, verifyEmailOtp, verifyEmailOtpLogin, verifyRegistrationOtp } from './authController.js';
 
 export const authRouter = Router();
 
 authRouter.post('/register', register);
 authRouter.post('/register/verify-otp', verifyRegistrationOtp);
 authRouter.post('/login', login);
-authRouter.post('/google', startGoogleOtpLogin);
-authRouter.post('/google-otp/start', startGoogleOtpLogin);
-authRouter.post('/google-otp/verify', verifyGoogleOtpLogin);
-authRouter.post('/complete-google-onboarding', requireAuth, completeGoogleOnboarding);
+authRouter.post('/google', googleLogin);
+authRouter.post('/email-otp/start', emailOtpRateLimit, startEmailOtpLogin);
+authRouter.post('/email-otp/verify', verifyEmailOtpLogin);
+authRouter.post('/complete-onboarding', requireAuth, completeOnboarding);
 authRouter.post('/resend-email-otp', requireAuth, resendEmailVerificationOtp);
 authRouter.post('/verify-email', requireAuth, verifyEmailOtp);
 authRouter.post('/forgot-password', forgotPassword);

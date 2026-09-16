@@ -1,5 +1,5 @@
 export const SESSION_KEY = 'gobook.lastRoute';
-export const AUTH_PATHS = new Set(['/login', '/register', '/forgot-password']);
+export const AUTH_PATHS = new Set(['/login', '/register', '/forgot-password', '/onboarding', '/verify-email']);
 
 export function normalizeStoredPath(path) {
   if (!path || path === '/') return '/dashboard';
@@ -8,6 +8,7 @@ export function normalizeStoredPath(path) {
 }
 
 export function getLastRoute() {
-  return normalizeStoredPath(sessionStorage.getItem(SESSION_KEY));
+  const path = normalizeStoredPath(sessionStorage.getItem(SESSION_KEY));
+  return AUTH_PATHS.has(path) ? '/dashboard' : path;
 }
 

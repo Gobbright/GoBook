@@ -39,6 +39,7 @@ import { EmailMarketingPage } from '../features/categories/common/modules/more-m
 import { ReportsPage } from '../features/categories/common/modules/more-modules/ReportsPage.jsx';
 import { SalesManagementPage } from '../features/categories/common/modules/more-modules/SalesManagementPage.jsx';
 import { VendorManagementPage } from '../features/categories/common/modules/more-modules/VendorManagementPage.jsx';
+import { WhatsAppProviderPage } from '../features/categories/common/modules/more-modules/WhatsAppProviderPage.jsx';
 import { WhatsAppBusinessPage } from '../features/categories/common/modules/more-modules/WhatsAppBusinessPage.jsx';
 import { ModuleReportsPage } from '../features/categories/common/modules/reports/ModuleReportsPage.jsx';
 import { AuditReportPage } from '../features/categories/common/modules/settings/AuditReportPage.jsx';
@@ -97,8 +98,10 @@ export const commonRoutes = [
 
   { path: '/sales-management', element: <SalesManagementPage /> },
   { path: '/vendor-management', element: <VendorManagementPage /> },
-  { path: '/whatsapp-business', element: <WhatsAppBusinessPage /> },
+  { path: '/whatsapp-business', element: <WhatsAppProviderPage /> },
+  { path: '/whatsapp/settings', element: <WhatsAppProviderPage /> },
   { path: '/email-marketing', element: <EmailMarketingPage /> },
+  { path: '/whatsapp-marketing', element: <WhatsAppBusinessPage /> },
   { path: '/reports', element: <ReportsPage /> },
 
   { path: '/multi-branch', element: <MultiBranchPage /> },

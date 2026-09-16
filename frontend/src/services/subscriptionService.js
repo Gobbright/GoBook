@@ -12,6 +12,14 @@ export async function verifyRegistrationPayment(payment) {
 export function recordRegistrationPaymentFailure(orderId, error) {
   return apiClient('/subscriptions/registration-payment-failed', { method: 'POST', body: JSON.stringify({ orderId, error }) });
 }
+export function createSubscriptionPaymentOrder(subscriptionPlan) {
+  return apiClient('/subscriptions/payment-order', { method: 'POST', body: JSON.stringify({ subscriptionPlan }) });
+}
+export async function verifySubscriptionPayment(payment) {
+  const data = await apiClient('/subscriptions/verify-payment', { method: 'POST', body: JSON.stringify(payment) });
+  setSession(data.token, data.user);
+  return data.user;
+}
 
 let checkoutScriptPromise;
 function loadCheckoutScript() {
@@ -43,7 +51,7 @@ export async function openRazorpayCheckout(checkout) {
       description: `${checkout.planName} annual subscription`, image: '/favicon.svg',
       prefill: checkout.prefill, theme: { color: '#4f46e5' }, retry: { enabled: true },
       handler: (response) => finish(resolve, response),
-      modal: { ondismiss: () => finish(reject, new Error('Payment was cancelled. Your account has not been created.')) },
+      modal: { ondismiss: () => finish(reject, new Error('Payment was cancelled.')) },
     });
     instance.on('payment.failed', (response) => {
       const error = response?.error || {};

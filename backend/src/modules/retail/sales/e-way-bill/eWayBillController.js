@@ -1,6 +1,4 @@
 import { Invoice } from '../../../../models/Invoice.js';
-import { BusinessSettings } from '../../../../models/BusinessSettings.js';
-import { generateEWayBillViaGSP } from '../../../../services/gsp.js';
 import {
   postInvoiceAccounting,
   reverseAccountingPosting,
@@ -79,38 +77,6 @@ export async function updateEWayBill(req, res, next) {
     if (!doc) return next(httpError(404, 'E-Way Bill not found'));
     await postInvoiceAccounting(doc, req.user);
     res.json(doc);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// POST /api/sales/e-way-bills/gsp-generate
-export async function generateViaGSP(req, res, next) {
-  try {
-    const bizSettings = await BusinessSettings.findOne({ userId: req.user.id }).lean() ?? {};
-
-    if (!bizSettings.gspProvider) {
-      return next(httpError(400, 'GSP provider not configured. Please go to Business Settings → GSP Integration and add your credentials.'));
-    }
-    if (!bizSettings.gspClientId || !bizSettings.gspClientSecret || !bizSettings.gspUsername || !bizSettings.gspPassword) {
-      return next(httpError(400, 'GSP credentials are incomplete. Please fill all fields in Business Settings → GSP Integration.'));
-    }
-    if (!bizSettings.gstin) {
-      return next(httpError(400, 'Your business GSTIN is not set. Please update it in Business Settings before generating an E-Way Bill.'));
-    }
-
-    const credentials = {
-      provider:     bizSettings.gspProvider,
-      clientId:     bizSettings.gspClientId,
-      clientSecret: bizSettings.gspClientSecret,
-      username:     bizSettings.gspUsername,
-      password:     bizSettings.gspPassword,
-      gstin:        bizSettings.gstin,
-      sandbox:      bizSettings.gspSandbox,
-    };
-
-    const result = await generateEWayBillViaGSP(credentials, req.body, bizSettings);
-    res.json(result);
   } catch (err) {
     next(err);
   }

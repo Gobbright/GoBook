@@ -2,7 +2,6 @@ import multer from 'multer';
 import { BusinessSettings } from '../../models/BusinessSettings.js';
 import { AppUser } from '../../models/AppUser.js';
 import { Business } from '../../models/Business.js';
-import { RETAIL_SUBCATEGORIES } from '../../constants/categories.js';
 import { runAppointmentReminders } from '../../jobs/appointmentReminders.js';
 import { httpError } from '../../utils/httpError.js';
 import { deleteStoredFile, hasExpectedFileSignature, storeBuffer } from '../../services/gridfsStorage.js';
@@ -67,21 +66,7 @@ export async function updateSettings(req, res, next) {
     const userId = req.user.id;
     const payload = { ...req.body };
     if (Object.prototype.hasOwnProperty.call(payload, 'retailSubcategory')) {
-      const retailSubcategory = String(payload.retailSubcategory || '').trim();
-      const user = await AppUser.findById(userId, { category: 1, businessId: 1 }).lean();
-      if (user?.category !== 'retail') {
-        payload.retailSubcategory = '';
-      } else {
-        const normalizedRetailSubcategory = retailSubcategory || LEGACY_RETAIL_SUBCATEGORY;
-        if (!RETAIL_SUBCATEGORIES.includes(normalizedRetailSubcategory)) {
-          return next(httpError(400, 'Select a valid retail subcategory'));
-        }
-        payload.retailSubcategory = normalizedRetailSubcategory;
-        await AppUser.updateOne({ _id: userId }, { $set: { retailSubcategory: normalizedRetailSubcategory } });
-        if (user?.businessId) {
-          await Business.updateOne({ _id: user.businessId }, { $set: { retailSubcategory: normalizedRetailSubcategory } });
-        }
-      }
+      delete payload.retailSubcategory;
     }
     let settings = await BusinessSettings.findOne({ userId });
     if (!settings) {

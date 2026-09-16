@@ -281,8 +281,17 @@ export async function sendRenewalReminder(userId) {
 }
 
 export function logoutAdmin() {
+
   clearAdminSession();
   redirectTo('/admin-login');
+}
+
+export async function fetchAdminWhatsAppProvider() {
+  return adminRequest('/admin/whatsapp-provider');
+}
+
+export async function updateAdminWhatsAppProviderStatus(businessId, payload) {
+  return adminRequest(`/admin/whatsapp-provider/businesses/${businessId}/status`, { method: 'PUT', body: JSON.stringify(payload) });
 }
 
 

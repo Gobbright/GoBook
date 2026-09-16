@@ -12,4 +12,5 @@ dist/
 .playwright-output/
 **/.playwright-output/
 playwright-report/
+**/.playwright/
 **/playwright-report/

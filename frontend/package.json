@@ -17,6 +17,7 @@
     "gobook": "file:..",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^1.17.0",
+    "pdfjs-dist": "^6.3.289",
     "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

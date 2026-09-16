@@ -26,6 +26,8 @@ import {
 } from './credit-debit-note/debitNoteController.js';
 import {
   getNextSalesReturnNumber,
+  listSalesReturnInvoices,
+  getSalesReturnInvoice,
   listSalesReturns,
   getSalesReturn,
   createSalesReturn,
@@ -34,6 +36,8 @@ import {
 } from './sales-return/salesReturnController.js';
 import {
   getNextSupplierReturnNumber,
+  listSupplierReturnPurchases,
+  getSupplierReturnPurchase,
   listSupplierReturns,
   getSupplierReturn,
   createSupplierReturn,
@@ -63,7 +67,6 @@ import {
   createEWayBill,
   updateEWayBill,
   deleteEWayBill,
-  generateViaGSP,
 } from './e-way-bill/eWayBillController.js';
 import {
   listPayments,
@@ -120,6 +123,8 @@ salesRouter.delete('/debit-notes/:id',       deleteDebitNote);
 
 // ── Sales Return CRUD ────────────────────────────────────────────────────────
 salesRouter.get('/sales-returns/next-number',  getNextSalesReturnNumber);
+salesRouter.get('/sales-returns/invoices', listSalesReturnInvoices);
+salesRouter.get('/sales-returns/invoices/:invoiceId', getSalesReturnInvoice);
 salesRouter.get('/sales-returns',              listSalesReturns);
 salesRouter.post('/sales-returns',             createSalesReturn);
 salesRouter.get('/sales-returns/:id',          getSalesReturn);
@@ -128,6 +133,8 @@ salesRouter.delete('/sales-returns/:id',       deleteSalesReturn);
 
 // ── Supplier Return CRUD ─────────────────────────────────────────────────────
 salesRouter.get('/supplier-returns/next-number',  getNextSupplierReturnNumber);
+salesRouter.get('/supplier-returns/purchases', listSupplierReturnPurchases);
+salesRouter.get('/supplier-returns/purchases/:purchaseId', getSupplierReturnPurchase);
 salesRouter.get('/supplier-returns',              listSupplierReturns);
 salesRouter.post('/supplier-returns',             createSupplierReturn);
 salesRouter.get('/supplier-returns/:id',          getSupplierReturn);
@@ -152,7 +159,6 @@ salesRouter.delete('/e-invoices/:id',       deleteEInvoice);
 
 // ── E-Way Bill CRUD ──────────────────────────────────────────────────────────
 salesRouter.get('/e-way-bills/next-number',   getNextEWayBillNumber);
-salesRouter.post('/e-way-bills/gsp-generate', generateViaGSP);
 salesRouter.get('/e-way-bills',              listEWayBills);
 salesRouter.post('/e-way-bills',             createEWayBill);
 salesRouter.get('/e-way-bills/:id',          getEWayBill);

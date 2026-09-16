@@ -46,6 +46,15 @@ export const env = {
   adminJwtExpiresIn: process.env.ADMIN_JWT_EXPIRES_IN ?? '8h',
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
 
+  meta: {
+    appId: process.env.META_APP_ID ?? '',
+    appSecret: process.env.META_APP_SECRET ?? '',
+    configId: process.env.META_LOGIN_CONFIG_ID ?? '',
+    graphVersion: process.env.META_GRAPH_API_VERSION ?? '',
+    encryptionKey: process.env.META_TOKEN_ENCRYPTION_KEY ?? '',
+    publicOrigin: process.env.META_PUBLIC_ORIGIN ?? 'https://www.gobooksuite.com',
+  },
+
   // When false, registration skips Razorpay checkout and activates the account directly.
   paymentRequired: process.env.PAYMENT_REQUIRED !== 'false',
 

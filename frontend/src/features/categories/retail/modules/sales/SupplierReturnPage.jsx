@@ -120,7 +120,7 @@ function normalizeNote(inv) {
   if (Array.isArray(inv.items)) {
     inv.items.forEach((item) => {
       const gross       = (item.qty ?? 1) * (item.rate ?? 0);
-      const discountAmt = gross * ((item.discount ?? 0) / 100);
+      const discountAmt = item.discountType === 'amount' ? Math.min(gross, Number(item.discount) || 0) : gross * ((item.discount ?? 0) / 100);
       const base        = gross - discountAmt;
       taxable += base;
       gst     += base * ((item.gstRate ?? 0) / 100);
@@ -140,7 +140,7 @@ function normalizeNote(inv) {
     originalRef: inv.extra?.originalInvoiceNo || inv.extra?.originalRef || '',
     taxable: Math.round(taxable * 100) / 100,
     gst:     Math.round(gst * 100) / 100,
-    total:   Math.round((taxable + gst) * 100) / 100,
+    total:   Number(inv.totals?.finalTotal ?? Math.round(taxable + gst)),
   };
 }
 
@@ -207,8 +207,16 @@ export function SupplierReturnPage() {
       setLoading(true);
       setError('');
       try {
-        const response = await api.listSupplierReturns({ limit: 100 });
-        const data = Array.isArray(response.data) ? response.data.map(normalizeNote) : [];
+        const data = [];
+        let page = 1;
+        let response;
+        do {
+          response = await api.listSupplierReturns({ limit: 100, page });
+          const rows = Array.isArray(response.data) ? response.data : [];
+          data.push(...rows.map(normalizeNote));
+          if (rows.length < 100) break;
+          page += 1;
+        } while (data.length < response.total);
         setNotes(data);
       } catch (err) {
         setError(err.message || 'Unable to load supplier returns');

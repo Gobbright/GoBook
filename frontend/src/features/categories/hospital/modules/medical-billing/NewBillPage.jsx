@@ -28,7 +28,6 @@ import {
 import { useKeyboardMode } from '../../../../../app/KeyboardModeContext.jsx';
 import { api, SERVER_ORIGIN } from '../../../../../services/api.js';
 import { useModuleRecords } from '../../../shared/recordUi/useModuleRecords.js';
-import { getInvoicePrintTemplate, setInvoicePrintTemplate } from '../../../retail/modules/sales/shared/invoiceTemplatePreference.js';
 
 const BILL_TYPES = ['OPD', 'IPD', 'Diagnostics', 'Emergency', 'OT', 'Other'];
 const BILL_STRUCTURES = [
@@ -169,7 +168,6 @@ export function NewBillPage() {
   const [auth, setAuth] = useState('');
   const [savedMessage, setSavedMessage] = useState('');
   const [bizSettings, setBizSettings] = useState({});
-  const [printTemplate, setPrintTemplate] = useState(() => getInvoicePrintTemplate());
 
   const billNo = useMemo(() => nextBillNo(bills.records), [bills.records]);
   const nextReceiptNo = useMemo(() => {
@@ -223,10 +221,6 @@ export function NewBillPage() {
   useEffect(() => {
     api.getSettings().then(setBizSettings).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    setInvoicePrintTemplate(printTemplate);
-  }, [printTemplate]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -735,10 +729,6 @@ export function NewBillPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <select className={INPUT} value={printTemplate} onChange={(event) => setPrintTemplate(event.target.value)}>
-                  <option value="modern">Modern</option>
-                  <option value="classic">Classic</option>
-                </select>
                 <Button onClick={() => window.print()}><Printer size={14} />Print</Button>
                 <button type="button" onClick={() => setShowPreview(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[#334155] cursor-pointer">
                   <X size={16} />
@@ -747,126 +737,6 @@ export function NewBillPage() {
             </div>
 
             <div className="p-6">
-              {printTemplate === 'classic' ? (
-              <div id="document-preview-print" className="invoice-pages-stack invoice-classic-stack">
-                <section className="invoice-page invoice-classic-page">
-                  <div className="invoice-classic-outer">
-                    <div className="invoice-classic-title-row">
-                      <span />
-                      <strong>Tax Invoice</strong>
-                      <em>Original for Recipient</em>
-                    </div>
-
-                    <div className="invoice-classic-top-grid">
-                      <div className="invoice-classic-business">
-                        {bizSettings.logoUrl && (
-                          <img src={`${SERVER_ORIGIN}${bizSettings.logoUrl}`} alt="logo" className="invoice-classic-logo" />
-                        )}
-                        <div>
-                          <h2>{bizSettings.businessName || '-'}</h2>
-                          <p>{businessAddress(bizSettings) || '-'}</p>
-                          {bizSettings.phone && <p>{bizSettings.phone}</p>}
-                          {bizSettings.businessEmail && <p>{bizSettings.businessEmail}</p>}
-                          {bizSettings.gstin && <h3>GSTIN: {bizSettings.gstin}</h3>}
-                        </div>
-                      </div>
-
-                      <div className="invoice-classic-meta-grid">
-                        <div>
-                          <div className="invoice-classic-field"><span>Invoice No.</span><b>:</b><strong className="invoice-classic-emphasis">{billNo}</strong></div>
-                          <div className="invoice-classic-field"><span>Visit No.</span><b>:</b><strong>{visitNo}</strong></div>
-                          <div className="invoice-classic-field"><span>Bill Type</span><b>:</b><strong>{billType}</strong></div>
-                          <div className="invoice-classic-field"><span>Pay Status</span><b>:</b><strong>{balance > 0 ? 'Due' : 'Paid'}</strong></div>
-                        </div>
-                        <div>
-                          <div className="invoice-classic-field"><span>Invoice Date</span><b>:</b><strong className="invoice-classic-emphasis">{new Date().toLocaleDateString('en-IN')}</strong></div>
-                          <div className="invoice-classic-field"><span>Pay. Mode</span><b>:</b><strong>{paymentMode}</strong></div>
-                          <div className="invoice-classic-field"><span>Receipt No.</span><b>:</b><strong>{balance > 0 ? '-' : nextReceiptNo}</strong></div>
-                          <div className="invoice-classic-field"><span>Reference</span><b>:</b><strong>{reference || '-'}</strong></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="invoice-classic-party-grid">
-                      <div className="invoice-classic-customer">
-                        <div className="invoice-classic-section-caption">Patient</div>
-                        <h2>{selectedPatient.data?.name || '-'}</h2>
-                        <p>Patient ID : {selectedPatient.data?.patientId || '-'}</p>
-                        <p>Age / Gender : {selectedPatient.data?.age || '-'} / {selectedPatient.data?.gender || '-'}</p>
-                        <p>Mobile : {patientPhone(selectedPatient.data) || '-'}</p>
-                        <p>{[selectedPatient.data?.address, selectedPatient.data?.city].filter(Boolean).join(', ') || '-'}</p>
-                      </div>
-                      <div className="invoice-classic-ledger">
-                        <div className="invoice-classic-ledger-heading">Visit Details:</div>
-                        <p>Doctor : {visitDoctor || '-'}</p>
-                        <div className="invoice-classic-ledger-row"><span>Department</span><b>=</b><strong>{visitDepartment || '-'}</strong></div>
-                        <div className="invoice-classic-ledger-row"><span>Adding this Invoice Amount</span><b>=</b><strong>+{amount(payable)}</strong></div>
-                        <div className="invoice-classic-ledger-row invoice-classic-ledger-total"><span>Balance Due</span><b>=</b><strong>{amount(balance)}</strong></div>
-                      </div>
-                    </div>
-
-                    <table className="invoice-classic-table invoice-classic-table-no-gst">
-                      <thead>
-                        <tr>
-                          <th className="classic-col-sno">S/N</th>
-                          <th className="classic-col-desc">Description Of Goods / Service</th>
-                          <th className="classic-col-qty">Billed<br />Quantity</th>
-                          <th className="classic-col-uqc">UQC</th>
-                          <th className="classic-col-price">Price</th>
-                          <th className="classic-col-amount">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {services.map((item, index) => (
-                          <tr key={`classic-${item.service}-${index}`}>
-                            <td className="classic-col-sno">{index + 1})</td>
-                            <td className="classic-col-desc">
-                              <div className="invoice-classic-item-title">{item.service || '-'}</div>
-                              <div className="invoice-classic-item-sub">{item.department || '-'} {item.code ? `| ${item.code}` : ''}</div>
-                            </td>
-                            <td className="classic-col-qty">{item.qty || 0}</td>
-                            <td className="classic-col-uqc">NOS</td>
-                            <td className="classic-col-price">{amount(item.rate)}</td>
-                            <td className="classic-col-amount">{amount(lineAmount(item))}</td>
-                          </tr>
-                        ))}
-                        <tr className="invoice-classic-subtotal-row"><td className="classic-col-sno" /><td className="classic-col-desc" /><td className="classic-col-qty">{services.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</td><td className="classic-col-uqc" /><td className="classic-col-price" /><td className="classic-col-amount">{amount(subtotal)}</td></tr>
-                        <tr className="invoice-classic-total-line"><td colSpan={5}>Discount</td><td className="classic-col-amount">-{amount(totalDiscount)}</td></tr>
-                        <tr className="invoice-classic-total-line"><td colSpan={5}>Tax</td><td className="classic-col-amount">{amount(totalTax)}</td></tr>
-                        <tr className="invoice-classic-grand-total"><td colSpan={5}>Grand Total</td><td className="classic-col-amount">{amount(payable)}</td></tr>
-                      </tbody>
-                    </table>
-
-                    <div className="invoice-classic-summary">
-                      <div className="invoice-classic-tax-summary">
-                        <h3>Amount in Words</h3>
-                        <p>{amountWords(payable)}</p>
-                      </div>
-                      <table className="invoice-classic-payment-summary">
-                        <tbody>
-                          <tr><td>Payment Mode</td><td>{paymentMode}</td></tr>
-                          <tr><td>Amount Paid</td><td>{amount(received)}</td></tr>
-                          <tr className="invoice-classic-payment-grand"><td>Grand Total</td><td>{amount(payable)}</td></tr>
-                          <tr className="invoice-classic-payment-due"><td>Balance Due</td><td>{amount(balance)}</td></tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="invoice-classic-bottom">
-                      <div className="invoice-classic-terms"><h3>Terms & Notes</h3><ul><li>{notes || 'Please keep this invoice for your records.'}</li><li>Report any discrepancy within 7 days.</li></ul></div>
-                      <div className="invoice-classic-declaration"><h3>Declaration</h3><p>This invoice is generated from existing hospital bill data.</p></div>
-                      <div className="invoice-classic-sign"><strong>For {bizSettings.businessName || '-'}</strong><b>Authorised Signatory</b></div>
-                    </div>
-
-                    <div className="invoice-classic-footer">
-                      <span>{bizSettings.phone || '-'}</span>
-                      <strong>Generated by GoBook</strong>
-                      <strong>{bizSettings.website || bizSettings.businessWebsite || '-'}</strong>
-                    </div>
-                  </div>
-                </section>
-              </div>
-              ) : (
               <div id="document-preview-print" className="hospital-invoice-print">
                 <section className="hospital-invoice-page">
                   <div className="hospital-invoice-top">
@@ -1023,7 +893,6 @@ export function NewBillPage() {
                   </div>
                 </section>
               </div>
-              )}
             </div>
           </div>
         </div>

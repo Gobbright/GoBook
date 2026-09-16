@@ -46,7 +46,7 @@ const SALT_ROUNDS = 12;
 
 const COLLECTIONS = [
   { key: 'businesses', label: 'Businesses', model: Business, fields: ['name', 'category', 'createdAt'] },
-  { key: 'users', label: 'Users', model: AppUser, fields: ['name', 'email', 'phone', 'role', 'status', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'subscriptionStartDate', 'subscriptionExpiresAt', 'authProvider', 'createdAt', 'lastLogin'] },
+  { key: 'users', label: 'Users', model: AppUser, fields: ['name', 'email', 'phone', 'role', 'status', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'subscriptionStartDate', 'subscriptionExpiresAt', 'trialEndsAt', 'authProvider', 'createdAt', 'lastLogin'] },
   { key: 'businessSettings', label: 'Business Settings', model: BusinessSettings, fields: ['businessName', 'businessEmail', 'phone', 'gstin', 'city', 'state'] },
   { key: 'branches', label: 'Branches', model: Branch, fields: ['name', 'code', 'city', 'state', 'status'] },
   { key: 'customers', label: 'Customers', model: Customer, fields: ['name', 'email', 'phone', 'gstin', 'city'] },
@@ -174,7 +174,7 @@ function startOfToday() {
 }
 
 function isTrialUser(user) {
-  return !user.subscriptionPlan || user.subscriptionPlan === '';
+  return user.subscriptionStatus === 'trial' || !user.subscriptionPlan || user.subscriptionPlan === '';
 }
 
 function filterUsersByType(section, users) {
@@ -205,7 +205,7 @@ async function getAdminPanelStats() {
     AppUser.countDocuments({ status: /^expired$/i }),
     AppUser.countDocuments({ status: /^deleted$/i }),
     AppUser.countDocuments({ createdAt: { $gte: today } }),
-    AppUser.find({}).select('name email businessName category subscriptionPlan subscriptionAmount status createdAt lastLogin phone').lean(),
+    AppUser.find({}).select('name email businessName category subscriptionPlan subscriptionAmount subscriptionStatus status createdAt lastLogin phone').lean(),
     SubscriptionPayment.find({}).select('amount status paidAt createdAt customerName method businessName category tier razorpayPaymentId').lean(),
   ]);
 
@@ -229,8 +229,8 @@ async function getAdminPanelStats() {
     upcomingRenewals: 0,
     totalRevenue,
     deletedUsers,
-    trialUsers: subscriptionCounts.noPlan || 0,
-    activeSubscriptions: totalUsers - (subscriptionCounts.noPlan || 0),
+    trialUsers: allUsers.filter(isTrialUser).length,
+    activeSubscriptions: allUsers.filter((user) => user.subscriptionStatus === 'active').length,
     expiredSubscriptions: 0,
     renewalRequests: 0,
     renewalHistory: subscriptionPayments.length,

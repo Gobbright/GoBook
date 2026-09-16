@@ -533,12 +533,12 @@ function validateProductPayload(payload, { partial = false } = {}) {
   if ('variants' in payload && payload.variants.length) {
     const seen = new Set();
     for (const v of payload.variants) {
-      const label = v.size || v.modelName;
+      const label = v.size || v.modelName || v.modelCode;
       if (!label) return 'Each model row needs a model or size name';
       if (!Number.isFinite(v.stock) || v.stock < 0) return `Stock for "${label}" must be 0 or more`;
       if (!Number.isFinite(v.minStockLevel) || v.minStockLevel < 0) return `Min stock level for "${label}" must be 0 or more`;
       if (!Number.isFinite(v.rate) || v.rate < 0) return `Sale price for "${label}" must be 0 or more`;
-      const key = `${String(v.size || '').trim().toLowerCase()}|${String(v.modelName || '').trim().toLowerCase()}`;
+      const key = `${String(v.size || '').trim().toLowerCase()}|${String(v.modelName || '').trim().toLowerCase()}|${String(v.modelCode || '').trim().toLowerCase()}`;
       if (seen.has(key)) return `Duplicate model "${label}"`;
       seen.add(key);
     }
