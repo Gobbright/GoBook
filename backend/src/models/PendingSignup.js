@@ -11,6 +11,8 @@ const pendingSignupSchema = new Schema({
   retailSubcategory: { type: String, enum: ['', ...RETAIL_SUBCATEGORIES], default: '' },
   phone:        { type: String, required: true, trim: true },
   gstin:        { type: String, trim: true, default: '' },
+  state:        { type: String, trim: true, default: '' },
+  city:         { type: String, trim: true, default: '' },
   bankName:     { type: String, trim: true, default: '' },
   accountHolderName: { type: String, trim: true, default: '' },
   accountNumber: { type: String, trim: true, default: '' },

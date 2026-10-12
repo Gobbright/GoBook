@@ -4,7 +4,7 @@ import { safeNavigate } from '../../../routes/navigation.js';
 import { Search } from 'lucide-react';
 
 import { AdminLayout } from '../AdminLayout.jsx';
-import { fetchAdminSection, isAdminAuthenticated } from '../adminService.js';
+import { fetchAdminSection, isAdminAuthenticated, updateUserSubscriptionState } from '../adminService.js';
 import { DataTable } from '../components/DataTable.jsx';
 
 const USER_VIEWS = {
@@ -40,6 +40,7 @@ export function AdminUserListPage({ type = 'all' }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [actionId, setActionId] = useState('');
 
   async function loadData() {
     if (!isAdminAuthenticated()) {
@@ -86,7 +87,7 @@ export function AdminUserListPage({ type = 'all' }) {
     sourceKey: 'users',
     label: view.title,
     count: mainData.length,
-    fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'trialEndsAt', 'status', 'createdAt', 'lastLogin'],
+    fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'billingStatus', 'paymentMethodVerified', 'paymentMethodVerifiedAt', 'trialStartedAt', 'trialEndsAt', 'status', 'createdAt', 'lastLogin'],
     rows: mainData,
   };
 
@@ -95,6 +96,45 @@ export function AdminUserListPage({ type = 'all' }) {
     { key: 'expired', label: 'Expired Users', rows: separated.expired },
     { key: 'blocked', label: 'Blocked Users', rows: separated.blocked },
   ] : [];
+
+  async function changeSubscriptionState(row, mode) {
+    const label = mode === 'activate-year' ? 'activate this user for 1 year' : 'mark this user expired';
+    if (!window.confirm(`Confirm to ${label}?`)) return;
+    setActionId(`${row.id}:${mode}`);
+    try {
+      await updateUserSubscriptionState(row.id, mode);
+      await loadData();
+    } catch (err) {
+      alert(err.message || 'Unable to update subscription state');
+    } finally {
+      setActionId('');
+    }
+  }
+
+  function subscriptionActions(row) {
+    return (
+      <>
+        <button
+          type="button"
+          disabled={actionId === `${row.id}:expire-trial`}
+          onClick={() => changeSubscriptionState(row, 'expire-trial')}
+          className="rounded-md border-0 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+          title="Force trial expired"
+        >
+          Expire
+        </button>
+        <button
+          type="button"
+          disabled={actionId === `${row.id}:activate-year`}
+          onClick={() => changeSubscriptionState(row, 'activate-year')}
+          className="rounded-md border-0 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+          title="Activate subscription for 1 year"
+        >
+          Activate
+        </button>
+      </>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -109,7 +149,7 @@ export function AdminUserListPage({ type = 'all' }) {
           </div>
         </header>
 
-        <main className="p-4 md:p-6 space-y-4 md:space-y-5 max-w-6xl mx-auto">
+        <main className="p-4 md:p-6 space-y-4 md:space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 md:p-4">
               <p className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium">Visible Users</p>
@@ -153,7 +193,7 @@ export function AdminUserListPage({ type = 'all' }) {
                   <div className="w-4 h-4 bg-blue-600 rounded-full"></div>
                   <h2 className="m-0 text-lg md:text-xl font-extrabold text-blue-900 dark:text-blue-100">Main Content</h2>
                 </div>
-                <DataTable section={mainSection} onChanged={loadData} />
+                <DataTable section={mainSection} onChanged={loadData} rowActions={subscriptionActions} />
               </div>
 
               {/* Other Sections */}
@@ -167,9 +207,9 @@ export function AdminUserListPage({ type = 'all' }) {
                         sourceKey: 'users',
                         label: sectionData.label,
                         count: sectionData.rows.length,
-                        fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'trialEndsAt', 'status', 'createdAt', 'lastLogin'],
+                        fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'billingStatus', 'paymentMethodVerified', 'paymentMethodVerifiedAt', 'trialStartedAt', 'trialEndsAt', 'status', 'createdAt', 'lastLogin'],
                         rows: sectionData.rows,
-                      }} />
+                      }} onChanged={loadData} rowActions={subscriptionActions} />
                     </div>
                   ))}
                 </div>
@@ -181,6 +221,7 @@ export function AdminUserListPage({ type = 'all' }) {
     </AdminLayout>
   );
 }
+
 
 
 

@@ -5,6 +5,8 @@ import {
 } from '../../../../services/accountingPostings.js';
 import { httpError } from '../../../../utils/httpError.js';
 import { buildSalesAggregationPipeline, unwrapFacetResult } from '../shared/salesFilters.js';
+import { branchForNewRecord, branchScopedAggregateMatch, branchScopedQuery } from '../../../../utils/branchScope.js';
+import { withBusinessSettings } from '../shared/invoiceBusinessSettings.js';
 
 const DOCTYPE = 'e-invoice';
 
@@ -33,7 +35,8 @@ export async function getNextEInvoiceNumber(req, res, next) {
 export async function listEInvoices(req, res, next) {
   try {
     const { page = 1, limit = 50 } = req.query;
-    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, DOCTYPE, { includePayment: false });
+    const baseMatch = await branchScopedAggregateMatch(req, { model: Invoice, ownerField: 'userId' });
+    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, DOCTYPE, { includePayment: false, baseMatch });
     const result = await Invoice.aggregate(pipeline);
     const { data, total } = unwrapFacetResult(result);
 
@@ -46,9 +49,9 @@ export async function listEInvoices(req, res, next) {
 // GET /api/sales/e-invoices/:id
 export async function getEInvoice(req, res, next) {
   try {
-    const doc = await Invoice.findOne({ _id: req.params.id, userId: req.user.id, documentType: DOCTYPE }).lean();
+    const doc = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id, documentType: DOCTYPE })).lean();
     if (!doc) return next(httpError(404, 'E-Invoice not found'));
-    res.json(doc);
+    res.json(await withBusinessSettings(req, doc));
   } catch (err) {
     next(err);
   }
@@ -57,7 +60,7 @@ export async function getEInvoice(req, res, next) {
 // POST /api/sales/e-invoices
 export async function createEInvoice(req, res, next) {
   try {
-    const doc = await Invoice.create({ ...req.body, userId: req.user.id, businessId: req.user.businessId, documentType: DOCTYPE });
+    const doc = await Invoice.create({ ...req.body, userId: req.user.id, businessId: req.user.businessId, branch: await branchForNewRecord(req, req.body.branch), documentType: DOCTYPE });
     await postInvoiceAccounting(doc, req.user);
     res.status(201).json(doc);
   } catch (err) {
@@ -69,9 +72,11 @@ export async function createEInvoice(req, res, next) {
 // PUT /api/sales/e-invoices/:id
 export async function updateEInvoice(req, res, next) {
   try {
+    const updates = { ...req.body, documentType: DOCTYPE };
+    if (req.body.branch !== undefined) updates.branch = await branchForNewRecord(req, req.body.branch);
     const doc = await Invoice.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id, documentType: DOCTYPE },
-      { $set: { ...req.body, documentType: DOCTYPE } },
+      await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id, documentType: DOCTYPE }),
+      { $set: updates },
       { new: true, runValidators: false },
     ).lean();
     if (!doc) return next(httpError(404, 'E-Invoice not found'));
@@ -85,7 +90,7 @@ export async function updateEInvoice(req, res, next) {
 // DELETE /api/sales/e-invoices/:id
 export async function deleteEInvoice(req, res, next) {
   try {
-    const doc = await Invoice.findOneAndDelete({ _id: req.params.id, userId: req.user.id, documentType: DOCTYPE }).lean();
+    const doc = await Invoice.findOneAndDelete(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id, documentType: DOCTYPE })).lean();
     if (!doc) return next(httpError(404, 'E-Invoice not found'));
     await reverseAccountingPosting({ userId: req.user.id, sourceType: 'invoice', sourceId: doc._id });
     res.json({ message: 'E-Invoice deleted successfully' });

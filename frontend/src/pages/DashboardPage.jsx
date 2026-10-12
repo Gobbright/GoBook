@@ -19,6 +19,7 @@ export function DashboardPage() {
   const [branches, setBranches] = useState([]);
   const [branch, setBranch] = useState('');
   const isSuperAdmin = currentUser?.isSuperAdmin || currentUser?.accountType === 'owner' || currentUser?.role === 'Super Admin';
+  const welcomeName = currentUser?.name || currentUser?.fullName || currentUser?.ownerName || currentUser?.businessName || 'there';
   const branchOptions = useMemo(() => [
     { value: '', label: 'All Branches' },
     ...branches.map((item) => ({ value: item.code || item.name, label: `${item.name}${item.code ? ` (${item.code})` : ''}` })),
@@ -48,17 +49,18 @@ export function DashboardPage() {
       <section className="mb-5">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
           <div>
-          <h1 className="m-0 text-[28px]">Welcome back, Admin!</h1>
+          <h1 className="m-0 text-[28px]">Welcome back, {welcomeName}!</h1>
           <p className="text-[#536173] dark:text-slate-400 mt-2 mb-0">
             Here's what's happening with your business today.
           </p>
           </div>
           {isSuperAdmin && (
             <SelectDropdown
+              className="w-[132px] flex-none sm:w-44"
               value={branch}
               onChange={setBranch}
               options={branchOptions}
-              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none min-w-44"
+              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none"
             />
           )}
         </div>

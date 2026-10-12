@@ -155,6 +155,8 @@ export async function getStockLedger(req, res, next) {
 
     const entries = [
       ...stockInRows.map((row) => ({
+        purchasePrice: Number(row.totalQty) > 0 ? Number(row.totalValue || 0) / Number(row.totalQty) : 0,
+        salesPrice: 0,
         _id: `in-${row._id}`,
         rawId: row._id,
         direction: 'in',
@@ -170,6 +172,8 @@ export async function getStockLedger(req, res, next) {
         sourceType: row.sourceType,
       })),
       ...stockOutRows.map((row) => ({
+        purchasePrice: 0,
+        salesPrice: Number(row.totalQty) > 0 ? Number(row.totalValue || 0) / Number(row.totalQty) : 0,
         _id: `out-${row._id}`,
         rawId: row._id,
         direction: 'out',

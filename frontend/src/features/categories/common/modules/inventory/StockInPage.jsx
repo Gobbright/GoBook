@@ -48,7 +48,8 @@ function formatINR(v) { return '₹ ' + Number(v).toLocaleString('en-IN'); }
 function toInputDate(d) { if (!d) return ''; return new Date(d).toISOString().slice(0, 10); }
 function formatDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
 
-function EditModal({ entry, onSave, onClose }) {
+function EditModal({ entry, mode = 'edit', onSave, onClose }) {
+  const isAdd = mode === 'add';
   const [form, setForm] = useState({ ...entry, date: toInputDate(entry.date) });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -62,7 +63,7 @@ function EditModal({ entry, onSave, onClose }) {
     setErr('');
     try {
       const payload = { ...form, itemCount: Number(form.itemCount), totalQty: Number(form.totalQty), totalValue: Number(form.totalValue) };
-      const result = await api.invUpdateStockIn(entry._id, payload);
+      const result = isAdd ? await api.invCreateStockIn(payload) : await api.invUpdateStockIn(entry._id, payload);
       onSave(result);
     } catch (e) {
       setErr(e.message || 'Failed to save');
@@ -75,7 +76,7 @@ function EditModal({ entry, onSave, onClose }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-130 mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#edf2f7]">
-          <h2 className="text-[16px] font-bold text-[#111827]">Edit Stock In</h2>
+          <h2 className="text-[16px] font-bold text-[#111827]">{isAdd ? 'Add Stock In' : 'Edit Stock In'}</h2>
           <button onClick={onClose} className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-lg leading-none">✕</button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-4">
@@ -117,7 +118,7 @@ function EditModal({ entry, onSave, onClose }) {
           <div className="flex gap-3 mt-5 justify-end">
             <button type="button" onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-60">
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving...' : isAdd ? 'Add Stock In' : 'Save Changes'}
             </button>
           </div>
         </form>
@@ -138,6 +139,7 @@ export function StockInPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [editing, setEditing] = useState(null);
+  const [creating, setCreating] = useState(false);
 
   const LIMIT = 5;
 
@@ -166,8 +168,37 @@ export function StockInPage() {
 
   function handleSaved(updated) {
     setEditing(null);
+    setCreating(false);
     setRecords((prev) => prev.map((r) => (r._id === updated._id ? updated : r)));
+    loadRecords();
     loadStats();
+  }
+
+  async function openCreateModal() {
+    try {
+      const result = await api.invStockInNextNumber();
+      setCreating({
+        stockInNo: result?.number || '',
+        date: new Date(),
+        productName: '',
+        supplier: '',
+        itemCount: 1,
+        totalQty: 1,
+        totalValue: 0,
+        status: 'Completed',
+      });
+    } catch {
+      setCreating({
+        stockInNo: '',
+        date: new Date(),
+        productName: '',
+        supplier: '',
+        itemCount: 1,
+        totalQty: 1,
+        totalValue: 0,
+        status: 'Completed',
+      });
+    }
   }
 
   function handleDelete(id) {
@@ -192,10 +223,16 @@ export function StockInPage() {
   return (
     <div className="p-7">
       {editing && <EditModal entry={editing} onSave={handleSaved} onClose={() => setEditing(null)} />}
+      {creating && <EditModal mode="add" entry={creating} onSave={handleSaved} onClose={() => setCreating(false)} />}
 
-      <div className="mb-5">
-        <h1 className="m-0 text-[22px] font-bold text-[#111827]">Stock In</h1>
-        <p className="m-0 text-[13px] text-[#536173] mt-0.5">Stock receipts are recorded automatically when products are added or restocked</p>
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="m-0 text-[22px] font-bold text-[#111827]">Stock In</h1>
+          <p className="m-0 text-[13px] text-[#536173] mt-0.5">Stock receipts are recorded automatically from purchases, or manually for adjustments</p>
+        </div>
+        <button type="button" onClick={openCreateModal} className="inline-flex items-center justify-center rounded-md border-0 bg-blue-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-blue-700 font-[inherit]">
+          + Add Stock In
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">

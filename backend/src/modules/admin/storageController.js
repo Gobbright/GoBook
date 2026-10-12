@@ -10,10 +10,23 @@ import { httpError } from '../../utils/httpError.js';
 const ALLOWED_FILE = /^(application\/pdf|image\/(jpeg|png|gif|webp)|video\/(mp4|webm|quicktime|x-matroska))$/i;
 const SENSITIVE_EXPORT_FIELD = /(password|secret|token|otp|signature|private.?key|api.?key|salt)/i;
 const NON_EXPORTABLE_COLLECTIONS = new Set(['gobookFiles.chunks']);
+const BACKUP_OWNER_FIELDS = ['businessId', 'userId', 'ownerUserId', 'parentUserId', 'createdBy', 'updatedBy', 'uploadedBy', 'assignedTo'];
+const BACKUP_FILE_COLLECTION = 'gobookFiles.files';
+const BACKUP_CHUNK_COLLECTION = 'gobookFiles.chunks';
+const { EJSON } = mongoose.mongo.BSON;
+
 export const adminStorageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, callback) => callback(ALLOWED_FILE.test(file.mimetype) ? null : httpError(400, 'Only PDF, image, and video files are allowed'), ALLOWED_FILE.test(file.mimetype)),
+});
+export const adminBackupUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    const ok = /json/i.test(file.mimetype || '') || /\.json$/i.test(file.originalname || '');
+    callback(ok ? null : httpError(400, 'Only JSON backup files are allowed'), ok);
+  },
 });
 
 function formatFile(file) {
@@ -109,6 +122,230 @@ async function writeExportChunk(res, chunk) {
   return !res.destroyed;
 }
 
+function safeCollectionName(name) {
+  return typeof name === 'string' && name && !name.startsWith('system.') && !name.includes('$');
+}
+
+function objectIdOrNull(value) {
+  return mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(value) : null;
+}
+
+async function indexesForBackup(db, name) {
+  const indexes = await db.collection(name).indexes().catch(() => []);
+  return indexes.filter((index) => index.name !== '_id_').map(({ v, ns, ...index }) => index);
+}
+
+async function relatedBackupContext(db, userId) {
+  const userObjectId = objectIdOrNull(userId);
+  if (!userObjectId) throw httpError(400, 'Valid userId is required');
+
+  const usersCollection = db.collection('appusers');
+  const user = await usersCollection.findOne({ _id: userObjectId });
+  if (!user) throw httpError(404, 'User not found');
+
+  const businessObjectId = objectIdOrNull(user.businessId);
+  const userQuery = {
+    $or: [
+      { _id: userObjectId },
+      ...(businessObjectId ? [{ businessId: businessObjectId }] : []),
+      { parentUserId: userObjectId },
+    ],
+  };
+  const users = await usersCollection.find(userQuery).project({ _id: 1 }).toArray();
+  const userIds = Array.from(new Map([userObjectId, ...users.map((item) => item._id)].map((id) => [String(id), id])).values());
+  const userIdStrings = userIds.map(String);
+  const businessIds = businessObjectId ? [businessObjectId] : [];
+
+  return { user, userIds, userIdStrings, businessIds };
+}
+
+function backupQueryForCollection(name, context, fileIds = []) {
+  const { userIds, userIdStrings, businessIds } = context;
+  if (name === 'appusers') {
+    return {
+      $or: [
+        { _id: { $in: userIds } },
+        ...(businessIds.length ? [{ businessId: { $in: businessIds } }] : []),
+        { parentUserId: { $in: userIds } },
+      ],
+    };
+  }
+  if (name === 'businesses') return businessIds.length ? { _id: { $in: businessIds } } : { _id: { $exists: false } };
+  if (name === BACKUP_CHUNK_COLLECTION) return fileIds.length ? { files_id: { $in: fileIds } } : { files_id: { $exists: false } };
+
+  const ownerMatches = BACKUP_OWNER_FIELDS.flatMap((field) => {
+    const values = field === 'businessId' ? businessIds : userIds;
+    const stringValues = field === 'businessId' ? businessIds.map(String) : userIdStrings;
+    return values.length ? [{ [field]: { $in: values } }, { [field]: { $in: stringValues } }] : [];
+  });
+  return ownerMatches.length ? { $or: ownerMatches } : { _id: { $exists: false } };
+}
+
+async function documentsForBackup(db, name, query) {
+  return db.collection(name).find(query).toArray();
+}
+
+function backupFileName(user) {
+  const label = String(user.businessName || user.name || user.email || user._id || 'user')
+    .replace(/[^a-z0-9._-]/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60) || 'user';
+  return `gobooks-user-backup-${label}-${new Date().toISOString().slice(0, 10)}.json`;
+}
+
+export async function exportUserMongoBackup(req, res, next) {
+  try {
+    const db = mongoose.connection.db;
+    const context = await relatedBackupContext(db, req.params.userId);
+    const collectionNames = (await db.listCollections({}, { nameOnly: true }).toArray())
+      .map(({ name }) => name)
+      .filter(safeCollectionName)
+      .filter((name) => name !== BACKUP_CHUNK_COLLECTION)
+      .sort();
+
+    const collections = [];
+    let gridFsFileIds = [];
+    for (const name of collectionNames) {
+      const documents = await documentsForBackup(db, name, backupQueryForCollection(name, context));
+      if (name === BACKUP_FILE_COLLECTION) gridFsFileIds = documents.map((document) => document._id);
+      if (documents.length) {
+        collections.push({ name, indexes: await indexesForBackup(db, name), documents });
+      }
+    }
+
+    if (gridFsFileIds.length) {
+      const chunks = await documentsForBackup(db, BACKUP_CHUNK_COLLECTION, backupQueryForCollection(BACKUP_CHUNK_COLLECTION, context, gridFsFileIds));
+      if (chunks.length) collections.push({ name: BACKUP_CHUNK_COLLECTION, indexes: await indexesForBackup(db, BACKUP_CHUNK_COLLECTION), documents: chunks });
+    }
+
+    const documentCount = collections.reduce((sum, collection) => sum + collection.documents.length, 0);
+    const payload = {
+      format: 'gobook-user-mongodb-backup',
+      version: 1,
+      exportedAt: new Date(),
+      database: db.databaseName,
+      userId: context.user._id,
+      businessId: context.user.businessId || null,
+      documentCount,
+      collections,
+    };
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${backupFileName(context.user)}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(EJSON.stringify(payload, { relaxed: false }));
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function bulkRestoreDocuments(db, name, documents) {
+  if (!documents.length) return { insertedOrUpdated: 0 };
+  const collection = db.collection(name);
+  let insertedOrUpdated = 0;
+  for (let index = 0; index < documents.length; index += 500) {
+    const chunk = documents.slice(index, index + 500);
+    const operations = chunk.map((document) => ({
+      replaceOne: {
+        filter: { _id: document._id },
+        replacement: document,
+        upsert: true,
+      },
+    }));
+    const result = await collection.bulkWrite(operations, { ordered: false });
+    insertedOrUpdated += Number(result.upsertedCount || 0) + Number(result.modifiedCount || 0) + Number(result.matchedCount || 0);
+  }
+  return { insertedOrUpdated };
+}
+
+export async function importUserMongoBackup(req, res, next) {
+  try {
+    if (!req.file?.buffer) return next(httpError(400, 'Backup JSON file is required'));
+    const backup = EJSON.parse(req.file.buffer.toString('utf8'), { relaxed: false });
+    if (backup?.format !== 'gobook-user-mongodb-backup' || !Array.isArray(backup.collections)) {
+      return next(httpError(400, 'Invalid GoBooks user MongoDB backup file'));
+    }
+
+    const db = mongoose.connection.db;
+    const backupUsers = backup.collections.find((collection) => collection.name === 'appusers')?.documents || [];
+    const backupBusinesses = backup.collections.find((collection) => collection.name === 'businesses')?.documents || [];
+    const backupUserIds = backupUsers.map((user) => user._id).filter(Boolean);
+    const backupBusinessIds = [
+      backup.businessId,
+      ...backupBusinesses.map((business) => business._id),
+      ...backupUsers.map((user) => user.businessId),
+    ].filter(Boolean);
+    const backupEmails = backupUsers
+      .map((user) => String(user.email || '').trim().toLowerCase())
+      .filter(Boolean);
+    const duplicateBackupEmails = backupEmails.filter((email, index) => backupEmails.indexOf(email) !== index);
+    if (duplicateBackupEmails.length) {
+      const uniqueDuplicates = [...new Set(duplicateBackupEmails)];
+      return next(httpError(400, `Backup has duplicate user email${uniqueDuplicates.length > 1 ? 's' : ''}: ${uniqueDuplicates.slice(0, 5).join(', ')}`));
+    }
+    if (backupEmails.length) {
+      const existingUsers = await db.collection('appusers')
+        .find({ email: { $in: backupEmails } })
+        .project({ email: 1, name: 1, businessName: 1 })
+        .toArray();
+      if (existingUsers.length) {
+        const emails = existingUsers.map((user) => user.email).filter(Boolean);
+        return next(httpError(409, `Import blocked. User email already exists: ${emails.slice(0, 5).join(', ')}${emails.length > 5 ? ` and ${emails.length - 5} more` : ''}`));
+      }
+    }
+    if (backupUserIds.length) {
+      const existingUserById = await db.collection('appusers')
+        .find({ _id: { $in: backupUserIds } })
+        .project({ email: 1, name: 1 })
+        .limit(5)
+        .toArray();
+      if (existingUserById.length) {
+        const labels = existingUserById.map((user) => user.email || user.name || String(user._id));
+        return next(httpError(409, `Import blocked. Backup user already exists: ${labels.join(', ')}`));
+      }
+    }
+    if (backupBusinessIds.length) {
+      const existingBusiness = await db.collection('businesses')
+        .find({ _id: { $in: backupBusinessIds } })
+        .project({ name: 1 })
+        .limit(5)
+        .toArray();
+      if (existingBusiness.length) {
+        const labels = existingBusiness.map((business) => business.name || String(business._id));
+        return next(httpError(409, `Import blocked. Backup business already exists: ${labels.join(', ')}`));
+      }
+    }
+
+    const summary = [];
+    const collections = [...backup.collections].sort((a, b) => {
+      if (a.name === BACKUP_CHUNK_COLLECTION) return 1;
+      if (b.name === BACKUP_CHUNK_COLLECTION) return -1;
+      return 0;
+    });
+
+    for (const collection of collections) {
+      if (!safeCollectionName(collection.name)) continue;
+      const documents = Array.isArray(collection.documents) ? collection.documents : [];
+      const result = await bulkRestoreDocuments(db, collection.name, documents);
+      const indexes = Array.isArray(collection.indexes) ? collection.indexes.filter((index) => index?.key) : [];
+      if (indexes.length) await db.collection(collection.name).createIndexes(indexes).catch(() => null);
+      summary.push({ name: collection.name, documents: documents.length, restored: result.insertedOrUpdated });
+    }
+
+    res.json({
+      imported: true,
+      sourceDatabase: backup.database || '',
+      userId: backup.userId || null,
+      businessId: backup.businessId || null,
+      collections: summary,
+      documents: summary.reduce((sum, item) => sum + item.documents, 0),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function exportStorageCollections(req, res, next) {
   try {
     const db = mongoose.connection.db;
@@ -161,35 +398,33 @@ export async function getStorageOverview(_req, res, next) {
       db.command({ dbStats: 1, scale: 1 }),
       filesCollection.find({}).sort({ uploadDate: -1 }).toArray(),
       Business.find({}).select('name category').lean(),
-      AppUser.find({}).select('name email businessName businessId').lean(),
+      AppUser.find({ status: /^active$/i }).select('name email businessName businessId').lean(),
       listCollectionsWithStats(),
     ]);
     const tenantUsage = await getTenantDocumentUsage(collections, users, businesses);
-    const businessMap = new Map(businesses.map((business) => [String(business._id), business]));
     const usersByBusiness = new Map();
     for (const user of users) {
       const key = String(user.businessId || 'platform');
-      const group = usersByBusiness.get(key) || { userCount: 0, ownerName: '', ownerEmail: '' };
+      const group = usersByBusiness.get(key) || { userCount: 0, ownerUserId: null, ownerName: '', ownerEmail: '' };
       group.userCount += 1;
+      if (!group.ownerUserId) group.ownerUserId = user._id;
       if (!group.ownerName) group.ownerName = user.name || user.businessName || '';
       if (!group.ownerEmail) group.ownerEmail = user.email || '';
       usersByBusiness.set(key, group);
     }
     const byBusinessMap = new Map();
     const byTypeMap = new Map();
-    const platformUsage = tenantUsage.get('platform') || {};
-    const platformUsers = usersByBusiness.get('platform') || {};
-    byBusinessMap.set('platform', { businessId: null, businessName: 'GoBooks Platform', category: 'platform', userCount: platformUsers.userCount || 0, ownerName: platformUsers.ownerName || '', ownerEmail: platformUsers.ownerEmail || '', files: 0, fileBytes: 0, databaseBytes: platformUsage.databaseBytes || 0, databaseDocuments: platformUsage.databaseDocuments || 0, bytes: platformUsage.databaseBytes || 0 });
     for (const business of businesses) {
       const databaseUsage = tenantUsage.get(String(business._id)) || {};
       const linkedUsers = usersByBusiness.get(String(business._id)) || {};
-      byBusinessMap.set(String(business._id), { businessId: business._id, businessName: business.name, category: business.category, userCount: linkedUsers.userCount || 0, ownerName: linkedUsers.ownerName || '', ownerEmail: linkedUsers.ownerEmail || '', files: 0, fileBytes: 0, databaseBytes: databaseUsage.databaseBytes || 0, databaseDocuments: databaseUsage.databaseDocuments || 0, bytes: databaseUsage.databaseBytes || 0 });
+      if (!linkedUsers.ownerUserId || !linkedUsers.userCount) continue;
+      byBusinessMap.set(String(business._id), { businessId: business._id, businessName: business.name, category: business.category, userCount: linkedUsers.userCount || 0, ownerUserId: linkedUsers.ownerUserId || null, ownerName: linkedUsers.ownerName || '', ownerEmail: linkedUsers.ownerEmail || '', files: 0, fileBytes: 0, databaseBytes: databaseUsage.databaseBytes || 0, databaseDocuments: databaseUsage.databaseDocuments || 0, bytes: databaseUsage.databaseBytes || 0 });
     }
     for (const file of files) {
       const businessId = String(file.metadata?.businessId || '');
-      const business = businessMap.get(businessId);
       const businessKey = businessId || 'platform';
-      const current = byBusinessMap.get(businessKey) || { businessId: businessId || null, businessName: business?.name || 'Deleted/Unknown Business', category: business?.category || 'unknown', userCount: 0, ownerName: '', ownerEmail: '', files: 0, fileBytes: 0, databaseBytes: 0, databaseDocuments: 0, bytes: 0 };
+      const current = byBusinessMap.get(businessKey);
+      if (!current) continue;
       current.files += 1;
       current.fileBytes += Number(file.length || 0);
       current.bytes = current.databaseBytes + current.fileBytes;

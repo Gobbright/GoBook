@@ -65,6 +65,3 @@ export function deleteFollowUp(id) {
   return apiClient(`/crm/follow-ups/${id}`, { method: 'DELETE' });
 }
 
-export function getCustomerLifecycle() {
-  return apiClient('/crm/lifecycle');
-}

@@ -193,17 +193,17 @@ export function LedgerPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-        <form className="w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-white border border-[#dfe7f1] rounded-lg shadow-xl" onSubmit={handleSubmit}>
-          <div className="sticky top-0 z-10 flex justify-between items-center border-b border-[#edf2f7] bg-white px-6 py-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 md:items-center md:p-4">
+        <form className="flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[#dfe7f1] bg-white shadow-2xl md:max-w-2xl md:rounded-2xl" onSubmit={handleSubmit}>
+          <div className="sticky top-0 z-10 flex justify-between items-center border-b border-[#edf2f7] bg-white px-4 py-3 md:px-6 md:py-4">
             <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit Ledger' : 'New Ledger'}</h3>
             <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>×</button>
           </div>
-          <div className="px-6 py-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Account Name <span className="text-red-500">*</span></label>
-              <input className="w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="e.g. HDFC Bank Account" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
+              <input className="h-11 w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="e.g. HDFC Bank Account" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Account Group <span className="text-red-500">*</span></label>
@@ -217,7 +217,7 @@ export function LedgerPage() {
               />
               {form.group === CUSTOM_GROUP_OPTION && (
                 <input
-                  className="mt-2 w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]"
+                  className="mt-2 h-11 w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]"
                   placeholder="Type custom group"
                   required
                   value={customGroup}
@@ -227,22 +227,22 @@ export function LedgerPage() {
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Opening Balance (₹)</label>
-              <input className="w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="0.00" type="number" value={form.opening} onChange={(e) => updateForm('opening', e.target.value)} />
+              <input className="h-11 w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="0.00" type="number" value={form.opening} onChange={(e) => updateForm('opening', e.target.value)} />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Debit (₹)</label>
-              <input className="w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="0.00" type="number" value={form.debit} onChange={(e) => updateForm('debit', e.target.value)} />
+              <input className="h-11 w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="0.00" type="number" value={form.debit} onChange={(e) => updateForm('debit', e.target.value)} />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Credit (₹)</label>
-              <input className="w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="0.00" type="number" value={form.credit} onChange={(e) => updateForm('credit', e.target.value)} />
+              <input className="h-11 w-full border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="0.00" type="number" value={form.credit} onChange={(e) => updateForm('credit', e.target.value)} />
             </div>
           </div>
           {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mt-3">{formError}</p>}
           </div>
-          <div className="sticky bottom-0 z-10 flex justify-end gap-2 border-t border-[#edf2f7] bg-white px-6 py-4">
-            <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
-            <button className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="submit">{editingId ? 'Update Ledger' : 'Save Ledger'}</button>
+          <div className="sticky bottom-0 z-10 grid grid-cols-2 gap-2 border-t border-[#edf2f7] bg-white px-4 py-3 md:flex md:justify-end md:px-6 md:py-4">
+            <button className="h-10 px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
+            <button className="h-10 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="submit">{editingId ? 'Update Ledger' : 'Save Ledger'}</button>
           </div>
         </form>
         </div>
@@ -279,15 +279,15 @@ export function LedgerPage() {
 
       {/* ── Table Card ── */}
       <div className="bg-white border border-[#dfe7f1] rounded-xl">
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7]">
-          <div className="relative flex-1 max-w-xs">
+        <div className="grid grid-cols-2 items-center gap-2 px-3 py-3 border-b border-[#edf2f7] md:flex md:flex-wrap md:gap-3 md:px-5 md:py-3.5">
+          <div className="relative col-span-2 min-w-0 md:col-span-1 md:flex-1 md:max-w-sm">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13">
               <circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" />
             </svg>
-            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search ledger accounts..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className="h-11 w-full border border-[#dbe4ef] rounded-lg pl-9 pr-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] md:h-auto md:rounded-md md:pl-8" placeholder="Search ledger accounts..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <SelectDropdown className="w-40 flex-none" value={group} onChange={setGroup} options={groupFilterOptions} />
-          <button className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button">
+          <SelectDropdown className="min-w-0 md:w-40 md:flex-none" buttonClassName="h-11 rounded-lg md:h-auto md:rounded-md" value={group} onChange={setGroup} options={groupFilterOptions} />
+          <button className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-[#dbe4ef] bg-white px-3.5 py-2 text-[13px] font-medium text-gray-700 cursor-pointer hover:bg-gray-50 font-[inherit] md:h-auto md:rounded-md" type="button">
             <svg fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
             Filter
           </button>

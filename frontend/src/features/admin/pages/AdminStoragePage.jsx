@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, Building2, Database, Download, File, HardDrive, RefreshCw, Upload } from 'lucide-react';
 
 import { AdminLayout } from '../AdminLayout.jsx';
-import { downloadAdminCollectionExport, downloadAdminStorageFile, fetchDailyStorageReports, fetchStorageBusinesses, fetchStorageFiles, fetchStorageOverview, uploadAdminStorageFile } from '../adminService.js';
+import { downloadAdminCollectionExport, downloadAdminStorageFile, downloadAdminUserBackup, fetchDailyStorageReports, fetchStorageBusinesses, fetchStorageFiles, fetchStorageOverview, importAdminUserBackup, uploadAdminStorageFile } from '../adminService.js';
 
 function bytes(value) {
   const size = Number(value || 0);
@@ -48,9 +48,14 @@ export function AdminStoragePage({ type = 'overview' }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState('');
+  const [userBackupExporting, setUserBackupExporting] = useState('');
+  const [importingBackup, setImportingBackup] = useState(false);
+  const [importResult, setImportResult] = useState('');
   const [error, setError] = useState('');
   const [file, setFile] = useState(null);
+  const [backupFile, setBackupFile] = useState(null);
   const [businessId, setBusinessId] = useState('');
+  const [selectedBackupUsers, setSelectedBackupUsers] = useState([]);
 
   async function load() {
     try {
@@ -102,21 +107,6 @@ export function AdminStoragePage({ type = 'overview' }) {
     }
   }
 
-  function exportUsersCsv() {
-    const rows = (overview?.businesses || []).map((row) => [
-      row.businessName,
-      row.ownerName,
-      row.ownerEmail,
-      row.userCount,
-      row.category,
-      row.databaseBytes,
-      row.files,
-      row.fileBytes,
-      row.bytes,
-    ]);
-    downloadCsv(`gobooks-all-user-size-${new Date().toISOString().slice(0, 10)}.csv`, ['Business / Website', 'Owner', 'Owner Email', 'Users', 'Category', 'Database Bytes', 'GridFS Files', 'GridFS Bytes', 'Total Bytes'], rows);
-  }
-
   function exportCollectionsSummaryCsv() {
     const rows = (overview?.collections || []).map((row) => [row.name, row.documents, row.dataSize, row.storageSize, row.indexes]);
     downloadCsv(`gobooks-db-collections-${new Date().toISOString().slice(0, 10)}.csv`, ['Collection', 'Documents', 'Data Bytes', 'Allocated Storage Bytes', 'Indexes'], rows);
@@ -134,6 +124,71 @@ export function AdminStoragePage({ type = 'overview' }) {
     }
   }
 
+  async function exportUserBackup(userId) {
+    if (!userId) return;
+    try {
+      setUserBackupExporting(userId);
+      setError('');
+      await downloadAdminUserBackup(userId);
+    } catch (exportError) {
+      setError(exportError.message || 'User backup export failed');
+    } finally {
+      setUserBackupExporting('');
+    }
+  }
+
+  async function exportSelectedUserBackups() {
+    const ids = selectedBackupUsers.filter(Boolean);
+    if (!ids.length) return;
+    try {
+      setUserBackupExporting('selected');
+      setError('');
+      for (const userId of ids) {
+        await downloadAdminUserBackup(userId);
+      }
+    } catch (exportError) {
+      setError(exportError.message || 'Selected user backup export failed');
+    } finally {
+      setUserBackupExporting('');
+    }
+  }
+
+  function toggleBackupUser(userId) {
+    setSelectedBackupUsers((current) => (
+      current.includes(userId)
+        ? current.filter((id) => id !== userId)
+        : [...current, userId]
+    ));
+  }
+
+  const backupRows = (overview?.businesses || []).filter((row) => row.ownerUserId);
+  const selectedBackupSet = new Set(selectedBackupUsers);
+  const allBackupRowsSelected = backupRows.length > 0 && backupRows.every((row) => selectedBackupSet.has(row.ownerUserId));
+
+  function toggleAllBackupUsers() {
+    setSelectedBackupUsers(allBackupRowsSelected ? [] : backupRows.map((row) => row.ownerUserId));
+  }
+
+  async function importUserBackup(event) {
+    event.preventDefault();
+    if (!backupFile) return;
+    const formElement = event.currentTarget;
+    try {
+      setImportingBackup(true);
+      setError('');
+      setImportResult('');
+      const result = await importAdminUserBackup(backupFile);
+      setImportResult(`Imported ${Number(result.documents || 0).toLocaleString('en-IN')} documents from ${result.collections?.length || 0} collections.`);
+      setBackupFile(null);
+      formElement.reset();
+      await load();
+    } catch (importError) {
+      setError(importError.message || 'User backup import failed');
+    } finally {
+      setImportingBackup(false);
+    }
+  }
+
   const heading = useMemo(() => ({
     overview: ['Storage Overview', 'MongoDB database and GridFS usage in one place'],
     files: ['GridFS Files', 'PDF, image, and video files stored inside MongoDB'],
@@ -148,7 +203,7 @@ export function AdminStoragePage({ type = 'overview' }) {
         <div className="mb-6 flex items-start justify-between gap-4">
           <div><h2 className="m-0 text-2xl font-black">{heading[0]}</h2><p className="m-0 mt-1 text-sm text-slate-500">{heading[1]}</p></div>
           <div className="flex flex-wrap justify-end gap-2">
-            {type === 'businesses' ? <button type="button" onClick={exportUsersCsv} disabled={!overview} className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-900 dark:bg-slate-900 dark:text-emerald-300"><Download size={15} /> Export Users CSV</button> : null}
+            {type === 'businesses' ? <button type="button" onClick={exportSelectedUserBackups} disabled={!selectedBackupUsers.length || Boolean(userBackupExporting)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-violet-200 bg-white px-4 text-sm font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-50 dark:border-violet-900 dark:bg-slate-900 dark:text-violet-300">{userBackupExporting === 'selected' ? <RefreshCw size={15} className="animate-spin" /> : <Download size={15} />} Export Selected JSON</button> : null}
             {type === 'collections' ? <>
               <button type="button" onClick={exportCollectionsSummaryCsv} disabled={!overview} className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-900 dark:bg-slate-900 dark:text-emerald-300"><Download size={15} /> Export Summary CSV</button>
               <button type="button" onClick={() => exportCollectionData()} disabled={!overview || Boolean(exporting)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-violet-200 bg-white px-4 text-sm font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-50 dark:border-violet-900 dark:bg-slate-900 dark:text-violet-300">{exporting === 'all' ? <RefreshCw size={15} className="animate-spin" /> : <Download size={15} />} Export All Data JSON</button>
@@ -157,6 +212,7 @@ export function AdminStoragePage({ type = 'overview' }) {
           </div>
         </div>
         {error ? <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div> : null}
+        {importResult ? <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">{importResult}</div> : null}
         {loading && !overview ? <div className="grid min-h-64 place-items-center"><RefreshCw className="animate-spin text-blue-600" size={34} /></div> : null}
 
         {overview && type === 'overview' ? <>
@@ -182,7 +238,13 @@ export function AdminStoragePage({ type = 'overview' }) {
           <TableShell><table className="w-full border-collapse"><thead><tr><th className={th}>File</th><th className={th}>Kind</th><th className={th}>Content type</th><th className={th}>Size</th><th className={th}>Uploaded</th><th className={th}>Action</th></tr></thead><tbody>{files.map((row) => <tr key={row.id}><td className={td}>{row.filename}</td><td className={td}>{row.kind}</td><td className={td}>{row.contentType}</td><td className={td}>{bytes(row.size)}</td><td className={td}>{new Date(row.uploadedAt).toLocaleString('en-IN')}</td><td className={td}><button onClick={() => downloadAdminStorageFile(row.id)} className="inline-flex items-center gap-1 rounded-md border border-blue-200 px-2 py-1 text-xs font-bold text-blue-600"><Download size={13} /> Download</button></td></tr>)}</tbody></table></TableShell>
         </> : null}
 
-        {type === 'businesses' ? <TableShell><table className="w-full border-collapse"><thead><tr><th className={th}>User / Business / Website</th><th className={th}>Owner email</th><th className={th}>Users</th><th className={th}>Category</th><th className={th}>Database data</th><th className={th}>GridFS files</th><th className={th}>GridFS size</th><th className={th}>Total used</th></tr></thead><tbody>{(overview?.businesses || []).map((row) => <tr key={row.businessId || 'platform'}><td className={td}><span className="font-bold">{row.businessName}</span>{row.ownerName ? <span className="block text-xs text-slate-500">{row.ownerName}</span> : null}</td><td className={td}>{row.ownerEmail || '-'}</td><td className={td}>{Number(row.userCount || 0).toLocaleString('en-IN')}</td><td className={td}>{row.category}</td><td className={td}>{bytes(row.databaseBytes)}</td><td className={td}>{row.files}</td><td className={td}>{bytes(row.fileBytes)}</td><td className={td}><span className="font-black text-blue-600 dark:text-blue-400">{bytes(row.bytes)}</span></td></tr>)}</tbody></table></TableShell> : null}
+        {type === 'businesses' ? <>
+          <form onSubmit={importUserBackup} className="mb-5 grid gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950/20 md:grid-cols-[1fr_auto]">
+            <input type="file" accept=".json,application/json" onChange={(event) => setBackupFile(event.target.files?.[0] || null)} required className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <button disabled={importingBackup} className="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Upload size={15} /> {importingBackup ? 'Importing...' : 'Import JSON Backup'}</button>
+          </form>
+          <TableShell><table className="w-full border-collapse"><thead><tr><th className={th}><input type="checkbox" checked={allBackupRowsSelected} onChange={toggleAllBackupUsers} aria-label="Select all customers" className="h-4 w-4 accent-violet-600" /></th><th className={th}>User / Business / Website</th><th className={th}>Owner email</th><th className={th}>Users</th><th className={th}>Category</th><th className={th}>Database data</th><th className={th}>GridFS files</th><th className={th}>GridFS size</th><th className={th}>Total used</th><th className={th}>Backup</th></tr></thead><tbody>{(overview?.businesses || []).map((row) => <tr key={row.businessId || 'platform'}><td className={td}>{row.ownerUserId ? <input type="checkbox" checked={selectedBackupSet.has(row.ownerUserId)} onChange={() => toggleBackupUser(row.ownerUserId)} aria-label={`Select ${row.businessName}`} className="h-4 w-4 accent-violet-600" /> : null}</td><td className={td}><span className="font-bold">{row.businessName}</span>{row.ownerName ? <span className="block text-xs text-slate-500">{row.ownerName}</span> : null}</td><td className={td}>{row.ownerEmail || '-'}</td><td className={td}>{Number(row.userCount || 0).toLocaleString('en-IN')}</td><td className={td}>{row.category}</td><td className={td}>{bytes(row.databaseBytes)}</td><td className={td}>{row.files}</td><td className={td}>{bytes(row.fileBytes)}</td><td className={td}><span className="font-black text-blue-600 dark:text-blue-400">{bytes(row.bytes)}</span></td><td className={td}>{row.ownerUserId ? <button type="button" onClick={() => exportUserBackup(row.ownerUserId)} disabled={Boolean(userBackupExporting)} className="inline-flex items-center gap-1 rounded-md border border-violet-200 px-2 py-1 text-xs font-bold text-violet-700 disabled:opacity-50 dark:border-violet-900 dark:text-violet-300">{userBackupExporting === row.ownerUserId ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />} Export JSON</button> : <span className="text-xs font-semibold text-slate-400">No owner</span>}</td></tr>)}</tbody></table></TableShell>
+        </> : null}
 
         {type === 'collections' ? <TableShell><table className="w-full border-collapse"><thead><tr><th className={th}>Collection / Table</th><th className={th}>Documents</th><th className={th}>Data</th><th className={th}>Allocated storage</th><th className={th}>Indexes</th><th className={th}>Export</th></tr></thead><tbody>{(overview?.collections || []).map((row) => <tr key={row.name}><td className={td}>{row.name}</td><td className={td}>{row.documents.toLocaleString('en-IN')}</td><td className={td}>{bytes(row.dataSize)}</td><td className={td}>{bytes(row.storageSize)}</td><td className={td}>{row.indexes}</td><td className={td}>{row.name === 'gobookFiles.chunks' || row.name.startsWith('system.') ? <span className="text-xs font-semibold text-slate-400">Use GridFS Files</span> : <button type="button" onClick={() => exportCollectionData(row.name)} disabled={Boolean(exporting)} className="inline-flex items-center gap-1 rounded-md border border-violet-200 px-2 py-1 text-xs font-bold text-violet-700 disabled:opacity-50 dark:border-violet-900 dark:text-violet-300">{exporting === row.name ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />} Export JSON</button>}</td></tr>)}</tbody></table></TableShell> : null}
 

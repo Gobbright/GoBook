@@ -113,31 +113,55 @@ export function FollowUpsPage() {
           <h1 className="m-0 text-[22px] font-bold">Follow Ups</h1>
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">Manage your follow ups and never miss any opportunity</p>
         </div>
-        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="button" onClick={() => setShowForm(true)}>
+        <button className="inline-flex h-10 w-fit flex-none items-center justify-center gap-1.5 rounded-md border-0 bg-blue-600 px-4 py-2 text-[13px] font-medium text-white cursor-pointer hover:bg-blue-700 font-[inherit] shadow-sm sm:shadow-none" type="button" onClick={() => setShowForm(true)} aria-label="Add Follow Up" title="Add Follow Up">
           <svg fill="none" height="14" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" width="14"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
-          Add Follow Up
+          <span>Add Follow Up</span>
         </button>
       </div>
 
       {showForm && (
-        <form className="bg-white border border-[#dfe7f1] rounded-xl p-5 mt-5" onSubmit={handleSubmit}>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit Follow Up' : 'New Follow Up'}</h3>
+        <div className="customer-form-overlay fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/35 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="follow-up-modal-title">
+          <button type="button" aria-label="Close follow up form" className="absolute inset-0 cursor-default border-0 bg-transparent" onClick={resetForm} />
+        <form className="customer-form-modal relative w-full max-w-[760px] rounded-lg border border-[#cfdced] bg-white p-5 shadow-2xl" onSubmit={handleSubmit}>
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h3 id="follow-up-modal-title" className="m-0 text-[18px] font-bold text-[#111827] sm:text-[20px]">{editingId ? 'Edit Follow Up' : 'Add Follow Up'}</h3>
+              <p className="m-0 mt-1 text-[12px] text-[#64748b] sm:text-[13px]">Schedule the next call, visit, or reminder.</p>
+            </div>
             <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>×</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Lead / Customer name" required value={form.person} onChange={(e) => updateForm('person', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Regarding" value={form.regarding} onChange={(e) => updateForm('regarding', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Owner" value={form.owner} onChange={(e) => updateForm('owner', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" type="date" value={form.date} onChange={(e) => updateForm('date', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" type="time" value={form.time} onChange={(e) => updateForm('time', e.target.value)} />
-            <SelectDropdown value={form.status} onChange={(v) => updateForm('status', v)} options={['Pending', 'Done', 'Overdue']} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Lead / Customer *</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Lead / Customer name" required value={form.person} onChange={(e) => updateForm('person', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Owner</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Owner" value={form.owner} onChange={(e) => updateForm('owner', e.target.value)} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Regarding</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="What is this follow up about?" value={form.regarding} onChange={(e) => updateForm('regarding', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Date</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" type="date" value={form.date} onChange={(e) => updateForm('date', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Time</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" type="time" value={form.time} onChange={(e) => updateForm('time', e.target.value)} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Status</label>
+              <SelectDropdown buttonClassName="!h-[40px] !rounded-md !border-[#dbe4ef] !px-3 !text-[14px]" value={form.status} onChange={(v) => updateForm('status', v)} options={['Pending', 'Done', 'Overdue']} />
+            </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
-            <button className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="submit">{editingId ? 'Update Follow Up' : 'Save Follow Up'}</button>
+          <div className="mt-5 flex justify-end gap-2.5">
+            <button className="h-10 min-w-[78px] rounded-md border border-[#dbe4ef] bg-white px-4 text-[14px] font-semibold text-[#1f2937] cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
+            <button className="h-10 min-w-[132px] rounded-md border-0 bg-blue-600 px-4 text-[14px] font-semibold text-white cursor-pointer hover:bg-blue-700 font-[inherit]" type="submit">{editingId ? 'Update Follow Up' : 'Save Follow Up'}</button>
           </div>
         </form>
+        </div>
       )}
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl mt-5">

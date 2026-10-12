@@ -1,8 +1,17 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { env } from '../config/env.js';
+import { AdminRecord } from '../models/AdminRecord.js';
 import { httpError } from '../utils/httpError.js';
 
 const API_BASE = 'https://api.razorpay.com/v1';
+export async function isRazorpayPaymentsEnabled() {
+  const setting = await AdminRecord.findOne({ kind: 'paymentSettings' }).sort({ updatedAt: -1, createdAt: -1 }).lean();
+  if (setting) return setting.status === 'Enabled' && isRazorpayConfigured();
+  // A newly deployed production app with valid live credentials can accept
+  // payments immediately. Admins can still pause checkout by saving Disabled.
+  return env.nodeEnv === 'production' && isRazorpayConfigured();
+}
+
 export function isRazorpayConfigured() {
   return Boolean(env.razorpay.keyId && env.razorpay.keySecret);
 }
@@ -42,6 +51,12 @@ function secureCompare(expected, received) {
   const expectedBuffer = Buffer.from(String(expected || ''), 'utf8');
   const receivedBuffer = Buffer.from(String(received || ''), 'utf8');
   return expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer);
+}
+export function createRazorpayCustomer(payload) {
+  return razorpayRequest('/customers', { method: 'POST', body: JSON.stringify(payload) });
+}
+export function createRazorpayRefund(paymentId, payload = {}) {
+  return razorpayRequest(`/payments/${encodeURIComponent(paymentId)}/refund`, { method: 'POST', body: JSON.stringify(payload) });
 }
 export function verifyCheckoutSignature({ orderId, paymentId, signature }) {
   requireConfiguration();

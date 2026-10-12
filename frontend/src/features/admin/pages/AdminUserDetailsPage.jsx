@@ -72,7 +72,7 @@ export function AdminUserDetailsPage({ type = 'business' }) {
           </div>
         </header>
 
-        <main className="p-4 md:p-6 space-y-4 md:space-y-5 max-w-6xl mx-auto">
+        <main className="p-4 md:p-6 space-y-4 md:space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 md:p-4">
               <p className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium">Visible Records</p>
@@ -108,5 +108,6 @@ export function AdminUserDetailsPage({ type = 'business' }) {
     </AdminLayout>
   );
 }
+
 
 

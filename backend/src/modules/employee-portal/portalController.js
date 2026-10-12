@@ -14,7 +14,6 @@ import { Employee } from '../../models/Employee.js';
 import { EmployeeLogin } from '../../models/EmployeeLogin.js';
 import { Holiday } from '../../models/Holiday.js';
 import { Leave } from '../../models/Leave.js';
-import { Notice } from '../../models/Notice.js';
 import { Payroll } from '../../models/Payroll.js';
 import { reverseGeocodeLocation } from '../../services/reverseGeocode.js';
 import { httpError } from '../../utils/httpError.js';
@@ -91,6 +90,36 @@ function parseObject(value, fallback = {}) {
   } catch {
     return fallback;
   }
+}
+
+function salaryNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
+function defaultSalaryStructure(basicSalary = 0) {
+  const basic = salaryNumber(basicSalary);
+  return {
+    hra: Math.round(basic * 0.32),
+    specialAllowance: Math.round(basic * 0.2),
+    conveyanceAllowance: 1600,
+    medicalAllowance: 1000,
+    otherAllowances: 0,
+    pf: Math.round(basic * 0.12),
+    esi: Math.round(basic * 0.02),
+    professionalTax: 200,
+    tds: Math.round(basic * 0.07),
+    otherDeduction: 500,
+    loanDeduction: 0,
+  };
+}
+
+function normalizeSalaryStructure(input, basicSalary = 0, existing = {}) {
+  const source = parseObject(input, {});
+  const defaults = { ...defaultSalaryStructure(basicSalary), ...(existing || {}) };
+  return Object.fromEntries(
+    Object.entries(defaults).map(([key, fallback]) => [key, salaryNumber(source[key], salaryNumber(fallback))]),
+  );
 }
 
 function datesBetween(from, to = from) {
@@ -290,13 +319,12 @@ export async function employeeDashboard(req, res, next) {
     const ownerUserId = req.employeeUser.ownerUserId;
     const employeeId = req.employeeUser.employeeId;
     const filter = { userId: ownerUserId, employeeId };
-    const [attendance, leaves, payslips, notices] = await Promise.all([
+    const [attendance, leaves, payslips] = await Promise.all([
       Attendance.countDocuments(filter),
       Leave.countDocuments({ userId: ownerUserId, empId: employeeId }),
       Payroll.countDocuments(filter),
-      Notice.countDocuments({ ownerUserId, status: 'Published', audience: { $in: ['all', 'employee'] } }),
     ]);
-    res.json({ attendance, leaves, payslips, notices });
+    res.json({ attendance, leaves, payslips });
   } catch (err) {
     next(err);
   }
@@ -396,15 +424,6 @@ export async function employeeLeaveStatus(req, res, next) {
 export async function employeeLeaveHistory(req, res, next) {
   try {
     const data = await Leave.find({ userId: req.employeeUser.ownerUserId, empId: req.employeeUser.employeeId }).sort({ createdAt: -1 }).lean();
-    res.json({ data });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function employeeNotices(req, res, next) {
-  try {
-    const data = await Notice.find({ ownerUserId: req.employeeUser.ownerUserId, status: 'Published', audience: { $in: ['all', req.employeeUser.role] } }).sort({ publishDate: -1, createdAt: -1 }).lean();
     res.json({ data });
   } catch (err) {
     next(err);
@@ -516,11 +535,11 @@ export async function createAdminEmployee(req, res, next) {
     const category = await resolveOwnerCategory(ownerUserId);
     const {
       employeeId, name, email, mobileNumber, phone, department, dept, designation, joiningDate, joinDate,
-      password, loginAccess = true, status = 'Active', role = 'employee', basicSalary = 0,
+      password, loginAccess = false, status = 'Active', role = 'employee', basicSalary = 0,
       gender = '', dateOfBirth = '', bloodGroup = '', address = '', branch = '', reportingManager = '',
-      employmentType = 'Full Time', shift = '', workLocation = '', emergencyContact = {},
+      employmentType = 'Full Time', shift = '', workLocation = '', emergencyContact = {}, salaryStructure,
     } = req.body;
-    const finalLoginAccess = parseBoolean(loginAccess, true);
+    const finalLoginAccess = parseBoolean(loginAccess, false);
     const finalEmergencyContact = parseObject(emergencyContact);
     const visiblePassword = String(password || '').trim();
     if (!name || !email) return next(httpError(400, 'Employee name and email are required'));
@@ -528,6 +547,7 @@ export async function createAdminEmployee(req, res, next) {
     const finalRole = roleSet.has(role) ? role : 'employee';
     const finalEmployeeId = String(employeeId || await nextEmployeeId(ownerUserId)).trim();
     const photo = await saveEmployeePhoto(req.file);
+    const finalBasicSalary = salaryNumber(basicSalary);
     const employee = await Employee.create({
       userId: ownerUserId,
       category,
@@ -542,7 +562,8 @@ export async function createAdminEmployee(req, res, next) {
       loginAccess: finalLoginAccess,
       loginPassword: visiblePassword,
       employeeRole: finalRole,
-      basicSalary: Number(basicSalary) || 0,
+      basicSalary: finalBasicSalary,
+      salaryStructure: normalizeSalaryStructure(salaryStructure, finalBasicSalary),
       ...(photo ? { photo } : {}),
       gender,
       dateOfBirth,
@@ -610,6 +631,7 @@ export async function updateAdminEmployee(req, res, next) {
       shift,
       workLocation,
       emergencyContact,
+      salaryStructure,
     } = req.body;
 
     const wantsLogin = loginAccess === undefined ? Boolean(existing.loginAccess) : Boolean(loginAccess);
@@ -624,6 +646,7 @@ export async function updateAdminEmployee(req, res, next) {
     const finalEmail = normalizeEmail(email ?? existing.email);
     if (!finalName || !finalEmail) return next(httpError(400, 'Employee name and email are required'));
 
+    const finalBasicSalary = Number.isFinite(Number(basicSalary)) ? salaryNumber(basicSalary, existing.basicSalary) : existing.basicSalary;
     const update = {
       name: finalName,
       email: finalEmail,
@@ -631,7 +654,7 @@ export async function updateAdminEmployee(req, res, next) {
       dept: department !== undefined ? String(department ?? '').trim() : existing.dept,
       designation: designation !== undefined ? String(designation ?? '').trim() : existing.designation,
       joinDate: joiningDate !== undefined ? String(joiningDate ?? '').trim() : existing.joinDate,
-      basicSalary: Number.isFinite(Number(basicSalary)) ? Number(basicSalary) : existing.basicSalary,
+      basicSalary: finalBasicSalary,
       loginAccess: wantsLogin,
       status: ['Active', 'Inactive', 'Probation', 'On Leave', 'Resigned', 'Terminated'].includes(status) ? status : existing.status,
       employeeRole: finalRole,
@@ -652,6 +675,9 @@ export async function updateAdminEmployee(req, res, next) {
         relationship: String(emergencyContact?.relationship || '').trim(),
         phone: String(emergencyContact?.phone || '').trim(),
       };
+    }
+    if (salaryStructure !== undefined || basicSalary !== undefined) {
+      update.salaryStructure = normalizeSalaryStructure(salaryStructure, finalBasicSalary, existing.salaryStructure);
     }
     if (shouldChangePassword) update.loginPassword = visiblePassword;
 
@@ -954,8 +980,11 @@ export async function generateAdminPayroll(req, res, next) {
     const employees = await Employee.find({ userId: ownerUserId, status: { $ne: 'Terminated' } }).lean();
     const operations = employees.map((employee) => {
       const basic = Number(employee.basicSalary || 0);
-      const allowances = Math.round(basic * 0.22);
-      const deductions = Math.round(basic * 0.16);
+      const structure = normalizeSalaryStructure(employee.salaryStructure, basic);
+      const allowances = ['hra', 'specialAllowance', 'conveyanceAllowance', 'medicalAllowance', 'otherAllowances']
+        .reduce((sum, key) => sum + salaryNumber(structure[key]), 0);
+      const deductions = ['pf', 'esi', 'professionalTax', 'tds', 'otherDeduction', 'loanDeduction']
+        .reduce((sum, key) => sum + salaryNumber(structure[key]), 0);
       return {
         updateOne: {
           filter: { userId: ownerUserId, employeeId: employee.employeeId, month },
@@ -1026,33 +1055,6 @@ export async function updateAdminPayroll(req, res, next) {
     ).lean();
     if (!payroll) return next(httpError(404, 'Payroll record not found'));
     res.json(payroll);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function adminNotices(req, res, next) {
-  try {
-    const data = await Notice.find({ ownerUserId: req.employeeUser.ownerUserId }).sort({ publishDate: -1, createdAt: -1 }).lean();
-    res.json({ data });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function createNotice(req, res, next) {
-  try {
-    const { title, message } = req.body;
-    if (!title || !message) return next(httpError(400, 'Title and message are required'));
-    const notice = await Notice.create({
-      ownerUserId: req.employeeUser.ownerUserId,
-      title,
-      message,
-      audience: 'all',
-      status: 'Published',
-      publishDate: today(),
-    });
-    res.status(201).json(notice);
   } catch (err) {
     next(err);
   }

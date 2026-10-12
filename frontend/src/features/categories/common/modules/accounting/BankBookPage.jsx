@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { getBankBook } from '../../../../../services/accountingService.js';
+import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
@@ -100,12 +101,14 @@ export function BankBookPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SelectDropdown className="w-40 flex-none" value={bank} onChange={setBank} options={bankOptions} />
-          <div className="flex items-center gap-1.5 border border-[#dbe4ef] rounded-md px-3 py-2 bg-white text-[13px]">
-            <svg fill="none" height="13" stroke="#536173" strokeWidth="2" viewBox="0 0 24 24" width="13"><rect height="18" rx="2" ry="2" width="18" x="3" y="4" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg>
-            <input className="outline-none font-[inherit] text-[13px] border-0 w-28" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-            <span className="text-[#536173]">–</span>
-            <input className="outline-none font-[inherit] text-[13px] border-0 w-28" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
+          <DateRangeFilter
+            className="w-full sm:w-auto"
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={setDateFrom}
+            onToChange={setDateTo}
+            onClear={() => { setDateFrom(''); setDateTo(''); }}
+          />
           <ExportButtons title="Bank Book" filename="bank-book" rows={filteredEntries} columns={exportColumns} />
         </div>
       </div>

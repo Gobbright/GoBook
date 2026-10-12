@@ -9,6 +9,10 @@ const lineItemSchema = new Schema({
   description: { type: String, default: '' },
   itemDescription: { type: String, default: '' },
   size:        { type: String, default: '', trim: true },
+  brand:       { type: String, default: '', trim: true },
+  material:    { type: String, default: '', trim: true },
+  fabric:      { type: String, default: '', trim: true },
+  other:       { type: String, default: '', trim: true },
   hsn:         { type: String, default: '' },
   qty:         { type: Number, default: 1 },
   unit:        { type: String, default: 'Nos' },
@@ -112,6 +116,7 @@ const invoiceSchema = new Schema({
   },
 
   extra:   { type: Schema.Types.Mixed, default: {} },
+  businessSettingsSnapshot: { type: Schema.Types.Mixed, default: {} },
   totals:  { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 

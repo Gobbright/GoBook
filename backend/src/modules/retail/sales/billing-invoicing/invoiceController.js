@@ -2,10 +2,10 @@ import { Invoice } from '../../../../models/Invoice.js';
 import { createSupplierReturn, updateSupplierReturn, deleteSupplierReturn } from '../supplier-return/supplierReturnController.js';
 import { createSalesReturn, updateSalesReturn, deleteSalesReturn } from '../sales-return/salesReturnController.js';
 import { Payment } from '../../../../models/Payment.js';
-import { BusinessSettings } from '../../../../models/BusinessSettings.js';
+import { Types } from 'mongoose';
 import { httpError } from '../../../../utils/httpError.js';
 import { GOBOOK_LOGO_CID, sendMail } from '../../../../utils/mailer.js';
-import { buildSalesAggregationPipeline, isBillableDocType, unwrapFacetResult } from '../shared/salesFilters.js';
+import { buildSalesAggregationPipeline, escapeRegex, isBillableDocType, paymentStatusStages, unwrapFacetResult } from '../shared/salesFilters.js';
 import { postInventoryForDocument, reverseInventoryForDocument } from '../../../../services/inventoryMovements.js';
 import {
   postInvoiceAccounting,
@@ -19,28 +19,130 @@ import {
   attachAccountingStatusList,
 } from '../../../../services/salesAccountingStatus.js';
 import { branchForNewRecord, branchScopedAggregateMatch, branchScopedQuery } from '../../../../utils/branchScope.js';
+import { businessSettingsForInvoice, resolvedBusinessSettingsForInvoice } from '../shared/invoiceBusinessSettings.js';
 
 function normalizeInvoicePayload(body = {}) {
   const items = Array.isArray(body.items)
-    ? body.items.map((item) => ({
-        ...item,
-        description: String(item.description ?? ''),
-        itemDescription: String(
-          item.itemDescription
-          ?? item.lineDescription
-          ?? item.details
-          ?? item.note
-          ?? item.remark
-          ?? '',
-        ),
-        itemType: String(item.itemType ?? '').trim().toLowerCase() === 'service' ? 'Service' : 'Product',
-        productType: String(item.productType ?? '').trim() || 'Standard',
-        hsn: String(item.hsn ?? ''),
-        unit: String(item.unit ?? ''),
-      }))
+    ? body.items.map((item) => {
+        const variant = item.variant || item.productVariant || {};
+        const brand = String(item.brand ?? item.other ?? item.variantBrand ?? variant.other ?? variant.brand ?? '').trim();
+        const material = String(item.material ?? item.fabric ?? item.variantMaterial ?? variant.material ?? variant.fabric ?? '').trim();
+        return {
+          ...item,
+          description: String(item.description ?? ''),
+          itemDescription: String(
+            item.itemDescription
+            ?? item.lineDescription
+            ?? item.details
+            ?? item.note
+            ?? item.remark
+            ?? '',
+          ),
+          itemType: String(item.itemType ?? '').trim().toLowerCase() === 'service' ? 'Service' : 'Product',
+          productType: String(item.productType ?? '').trim() || 'Standard',
+          size: String(item.size ?? item.modelName ?? item.modelNumber ?? variant.size ?? variant.modelName ?? '').trim(),
+          brand,
+          material,
+          fabric: String(item.fabric ?? material).trim(),
+          other: String(item.other ?? brand).trim(),
+          barcode: String(item.barcode ?? variant.barcode ?? '').trim(),
+          hsn: String(item.hsn ?? ''),
+          unit: String(item.unit ?? ''),
+        };
+      })
     : body.items;
 
   return { ...body, ...(items ? { items } : {}) };
+}
+
+function invoiceTotalFromPayload(payload = {}) {
+  const totals = payload.totals || {};
+  const saved = Number(totals.finalTotal ?? totals.grandTotal ?? totals.total ?? totals.subTotal);
+  if (Number.isFinite(saved)) return saved;
+  return 0;
+}
+
+function customerBalanceConditions(customer = {}) {
+  const conditions = [];
+  const name = String(customer.name || '').trim();
+  const gstin = String(customer.gstin || '').trim();
+  const phoneDigits = String(customer.phone || '').replace(/\D/g, '').slice(-10);
+
+  if (gstin) conditions.push({ 'customer.gstin': new RegExp(`^${escapeRegex(gstin)}$`, 'i') });
+  if (phoneDigits) conditions.push({ 'customer.phone': new RegExp(escapeRegex(phoneDigits), 'i') });
+  if (name) conditions.push({ 'customer.name': new RegExp(`^${escapeRegex(name)}$`, 'i') });
+
+  return conditions;
+}
+
+async function customerOldBalance(req, customer, excludeInvoiceId = null, options = {}) {
+  const conditions = customerBalanceConditions(customer);
+  if (conditions.length === 0) return 0;
+
+  const match = await branchScopedAggregateMatch(
+    req,
+    { model: Invoice, ownerField: 'userId' },
+    { documentType: { $in: ['invoice', 'bill-of-supply', 'pharmacy-bill'] } },
+  );
+  match.$and = [...(match.$and || []), { $or: conditions }];
+  if (excludeInvoiceId && Types.ObjectId.isValid(excludeInvoiceId)) {
+    match._id = { $ne: new Types.ObjectId(excludeInvoiceId) };
+  }
+  if (options.beforeCreatedAt) {
+    const beforeCreatedAt = new Date(options.beforeCreatedAt);
+    if (!Number.isNaN(beforeCreatedAt.getTime())) {
+      match.createdAt = { $lt: beforeCreatedAt };
+    }
+  }
+
+  const [row] = await Invoice.aggregate([
+    { $match: match },
+    ...paymentStatusStages(req.user.id),
+    { $group: { _id: null, oldBalance: { $sum: '$balance' } } },
+  ]);
+  return Math.round((Number(row?.oldBalance) || 0) * 100) / 100;
+}
+
+async function invoiceCurrentBalance(invoice, userId) {
+  const invoiceAmount = invoiceTotalFromPayload(invoice);
+  const payments = await Payment.find({ invoiceId: invoice._id, userId }).lean();
+  const paymentTotal = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+  const paidAmount = payments.length > 0 ? paymentTotal : Math.max(0, Number(invoice.advanceReceived) || 0);
+  return Math.max(0, invoiceAmount - paidAmount);
+}
+
+async function withDisplayCustomerBalance(req, invoice) {
+  if (!['invoice', 'bill-of-supply', 'pharmacy-bill'].includes(invoice.documentType)) return invoice;
+  const hasOldBalance = Number.isFinite(Number(invoice.extra?.oldBalance));
+  const hasNewBalance = Number.isFinite(Number(invoice.extra?.newBalance));
+  if (hasOldBalance && hasNewBalance) return invoice;
+
+  const oldBalance = await customerOldBalance(req, invoice.customer, invoice._id, { beforeCreatedAt: invoice.createdAt });
+  const currentBalance = await invoiceCurrentBalance(invoice, req.user.id);
+  return {
+    ...invoice,
+    extra: {
+      ...(invoice.extra || {}),
+      oldBalance,
+      newBalance: Math.round((oldBalance + currentBalance) * 100) / 100,
+    },
+  };
+}
+
+async function withCustomerBalance(req, payload, excludeInvoiceId = null) {
+  if (!['invoice', 'bill-of-supply', 'pharmacy-bill'].includes(payload.documentType)) return payload;
+  const oldBalance = await customerOldBalance(req, payload.customer, excludeInvoiceId);
+  const invoiceAmount = invoiceTotalFromPayload(payload);
+  const paidAmount = Math.max(0, Number(payload.advanceReceived) || 0);
+  const currentBalance = Math.max(0, invoiceAmount - paidAmount);
+  return {
+    ...payload,
+    extra: {
+      ...(payload.extra || {}),
+      oldBalance,
+      newBalance: Math.round((oldBalance + currentBalance) * 100) / 100,
+    },
+  };
 }
 
 // GET /api/sales/invoices/next-number?prefix=INV
@@ -87,7 +189,25 @@ export async function getInvoice(req, res, next) {
   try {
     const invoice = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id })).lean();
     if (!invoice) return next(httpError(404, 'Invoice not found'));
-    res.json(await attachAccountingStatus(req.user.id, invoice));
+    const withAccounting = await attachAccountingStatus(req.user.id, await withDisplayCustomerBalance(req, invoice));
+    const resolved = await resolvedBusinessSettingsForInvoice(req, withAccounting);
+    if (resolved.branchKey || resolved.settings) {
+      await Invoice.updateOne(
+        { _id: withAccounting._id },
+        {
+          $set: {
+            branch: withAccounting.branch || resolved.branchKey || '',
+            businessSettingsSnapshot: resolved.settings,
+          },
+        },
+      ).catch(() => {});
+    }
+    res.json({
+      ...withAccounting,
+      branch: withAccounting.branch || resolved.branchKey || '',
+      businessSettings: resolved.settings,
+      businessSettingsSnapshot: withAccounting.businessSettingsSnapshot || resolved.settings,
+    });
   } catch (err) {
     next(err);
   }
@@ -98,8 +218,10 @@ export async function createInvoice(req, res, next) {
   if (req.body.documentType === 'sales-return') return createSalesReturn(req, res, next);
   if (req.body.documentType === 'supplier-return') return createSupplierReturn(req, res, next);
   try {
-    const payload = normalizeInvoicePayload(req.body);
-    const invoice = await Invoice.create({ ...payload, userId: req.user.id, businessId: req.user.businessId, branch: await branchForNewRecord(req, payload.branch) });
+    const payload = await withCustomerBalance(req, normalizeInvoicePayload(req.body));
+    const branch = await branchForNewRecord(req, payload.branch);
+    const businessSettingsSnapshot = await businessSettingsForInvoice(req, { ...payload, branch, userId: req.user.id });
+    const invoice = await Invoice.create({ ...payload, userId: req.user.id, businessId: req.user.businessId, branch, businessSettingsSnapshot });
     try {
       await postInventoryForDocument(invoice, req.user.id);
       await postInvoiceAccounting(invoice, req.user);
@@ -125,19 +247,24 @@ export async function createInvoice(req, res, next) {
 // PUT /api/sales/invoices/:id
 export async function updateInvoice(req, res, next) {
   try {
-    const payload = normalizeInvoicePayload(req.body);
+    let payload = normalizeInvoicePayload(req.body);
     const existing = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id }));
     if (!existing) return next(httpError(404, 'Invoice not found'));
     if (existing.documentType === 'sales-return') return updateSalesReturn(req, res, next);
     if (existing.documentType === 'supplier-return') return updateSupplierReturn(req, res, next);
     if (payload.documentType === 'sales-return') return next(httpError(400, 'Create a separate sales return instead of changing this document type'));
     if (payload.documentType === 'supplier-return') return next(httpError(400, 'Create a separate supplier return instead of changing this document type'));
+    payload = await withCustomerBalance(req, payload, existing._id);
+    const branch = await branchForNewRecord(req, payload.branch ?? existing.branch);
+    const businessSettingsSnapshot = await businessSettingsForInvoice(req, { ...existing.toObject(), ...payload, branch, userId: existing.userId });
     const nextInvoice = new Invoice({
       ...existing.toObject(),
       ...payload,
       _id: existing._id,
       userId: existing.userId,
       businessId: existing.businessId,
+      branch,
+      businessSettingsSnapshot,
     });
 
     await reverseInventoryForDocument(existing, req.user.id);
@@ -152,7 +279,7 @@ export async function updateInvoice(req, res, next) {
     try {
       invoice = await Invoice.findOneAndUpdate(
         await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id }),
-        { $set: { ...payload, branch: await branchForNewRecord(req, payload.branch ?? existing.branch) } },
+        { $set: { ...payload, branch, businessSettingsSnapshot } },
         { new: true, runValidators: false },
       );
     } catch (err) {
@@ -205,7 +332,7 @@ export async function sendInvoiceEmail(req, res, next) {
     const { toEmail, pdfBase64 } = req.body;
     if (!toEmail) return next(httpError(400, 'Recipient email is required'));
 
-    const biz = await BusinessSettings.findOne({ userId: req.user.id }).lean() || {};
+    const biz = await businessSettingsForInvoice(req, invoice);
     const fmtCurrency = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
     const fmtDate = (s) => { if (!s) return '-'; const d = new Date(s); return isNaN(d) ? s : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); };
     const escapeHtml = (value) => String(value ?? '')

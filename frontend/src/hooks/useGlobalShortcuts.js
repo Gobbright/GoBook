@@ -12,7 +12,6 @@ const ALT_SHORTCUT_TITLES = {
   p: 'Purchase',
   i: 'Inventory',
   c: 'Customers',
-  g: 'GST',
   r: 'Reports',
   t: 'Settings',
 };
@@ -31,9 +30,17 @@ export function useGlobalShortcuts({ onOpenPalette } = {}) {
   useEffect(() => {
     function handleKeyDown(e) {
       if (!keyboardMode) return;
-      if (!e.altKey || e.ctrlKey || e.metaKey) return;
 
       const key = e.key.toLowerCase();
+
+      if (e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && key === 'g') {
+        if (isTypingTarget(document.activeElement)) return;
+        e.preventDefault();
+        navigate('/gst-dashboard');
+        return;
+      }
+
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
 
       if (key === 'q') {
         e.preventDefault();
@@ -43,10 +50,9 @@ export function useGlobalShortcuts({ onOpenPalette } = {}) {
 
       const title = ALT_SHORTCUT_TITLES[key];
       if (!title) return;
-      if (isTypingTarget(document.activeElement)) return;
+      e.preventDefault();
 
       if (key === 't') {
-        e.preventDefault();
         navigate('/business-settings');
         return;
       }
@@ -57,11 +63,10 @@ export function useGlobalShortcuts({ onOpenPalette } = {}) {
       const href = section?.items?.[0]?.href;
       if (!href) return;
 
-      e.preventDefault();
       navigate(normalizeAppPath(href));
     }
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [navigate, storedUser, onOpenPalette, keyboardMode]);
 }

@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, RefreshCw, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, RefreshCw, Search } from 'lucide-react';
 
 import { useLoad } from '../../../hooks/useLoad.js';
 import { adminService } from '../../../services/adminService.js';
@@ -25,9 +26,7 @@ function statusClass(status) {
   return 'hr-pill blue';
 }
 
-function Field({ label, children }) {
-  return <label className="hr-field">{label}{children}</label>;
-}
+
 
 export default function TodayAttendance() {
   const [date, setDate] = useState(localDateValue);
@@ -37,7 +36,7 @@ export default function TodayAttendance() {
   const [editing, setEditing] = useState(null);
   const [markOpen, setMarkOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [rowMenu, setRowMenu] = useState('');
+  const [rowMenu, setRowMenu] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [actionError, setActionError] = useState('');
@@ -128,12 +127,41 @@ export default function TodayAttendance() {
           : [...existing, saved];
         return { data: next };
       });
-      setRowMenu('');
+      setRowMenu(null);
       setMessage(`${employee.name} marked ${status}.`);
     } catch (err) {
       setActionError(err.message || 'Unable to update attendance.');
     }
   }
+
+  function toggleRowMenu(event, row, employee) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setRowMenu((current) => current?.row._id === row._id ? null : {
+      row,
+      employee,
+      style: {
+        top: Math.min(rect.bottom + 8, window.innerHeight - 216),
+        left: Math.max(8, Math.min(rect.right - 190, window.innerWidth - 202)),
+      },
+    });
+  }
+
+  useEffect(() => {
+    if (!rowMenu) return undefined;
+    const close = () => setRowMenu(null);
+    const closeFromOutside = (event) => {
+      if (event.target.closest?.('.attendance-action-menu, .attendance-action-trigger')) return;
+      setRowMenu(null);
+    };
+    document.addEventListener('mousedown', closeFromOutside);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', closeFromOutside);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [rowMenu]);
 
   async function bulkMark(status) {
     setBulkOpen(false);
@@ -202,20 +230,143 @@ export default function TodayAttendance() {
           <select className="attendance-select" value={shift} onChange={(e) => setShift(e.target.value)}><option value="">All Shifts</option>{shifts.map((item) => <option key={item}>{item}</option>)}</select>
           <button className="hr-btn" type="button" onClick={() => setMessage(`Filters applied. Showing ${displayRows.length} record(s).`)}>Filters <Filter size={14} /></button><button className="hr-icon-btn" type="button" onClick={reload}><RefreshCw size={15} /></button>
         </div>
-        <div className="hr-table-wrap"><table className="hr-table attendance-table"><thead><tr><th>#</th><th>Employee</th><th>Department</th><th>Shift</th><th>Status</th><th>Time</th><th>Remarks</th><th>Actions</th></tr></thead><tbody>{loading ? <tr><td colSpan={8}>Loading attendance...</td></tr> : null}{!loading && displayRows.length === 0 ? <tr><td colSpan={8}>No attendance marked for this date.</td></tr> : null}{displayRows.map((row, index) => { const employee = employeeById.get(row.employeeId) || row; return <tr key={row._id}><td>{index + 1}</td><td><div className="hr-employee-cell"><span>{row.name?.[0] || 'E'}</span><div><strong>{row.name}</strong><small>{row.employeeId}</small></div></div></td><td>{row.dept || '-'}</td><td>{row.shift || employee.shift || 'General Shift'}</td><td><span className={statusClass(row.status)}>{row.status}</span></td><td>{row.checkIn && row.checkIn !== '--' ? row.checkIn : '-'}</td><td>{row.remarks || '-'}</td><td className="hr-menu-cell"><button className="hr-icon-btn" type="button" onClick={() => openMark(row)}><Edit3 size={14} /></button><button className="hr-icon-btn" type="button" onClick={() => setRowMenu(rowMenu === row._id ? '' : row._id)}><MoreVertical size={14} /></button>{rowMenu === row._id && <div className="hr-row-menu"><button type="button" onClick={() => quickMark(employee, 'Present')}>Mark Present</button><button type="button" onClick={() => quickMark(employee, 'Absent')}>Mark Absent</button><button type="button" onClick={() => quickMark(employee, 'On Leave')}>Mark On Leave</button></div>}</td></tr>; })}</tbody></table></div>
+        <div className="hr-table-wrap">
+          <table className="hr-table attendance-table">
+            <thead>
+              <tr><th>#</th><th>Employee</th><th>Department</th><th>Shift</th><th>Status</th><th>Time</th><th>Remarks</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {loading ? <tr><td colSpan={8}>Loading attendance...</td></tr> : null}
+              {!loading && displayRows.length === 0 ? <tr><td colSpan={8}>No attendance marked for this date.</td></tr> : null}
+              {displayRows.map((row, index) => {
+                const employee = employeeById.get(row.employeeId) || row;
+                const checkIn = row.checkIn && row.checkIn !== '--' ? row.checkIn : '-';
+                const checkOut = row.checkOut && row.checkOut !== '--' ? row.checkOut : '';
+                return (
+                  <tr className="attendance-row" key={row._id}>
+                    <td className="attendance-row-index">{index + 1}</td>
+                    <td>
+                      <div className="hr-employee-cell attendance-employee-cell">
+                        <span>{row.name?.[0] || 'E'}</span>
+                        <div><strong>{row.name}</strong><small>{row.employeeId}</small></div>
+                      </div>
+                    </td>
+                    <td><span className="attendance-muted-value">{row.dept || '-'}</span></td>
+                    <td><span className="attendance-shift-chip">{row.shift || employee.shift || 'General Shift'}</span></td>
+                    <td><span className={statusClass(row.status)}>{row.status}</span></td>
+                    <td>
+                      <div className="attendance-time-cell">
+                        <span>{checkIn}</span>
+                        {checkOut && <small>{checkOut}</small>}
+                      </div>
+                    </td>
+                    <td><span className="attendance-remarks" title={row.remarks || ''}>{row.remarks || '-'}</span></td>
+                    <td className="attendance-actions-cell">
+                      <button className="hr-icon-btn" type="button" title="Edit attendance" onClick={() => openMark(row)}><Edit3 size={14} /></button>
+                      <button className="hr-icon-btn attendance-action-trigger" type="button" title="Quick actions" onClick={(event) => toggleRowMenu(event, row, employee)}><MoreVertical size={14} /></button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         <div className="attendance-legend">{STATUSES.map((status) => <span key={status}><i className={statusClass(status)} />{status}</span>)}</div>
       </section>
+      {rowMenu && createPortal(
+        <div className="hr-row-menu hr-row-menu-portal attendance-action-menu" style={rowMenu.style}>
+          <button type="button" onClick={() => { openMark(rowMenu.row); setRowMenu(null); }}>Edit Attendance</button>
+          <button type="button" onClick={() => quickMark(rowMenu.employee, 'Present')}>Mark Present</button>
+          <button type="button" onClick={() => quickMark(rowMenu.employee, 'Absent')}>Mark Absent</button>
+          <button type="button" onClick={() => quickMark(rowMenu.employee, 'On Leave')}>Mark On Leave</button>
+        </div>,
+        document.body,
+      )}
       {markOpen && (
-        <div className="employee-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setMarkOpen(false)}>
-          <form className="employee-modal employee-confirm-modal" onSubmit={saveAttendance}>
-            <div className="employee-modal-head"><h2>{editing ? 'Edit Attendance' : 'Mark Attendance'}</h2><button className="icon-btn" type="button" onClick={() => setMarkOpen(false)}><X size={17} /></button></div>
-            <Field label="Employee"><select value={form.employeeId} disabled={Boolean(editing)} onChange={(e) => setForm((current) => ({ ...current, employeeId: e.target.value }))}><option value="">Select employee</option>{employees.map((employee) => <option key={employee.employeeId} value={employee.employeeId}>{employee.name} ({employee.employeeId})</option>)}</select></Field>
-            <Field label="Status"><select value={form.status} onChange={(e) => setForm((current) => ({ ...current, status: e.target.value }))}>{STATUSES.map((status) => <option key={status}>{status}</option>)}</select></Field>
-            <Field label="Check In"><input value={form.checkIn} onChange={(e) => setForm((current) => ({ ...current, checkIn: e.target.value }))} placeholder="09:00" /></Field>
-            <Field label="Check Out"><input value={form.checkOut} onChange={(e) => setForm((current) => ({ ...current, checkOut: e.target.value }))} placeholder="18:00" /></Field>
-            <Field label="Shift"><input value={form.shift} onChange={(e) => setForm((current) => ({ ...current, shift: e.target.value }))} /></Field>
-            <Field label="Remarks"><textarea value={form.remarks} onChange={(e) => setForm((current) => ({ ...current, remarks: e.target.value }))} /></Field>
-            <div className="employee-modal-actions"><button className="btn" type="button" onClick={() => setMarkOpen(false)}>Cancel</button><button className="btn primary" disabled={saving}>{saving ? 'Saving...' : 'Save Attendance'}</button></div>
+        <div className="customer-form-overlay fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/35 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="mark-attendance-modal-title" onMouseDown={(event) => event.target === event.currentTarget && setMarkOpen(false)}>
+          <button type="button" aria-label="Close mark attendance" className="absolute inset-0 cursor-default border-0 bg-transparent" onClick={() => setMarkOpen(false)} />
+          <form className="relative w-full max-w-[760px] rounded-lg border border-[#cfdced] bg-white p-5 shadow-2xl" onSubmit={saveAttendance}>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 id="mark-attendance-modal-title" className="m-0 text-[20px] font-bold text-[#111827]">{editing ? 'Edit Attendance' : 'Mark Attendance'}</h3>
+                <p className="m-0 mt-1.5 text-[13px] text-[#64748b]">Fill in the attendance details for the selected employee.</p>
+              </div>
+              <button className="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-[28px] leading-none text-[#64748b] cursor-pointer hover:bg-slate-50 hover:text-[#111827]" type="button" onClick={() => setMarkOpen(false)} aria-label="Close">×</button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Employee</label>
+                <select
+                  className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500 bg-white cursor-pointer"
+                  value={form.employeeId}
+                  disabled={Boolean(editing)}
+                  onChange={(e) => setForm((current) => ({ ...current, employeeId: e.target.value }))}
+                >
+                  <option value="">Select employee</option>
+                  {employees.map((employee) => (
+                    <option key={employee.employeeId} value={employee.employeeId}>{employee.name} ({employee.employeeId})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Status</label>
+                <select
+                  className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500 bg-white cursor-pointer"
+                  value={form.status}
+                  onChange={(e) => setForm((current) => ({ ...current, status: e.target.value }))}
+                >
+                  {STATUSES.map((status) => <option key={status}>{status}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Shift</label>
+                <input
+                  className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500"
+                  value={form.shift}
+                  onChange={(e) => setForm((current) => ({ ...current, shift: e.target.value }))}
+                  placeholder="e.g. General Shift"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Check In</label>
+                <input
+                  className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500"
+                  value={form.checkIn}
+                  onChange={(e) => setForm((current) => ({ ...current, checkIn: e.target.value }))}
+                  placeholder="09:00"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Check Out</label>
+                <input
+                  className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500"
+                  value={form.checkOut}
+                  onChange={(e) => setForm((current) => ({ ...current, checkOut: e.target.value }))}
+                  placeholder="18:00"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Remarks</label>
+                <textarea
+                  className="w-full rounded-md border border-[#dbe4ef] px-3 py-2.5 text-[14px] outline-none font-[inherit] focus:border-blue-500 resize-y min-h-[80px]"
+                  value={form.remarks}
+                  onChange={(e) => setForm((current) => ({ ...current, remarks: e.target.value }))}
+                  placeholder="Optional remarks..."
+                />
+              </div>
+            </div>
+
+            {actionError && <p className="mt-4 text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{actionError}</p>}
+            <div className="mt-5 flex justify-end gap-2.5">
+              <button className="min-w-[78px] rounded-md border border-[#dbe4ef] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#1f2937] cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={() => setMarkOpen(false)}>Cancel</button>
+              <button className="min-w-[132px] rounded-md border-0 bg-blue-600 px-4 py-2.5 text-[14px] font-semibold text-white cursor-pointer hover:bg-blue-700 font-[inherit]" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Attendance'}</button>
+            </div>
           </form>
         </div>
       )}

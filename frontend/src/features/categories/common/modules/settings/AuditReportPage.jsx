@@ -92,6 +92,8 @@ export function AuditReportPage() {
     { label: 'Action', value: (row) => row.action },
     { label: 'Module', value: (row) => row.modelName },
     { label: 'Record', value: (row) => row.documentLabel },
+    { label: 'User', value: (row) => row.performedBy?.name || 'System' },
+    { label: 'Branch', value: (row) => row.performedBy?.branch || '-' },
     { label: 'Performed By', value: (row) => row.performedBy?.email || 'System' },
   ];
 
@@ -169,20 +171,24 @@ export function AuditReportPage() {
                 <th className={TH}>Action</th>
                 <th className={TH}>Module</th>
                 <th className={TH}>Record</th>
+                <th className={TH}>User</th>
+                <th className={TH}>Branch</th>
                 <th className={TH}>Performed By</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
+                <tr><td colSpan={7} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
               ) : logs.length === 0 ? (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#536173]">No audit activity matches these filters</td></tr>
+                <tr><td colSpan={7} className="px-5 py-8 text-center text-[13px] text-[#536173]">No audit activity matches these filters</td></tr>
               ) : logs.map((row) => (
                 <tr key={row._id} className="hover:bg-gray-50">
                   <td className={`${TD} text-[#536173] whitespace-nowrap`}>{fmtDateTime(row.performedAt)}</td>
                   <td className={TD}><ActionBadge action={row.action} /></td>
                   <td className={`${TD} text-[#374151]`}>{row.modelName}</td>
                   <td className={`${TD} font-medium text-[#111827]`}>{row.documentLabel || '—'}</td>
+                  <td className={`${TD} font-medium text-[#374151]`}>{row.performedBy?.name || 'System'}</td>
+                  <td className={`${TD} text-[#536173]`}>{row.performedBy?.branch || '-'}</td>
                   <td className={`${TD} text-[#536173]`}>{row.performedBy?.email || 'System'}</td>
                 </tr>
               ))}

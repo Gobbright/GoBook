@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Bell, CalendarDays, Menu, RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { CalendarDays, Menu, ShieldCheck } from 'lucide-react';
 
 import { Sidebar } from './components/Sidebar.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
-import { archiveAdminNotification, clearAdminSession, fetchAdminDashboard, fetchAdminNotifications, updateAdminNotification } from './adminService.js';
-import { safeNavigate } from '../../routes/navigation.js';
+import { archiveAdminNotification, fetchAdminDashboard, fetchAdminNotifications, logoutAdmin, updateAdminNotification } from './adminService.js';
 
 const PAGE_TITLES = [
   ['/admin', 'Dashboard'],
@@ -57,6 +56,7 @@ const PAGE_TITLES = [
   ['/admin/settings/grace-period', 'Grace Period'],
   ['/admin/settings/auto-block-after-expiry', 'Auto Block After Expiry'],
   ['/admin/settings/payment-settings', 'Payment Settings'],
+  ['/admin/payment-control', 'Razorpay Payment Control'],
   ['/admin/settings', 'Settings'],
   ['/admin/customers', 'Customers & Vendors'],
   ['/admin/accounting', 'Accounting'],
@@ -100,13 +100,10 @@ function todayLabel() {
 
 export function AdminLayout({ children }) {
   const location = useLocation();
-  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [navCounts, setNavCounts] = useState({ newUsers: 0, expiredUsers: 0, unreadNotifications: 0 });
   const pageTitle = useMemo(() => getPageTitle(location.pathname), [location.pathname]);
-  const unreadCount = notifications.filter((item) => !item.read).length;
 
 
   async function loadAdminShellData() {
@@ -138,8 +135,7 @@ export function AdminLayout({ children }) {
   }, []);
 
   const handleLogout = () => {
-    clearAdminSession();
-    safeNavigate(navigate, '/admin-login');
+    logoutAdmin();
   };
 
   const markNotificationRead = async (id) => {
@@ -154,41 +150,36 @@ export function AdminLayout({ children }) {
     setNotifications((current) => current.filter((item) => item.id !== id));
   };
 
-  const refreshCurrentPage = () => {
-    setRefreshing(true);
-    window.dispatchEvent(new CustomEvent('gobook:admin-refresh'));
-    loadAdminShellData();
-    setTimeout(() => {
-      window.location.reload();
-    }, 120);
-  };
-
   const refreshNotifications = () => {
     loadAdminShellData();
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex">
-      <div className="hidden lg:block fixed left-0 top-0 bottom-0 w-[280px] z-40">
-        <Sidebar open={true} onClose={() => {}} onLogout={handleLogout} counts={navCounts} />
-      </div>
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} counts={navCounts} />
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-[35] cursor-default border-0 bg-transparent p-0"
+        />
+      )}
 
-      <div className="lg:hidden">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} counts={navCounts} />
-      </div>
-
-      <div className="flex-1 lg:ml-[280px] min-w-0">
-        <header className="fixed left-0 right-0 top-0 z-30 h-16 border-b border-slate-200 bg-white/95 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 lg:left-[280px] md:px-6">
+      <div className={`flex-1 min-w-0 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-0'}`}>
+        <header className={`fixed right-0 top-0 z-30 h-16 border-b border-slate-200 bg-white/95 px-4 backdrop-blur transition-[left] duration-300 dark:border-slate-800 dark:bg-slate-900/95 md:px-6 ${sidebarOpen ? 'left-0 lg:left-[280px]' : 'left-0'}`}>
           <div className="flex h-full items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(true)}
-                className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 lg:hidden"
-                title="Open menu"
-              >
-                <Menu size={18} />
-              </button>
+              {!sidebarOpen && (
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  title="Open menu"
+                >
+                  <Menu size={18} />
+                </button>
+              )}
               <div className="grid h-9 w-9 place-items-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300 max-sm:hidden">
                 <ShieldCheck size={18} />
               </div>
@@ -199,31 +190,9 @@ export function AdminLayout({ children }) {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={refreshCurrentPage}
-                disabled={refreshing}
-                className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-[12px] font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-                title="Refresh page"
-              >
-                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
               <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 sm:flex">
                 <CalendarDays size={14} />
                 {todayLabel()}
-              </div>
-              <div className="hidden items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-[12px] font-bold text-blue-600 dark:bg-blue-950/30 dark:text-blue-300 md:flex">
-                <UserPlus size={14} />
-                {navCounts.newUsers} new
-              </div>
-              <div className="hidden items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-700 dark:bg-amber-950/30 dark:text-amber-300 md:flex">
-                <AlertTriangle size={14} />
-                {navCounts.expiredUsers} expiry
-              </div>
-              <div className="hidden items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-bold text-red-600 dark:bg-red-950/30 dark:text-red-300 lg:flex">
-                <Bell size={14} />
-                {unreadCount} unread
               </div>
               <NotificationCenter
                 notifications={notifications}
@@ -247,7 +216,3 @@ export function AdminLayout({ children }) {
     </div>
   );
 }
-
-
-
-

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Send, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 import { apiClient } from '../../services/apiClient.js';
 
@@ -12,6 +13,7 @@ const QUICK_PROMPTS = [
 const WELCOME_MESSAGE = "Hi! I'm your GoBook AI assistant. Ask a question or try a quick prompt below.";
 
 export function AiAssistantWidget() {
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([{ from: 'bot', text: WELCOME_MESSAGE }]);
@@ -51,6 +53,18 @@ export function AiAssistantWidget() {
     e.preventDefault();
     respond(query);
   }
+
+  const isAccountingRoute = [
+    '/vouchers',
+    '/ledger',
+    '/journal-entry',
+    '/trial-balance',
+    '/pnl',
+    '/balance-sheet',
+    '/cash-book',
+    '/bank-book',
+    '/bank-reconciliation',
+  ].some((path) => pathname === path || pathname.startsWith(`${path}/`)) || pathname.startsWith('/gst-') || pathname.startsWith('/gstr-');
 
   return (
     <>
@@ -133,7 +147,7 @@ export function AiAssistantWidget() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="fixed right-4 sm:right-5 z-50 w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#062844] hover:bg-[#0a3a5e] text-white flex items-center justify-center shadow-lg cursor-pointer border-0 transition-transform hover:scale-105 bottom-[88px] md:bottom-[42px]"
+        className={`ai-assistant-widget fixed right-4 sm:right-5 z-50 w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#062844] hover:bg-[#0a3a5e] text-white flex items-center justify-center shadow-lg cursor-pointer border-0 transition-transform hover:scale-105 bottom-[88px] md:bottom-[42px] ${isAccountingRoute ? 'ai-assistant-widget--accounting' : ''}`}
         aria-label={open ? 'Close AI assistant' : 'Open AI assistant'}
       >
         {open ? <X size={22} /> : <Bot size={22} />}

@@ -101,6 +101,8 @@ export function StockLedgerPage() {
     { label: 'Party', value: (row) => row.party || '' },
     { label: 'Qty In', value: (row) => row.qtyIn },
     { label: 'Qty Out', value: (row) => row.qtyOut },
+    { label: 'Purchase Price', value: (row) => row.purchasePrice ? formatCurrency(row.purchasePrice) : '-' },
+    { label: 'Sales Price', value: (row) => row.salesPrice ? formatCurrency(row.salesPrice) : '-' },
     { label: 'Value', value: (row) => formatCurrency(row.value || 0) },
     { label: 'Status', value: (row) => row.status },
   ];
@@ -157,15 +159,17 @@ export function StockLedgerPage() {
                 <th className={TH}>Party</th>
                 <th className={TH}>Qty In</th>
                 <th className={TH}>Qty Out</th>
+                <th className={TH}>Purchase Price</th>
+                <th className={TH}>Sales Price</th>
                 <th className={TH}>Value</th>
                 <th className={TH}>Status</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
+                <tr><td colSpan={11} className="px-5 py-8 text-center text-[13px] text-[#536173]">Loading...</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={9} className="px-5 py-8 text-center text-[13px] text-[#536173]">No stock movement found</td></tr>
+                <tr><td colSpan={11} className="px-5 py-8 text-center text-[13px] text-[#536173]">No stock movement found</td></tr>
               ) : rows.map((row) => (
                 <tr key={row._id} className="hover:bg-gray-50">
                   <td className={`${TD} text-[#536173]`}>{formatDate(row.date)}</td>
@@ -178,6 +182,8 @@ export function StockLedgerPage() {
                   <td className={`${TD} text-[#536173]`}>{row.party || '-'}</td>
                   <td className={`${TD} font-semibold text-green-700`}>{Number(row.qtyIn || 0).toLocaleString('en-IN')}</td>
                   <td className={`${TD} font-semibold text-red-700`}>{Number(row.qtyOut || 0).toLocaleString('en-IN')}</td>
+                  <td className={`${TD} text-[#111827]`}>{row.purchasePrice ? formatCurrency(row.purchasePrice) : '-'}</td>
+                  <td className={`${TD} text-[#111827]`}>{row.salesPrice ? formatCurrency(row.salesPrice) : '-'}</td>
                   <td className={`${TD} text-[#111827]`}>{formatCurrency(row.value || 0)}</td>
                   <td className={TD}>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${row.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{row.status}</span>

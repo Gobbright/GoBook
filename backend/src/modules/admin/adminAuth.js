@@ -1,17 +1,18 @@
 import jwt from 'jsonwebtoken';
 
 import { env } from '../../config/env.js';
+import { AppUser } from '../../models/AppUser.js';
 import { httpError } from '../../utils/httpError.js';
 
-export function signAdminToken() {
+export function signAdminToken(adminId, options = {}) {
   return jwt.sign(
-    { sub: env.adminLoginId, scope: 'admin-panel' },
+    { sub: adminId, scope: 'admin-panel', ...options },
     env.jwtSecret,
     { expiresIn: env.adminJwtExpiresIn },
   );
 }
 
-export function requireAdminAuth(req, _res, next) {
+export async function requireAdminAuth(req, _res, next) {
   const [scheme, token] = (req.headers.authorization ?? '').split(' ');
 
   if (scheme !== 'Bearer' || !token) {
@@ -20,7 +21,13 @@ export function requireAdminAuth(req, _res, next) {
 
   try {
     const payload = jwt.verify(token, env.jwtSecret);
-    if (payload.scope !== 'admin-panel' || payload.sub !== env.adminLoginId) {
+    const envAdmin = env.adminAccounts.some((account) => account.id.toLowerCase() === String(payload.sub || '').toLowerCase());
+    if (!envAdmin) {
+      const user = await AppUser.findById(payload.sub).select('isPlatformOwner status').lean();
+      if (!user?.isPlatformOwner || user.status !== 'Active') {
+        return next(httpError(403, 'Admin access denied'));
+      }
+    } else if (payload.scope !== 'admin-panel') {
       return next(httpError(403, 'Admin access denied'));
     }
     req.admin = { id: payload.sub };

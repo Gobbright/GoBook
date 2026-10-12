@@ -36,6 +36,22 @@ const hsnSchema = new Schema({
   igst:    { type: Number, default: 0 },
 }, { _id: true });
 
+const cdnrSchema = new Schema({
+  gstin:             { type: String, default: '' },
+  name:              { type: String, default: '' },
+  noteNo:            { type: String, default: '' },
+  noteDate:          { type: String, default: '' },
+  noteType:          { type: String, enum: ['Credit Note', 'Debit Note'], default: 'Credit Note' },
+  originalInvoiceNo: { type: String, default: '' },
+  originalInvoiceDate: { type: String, default: '' },
+  value:             { type: Number, default: 0 },
+  taxable:           { type: Number, default: 0 },
+  rate:              { type: Number, default: 18 },
+  cgst:              { type: Number, default: 0 },
+  sgst:              { type: Number, default: 0 },
+  igst:              { type: Number, default: 0 },
+}, { _id: true });
+
 const gstr1Schema = new Schema({
   userId:      { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, index: true },
   gstin:       { type: String, default: '27ZZZZZ9999A1Z5' },
@@ -44,6 +60,7 @@ const gstr1Schema = new Schema({
   status:      { type: String, enum: ['draft', 'filed'], default: 'draft' },
   b2b:         { type: [b2bSchema], default: [] },
   b2cs:        { type: [b2csSchema], default: [] },
+  cdnr:        { type: [cdnrSchema], default: [] },
   hsn:         { type: [hsnSchema], default: [] },
   arn:         { type: String },
   filedAt:     { type: Date },

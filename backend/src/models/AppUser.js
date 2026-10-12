@@ -35,10 +35,19 @@ const appUserSchema = new Schema({
   subscriptionAmount: { type: Number, default: 0 },
   subscriptionStatus: { type: String, enum: ['', 'trial', 'active', 'expired', 'cancelled'], default: '' },
   subscriptionStartDate: { type: Date },
+  billingStatus: { type: String, enum: ['PAYMENT_METHOD_VERIFICATION_PENDING', 'TRIAL_ACTIVE', 'TRIAL_EXPIRED', 'SUBSCRIPTION_PENDING', 'SUBSCRIPTION_ACTIVE', 'SUBSCRIPTION_EXPIRED', 'PAYMENT_FAILED', 'active', 'trial', 'expired', 'pending'], default: 'PAYMENT_METHOD_VERIFICATION_PENDING', index: true },
   subscriptionExpiresAt: { type: Date },
   trialStartedAt: { type: Date },
   trialEndsAt: { type: Date },
   lastSubscriptionPaymentId: { type: Schema.Types.ObjectId, ref: 'SubscriptionPayment' },
+  // Razorpay references only; never store UPI, card, bank, CVV, or credentials.
+  paymentMethodVerified: { type: Boolean, default: false },
+  paymentMethodVerifiedAt: { type: Date },
+  trialClaimedAt: { type: Date, immutable: true },
+  razorpayCustomerId: { type: String, trim: true, default: '', index: true, sparse: true },
+  paymentMethodVerificationPaymentId: { type: String, trim: true, default: '', index: true, sparse: true },
+  paymentMethodVerificationOrderId: { type: String, trim: true, default: '', index: true, sparse: true },
+  paymentMethodVerificationRefundId: { type: String, trim: true, default: '', index: true, sparse: true },
   onboardingCompleted: { type: Boolean, default: false },
   accountType:  { type: String, enum: ['owner', 'member'], default: 'owner', index: true },
   parentUserId: { type: Schema.Types.ObjectId, ref: 'AppUser', index: true },
@@ -69,4 +78,3 @@ appUserSchema.index({ googleId: 1 }, { sparse: true });
 appUserSchema.index({ businessId: 1, accountType: 1 });
 
 export const AppUser = model('AppUser', appUserSchema);
-

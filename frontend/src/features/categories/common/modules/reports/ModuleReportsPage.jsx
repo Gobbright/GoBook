@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Download } from 'lucide-react';
+import { BarChart3, Download, X } from 'lucide-react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
+import { API_BASE_URL } from '../../../../../services/apiBase.js';
 import { downloadReportCsv } from '../../../../../services/reportDownloadService.js';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { getCurrentUser } from '../../../../../services/authService.js';
+import { getToken } from '../../../../../services/authToken.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const MODULE_CONFIG = {
@@ -32,6 +34,12 @@ const MODULE_CONFIG = {
     description: 'Inventory reports generated from product and stock records stored in the database.',
     categories: ['Inventory'],
   },
+  service: {
+    title: 'Service Reports',
+    section: 'Service',
+    description: 'Service reports generated from service masters stored in the database.',
+    categories: ['Service'],
+  },
   hr: {
     title: 'HR Reports',
     section: 'HR & Payroll',
@@ -45,9 +53,42 @@ const SALES_DOCUMENT_OPTIONS = [
   { value: 'quotation', label: 'Quotation' },
 ];
 
-function ReportCard({ report, onDownload }) {
+function parseCsvLine(line) {
+  const cells = [];
+  let cell = '';
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === ',' && !quoted) {
+      cells.push(cell);
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+  cells.push(cell);
+  return cells;
+}
+
+function parseCsvTable(text = '', title = '') {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean);
+  const columns = lines[0] ? parseCsvLine(lines[0]) : [];
+  const rows = lines.slice(1).map((line, index) => ({
+    id: String(index),
+    values: parseCsvLine(line),
+  }));
+  return { title, count: rows.length, columns, rows };
+}
+
+function ReportCard({ report, onDownload, onOpen, active }) {
   return (
-    <div className="bg-white border border-[#dfe7f1] rounded-lg p-4 text-[#111827]">
+    <div className={`bg-white border rounded-lg p-4 text-[#111827] ${active ? 'border-blue-500 ring-2 ring-blue-100' : 'border-[#dfe7f1]'}`}>
       <div className="flex items-start gap-3">
         <span className="w-9 h-9 rounded-lg bg-[#f8fafc] text-[#475569] flex items-center justify-center flex-none">
           <BarChart3 size={17} />
@@ -58,6 +99,15 @@ function ReportCard({ report, onDownload }) {
           <span className="block text-[13px] text-[#536173] leading-relaxed mt-1.5">{report.description}</span>
           <span className="mt-3 flex flex-wrap items-center gap-2">
             <span className="inline-flex text-[12px] font-semibold text-[#475569]">{report.count || 0} record{report.count === 1 ? '' : 's'}</span>
+            {report.downloadKey && (
+              <button
+                type="button"
+                onClick={() => onOpen(report)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-md cursor-pointer hover:bg-blue-100 font-[inherit]"
+              >
+                View Data
+              </button>
+            )}
             {report.downloadKey && (
               <button
                 type="button"
@@ -97,6 +147,10 @@ export function ModuleReportsPage({ type }) {
   const [branch, setBranch] = useState('');
   const [salesRows, setSalesRows] = useState([]);
   const [salesDocumentType, setSalesDocumentType] = useState('invoice');
+  const [activeReport, setActiveReport] = useState(null);
+  const [reportData, setReportData] = useState({ columns: [], rows: [], title: '', count: 0 });
+  const [recordsLoading, setRecordsLoading] = useState(false);
+  const [recordsError, setRecordsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [salesLoading, setSalesLoading] = useState(false);
   const currentUser = getCurrentUser();
@@ -122,6 +176,9 @@ export function ModuleReportsPage({ type }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setActiveReport(null);
+    setReportData({ columns: [], rows: [], title: '', count: 0 });
+    setRecordsError('');
     apiClient(`/more-modules/reports-summary${branch ? `?branch=${encodeURIComponent(branch)}` : ''}`)
       .then((data) => {
         if (active) setReports(data.reports || []);
@@ -185,6 +242,34 @@ export function ModuleReportsPage({ type }) {
     }
   }
 
+  async function handleOpenReport(report) {
+    if (!report.downloadKey) return;
+    setActiveReport(report);
+    setRecordsLoading(true);
+    setRecordsError('');
+    try {
+      const query = new URLSearchParams({ key: report.downloadKey });
+      if (branch) query.set('branch', branch);
+      const data = await apiClient(`/more-modules/reports-records?${query.toString()}`);
+      setReportData(data);
+    } catch (err) {
+      try {
+        const query = new URLSearchParams({ key: report.downloadKey });
+        if (branch) query.set('branch', branch);
+        const response = await fetch(`${API_BASE_URL}/more-modules/reports-download?${query.toString()}`, {
+          headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+        });
+        if (!response.ok) throw new Error(err.message || 'Unable to load report data', { cause: err });
+        setReportData(parseCsvTable(await response.text(), report.name));
+      } catch (fallbackErr) {
+        setReportData({ columns: [], rows: [], title: report.name, count: 0 });
+        setRecordsError(fallbackErr.message || 'Unable to load report data');
+      }
+    } finally {
+      setRecordsLoading(false);
+    }
+  }
+
   return (
     <div className="p-4 md:p-7">
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-5">
@@ -196,20 +281,18 @@ export function ModuleReportsPage({ type }) {
           <h1 className="m-0 text-[22px] font-bold text-[#111827]">{config.title}</h1>
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">{config.description}</p>
         </div>
-        <a href="/reports" className="inline-flex items-center justify-center px-3.5 py-2 text-[13px] font-semibold text-[#374151] bg-white border border-[#dbe4ef] rounded-md no-underline hover:bg-gray-50">
-          All Reports Hub
-        </a>
         {isSuperAdmin && (
           <SelectDropdown
+            className="w-[132px] flex-none sm:w-44"
             value={branch}
             onChange={setBranch}
             options={branchOptions}
-            buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none min-w-44"
+            buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none"
           />
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-5">
         <div className="bg-white border border-[#dfe7f1] rounded-lg p-4">
           <div className="text-xs text-[#536173]">Database Reports</div>
           <div className="text-[22px] font-bold text-[#111827] mt-1">{filteredReports.length}</div>
@@ -217,10 +300,6 @@ export function ModuleReportsPage({ type }) {
         <div className="bg-white border border-[#dfe7f1] rounded-lg p-4">
           <div className="text-xs text-[#536173]">Database Records</div>
           <div className="text-[22px] font-bold text-[#16a34a] mt-1">{filteredReports.reduce((sum, report) => sum + (report.count || 0), 0)}</div>
-        </div>
-        <div className="bg-white border border-[#dfe7f1] rounded-lg p-4">
-          <div className="text-xs text-[#536173]">Source</div>
-          <div className="text-[22px] font-bold text-[#2563eb] mt-1">Database</div>
         </div>
       </div>
 
@@ -231,10 +310,72 @@ export function ModuleReportsPage({ type }) {
             No database records found for this report section.
           </div>
         )}
-        {!loading && filteredReports.map((report) => <ReportCard key={`${report.category}-${report.name}`} report={report} onDownload={handleDownloadReport} />)}
+        {!loading && filteredReports.map((report) => (
+          <ReportCard
+            key={`${report.category}-${report.name}`}
+            report={report}
+            onDownload={handleDownloadReport}
+            onOpen={handleOpenReport}
+            active={activeReport?.downloadKey === report.downloadKey}
+          />
+        ))}
       </div>
 
-      {type === 'sales' && (
+      {activeReport && (
+        <div className="mt-5 bg-white border border-[#dfe7f1] rounded-lg overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-[#edf2f7] flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="m-0 text-[15px] font-semibold text-[#111827]">{reportData.title || activeReport.name}</h2>
+              <p className="m-0 mt-0.5 text-[12.5px] text-[#536173]">{recordsLoading ? 'Loading records...' : `${reportData.count || 0} records from database`}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleDownloadReport(activeReport)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]"
+              >
+                <Download size={13} /> Download
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveReport(null);
+                  setReportData({ columns: [], rows: [], title: '', count: 0 });
+                  setRecordsError('');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]"
+              >
+                <X size={13} /> Close
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[760px]">
+              <thead>
+                <tr>
+                  {(reportData.columns || []).map((column) => (
+                    <th key={column} className="text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]">{column}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {recordsLoading && <tr><td className="px-5 py-8 text-center text-[13px] text-[#536173]" colSpan={Math.max(reportData.columns.length, 1)}>Loading report data...</td></tr>}
+                {!recordsLoading && recordsError && <tr><td className="px-5 py-8 text-center text-[13px] text-red-600" colSpan={Math.max(reportData.columns.length, 1)}>{recordsError}</td></tr>}
+                {!recordsLoading && !recordsError && reportData.rows?.length === 0 && <tr><td className="px-5 py-8 text-center text-[13px] text-[#536173]" colSpan={Math.max(reportData.columns.length, 1)}>No records found for this report.</td></tr>}
+                {!recordsLoading && !recordsError && reportData.rows?.map((row) => (
+                  <tr key={row.id} className="hover:bg-gray-50">
+                    {row.values.map((value, index) => (
+                      <td key={`${row.id}-${index}`} className="px-5 py-3.5 border-b border-[#f3f4f6] text-[13px] text-[#374151] whitespace-nowrap">{value}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {type === 'sales' && activeReport && (
         <div className="mt-5 bg-white border border-[#dfe7f1] rounded-lg overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-[#edf2f7]">
             <div>

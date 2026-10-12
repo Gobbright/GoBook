@@ -8,7 +8,6 @@ import { JournalEntryPage } from '../features/categories/common/modules/accounti
 import { LedgerPage } from '../features/categories/common/modules/accounting/LedgerPage.jsx';
 import { PnlPage } from '../features/categories/common/modules/accounting/PnlPage.jsx';
 import { TrialBalancePage } from '../features/categories/common/modules/accounting/TrialBalancePage.jsx';
-import { CustomerLifecyclePage } from '../features/categories/common/modules/crm/CustomerLifecyclePage.jsx';
 import { DeletePeriodPage, ExportDataPage, ImportDataPage } from '../features/categories/common/modules/data-management/DataManagementPage.jsx';
 import { CustomersPage } from '../features/categories/common/modules/crm/CustomersPage.jsx';
 import { FollowUpsPage } from '../features/categories/common/modules/crm/FollowUpsPage.jsx';
@@ -28,6 +27,7 @@ import { BarcodePage } from '../features/categories/common/modules/inventory/Bar
 import { BrandsPage } from '../features/categories/common/modules/inventory/BrandsPage.jsx';
 import { CategoriesPage } from '../features/categories/common/modules/inventory/CategoriesPage.jsx';
 import { ProductMastersPage } from '../features/categories/common/modules/inventory/ProductMastersPage.jsx';
+import { SubcategoriesPage } from '../features/categories/common/modules/inventory/SubcategoriesPage.jsx';
 import { ProductsPage, ServiceFormPage } from '../features/categories/common/modules/inventory/ProductsPage.jsx';
 import { StockAlertsPage } from '../features/categories/common/modules/inventory/StockAlertsPage.jsx';
 import { StockInPage } from '../features/categories/common/modules/inventory/StockInPage.jsx';
@@ -36,6 +36,7 @@ import { StockOutPage } from '../features/categories/common/modules/inventory/St
 import { StockSummaryPage } from '../features/categories/common/modules/inventory/StockSummaryPage.jsx';
 import { WarehousePage } from '../features/categories/common/modules/inventory/WarehousePage.jsx';
 import { EmailMarketingPage } from '../features/categories/common/modules/more-modules/EmailMarketingPage.jsx';
+import { OnlineStoreLitePage } from '../features/categories/common/modules/online-store/OnlineStoreLitePage.jsx';
 import { ReportsPage } from '../features/categories/common/modules/more-modules/ReportsPage.jsx';
 import { SalesManagementPage } from '../features/categories/common/modules/more-modules/SalesManagementPage.jsx';
 import { VendorManagementPage } from '../features/categories/common/modules/more-modules/VendorManagementPage.jsx';
@@ -45,6 +46,7 @@ import { ModuleReportsPage } from '../features/categories/common/modules/reports
 import { AuditReportPage } from '../features/categories/common/modules/settings/AuditReportPage.jsx';
 import { BusinessSettingsPage } from '../features/categories/common/modules/settings/BusinessSettingsPage.jsx';
 import { MultiBranchPage } from '../features/categories/common/modules/settings/MultiBranchPage.jsx';
+import { TemplatesPage } from '../features/categories/common/modules/settings/TemplatesPage.jsx';
 import { UsersRolesPage } from '../features/categories/common/modules/settings/UsersRolesPage.jsx';
 
 // Common to every category (GST, Accounting, CRM, Inventory, HR & Payroll, More Modules, Settings).
@@ -70,7 +72,6 @@ export const commonRoutes = [
   { path: '/customers', element: <CustomersPage /> },
   { path: '/leads', element: <LeadsPage /> },
   { path: '/follow-ups', element: <FollowUpsPage /> },
-  { path: '/customer-lifecycle', element: <CustomerLifecyclePage /> },
   { path: '/crm-reports', element: <ModuleReportsPage type="crm" /> },
 
   { path: '/products', element: <ProductsPage initialItemType="Product" lockedItemType="Product" /> },
@@ -79,10 +80,12 @@ export const commonRoutes = [
   { path: '/services/:id/edit', element: <ServiceFormPage /> },
   { path: '/product-masters', element: <ProductMastersPage /> },
   { path: '/product-categories', element: <CategoriesPage /> },
+  { path: '/product-subcategories', element: <SubcategoriesPage /> },
   { path: '/brands', element: <BrandsPage /> },
   { path: '/stock-summary', element: <StockSummaryPage /> },
   { path: '/stock-ledger', element: <StockLedgerPage /> },
   { path: '/inventory-reports', element: <ModuleReportsPage type="inventory" /> },
+  { path: '/service-reports', element: <ModuleReportsPage type="service" /> },
   { path: '/stock-in', element: <StockInPage /> },
   { path: '/stock-out', element: <StockOutPage /> },
   { path: '/warehouse', element: <WarehousePage /> },
@@ -100,6 +103,8 @@ export const commonRoutes = [
   { path: '/vendor-management', element: <VendorManagementPage /> },
   { path: '/whatsapp-business', element: <WhatsAppProviderPage /> },
   { path: '/whatsapp/settings', element: <WhatsAppProviderPage /> },
+  { path: '/online-store', element: <OnlineStoreLitePage /> },
+  { path: '/online-store/:section', element: <OnlineStoreLitePage /> },
   { path: '/email-marketing', element: <EmailMarketingPage /> },
   { path: '/whatsapp-marketing', element: <WhatsAppBusinessPage /> },
   { path: '/reports', element: <ReportsPage /> },
@@ -108,6 +113,7 @@ export const commonRoutes = [
   { path: '/users-roles', element: <UsersRolesPage /> },
   { path: '/audit-report', element: <AuditReportPage /> },
   { path: '/business-settings', element: <BusinessSettingsPage /> },
+  { path: '/templates', element: <TemplatesPage /> },
   { path: '/data-management', element: <ExportDataPage /> },
   { path: '/data-management/export', element: <ExportDataPage /> },
   { path: '/data-management/import', element: <ImportDataPage /> },

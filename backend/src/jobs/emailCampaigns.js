@@ -27,6 +27,10 @@ function getCampaignEmailHtml({ subject, body, businessName }) {
 // Sends a campaign to every recipient not already marked Sent - safe to call
 // again on a partially-failed campaign, or after adding new recipients later.
 export async function dispatchCampaign(campaign, settings, businessName) {
+  if (!settings?.emailSmtpHost || !settings?.emailSmtpUser || !settings?.emailSmtpPass || !settings?.emailSmtpVerifiedAt) {
+    throw new Error('A verified Gmail sender is required before campaign delivery.');
+  }
+  campaign.fromEmail = settings.emailSmtpUser;
   const smtp = buildSmtpOverride(settings, businessName);
   const senderName = settings?.businessName || businessName || 'GoBooks';
   let sent = 0;
@@ -56,7 +60,7 @@ export async function dispatchCampaign(campaign, settings, businessName) {
 
   campaign.sent = campaign.recipients.filter((r) => r.status === 'Sent').length;
   campaign.bounced = campaign.recipients.filter((r) => r.status === 'Failed').length;
-  campaign.status = 'Sent';
+  campaign.status = failed === 0 ? 'Sent' : 'Failed';
   campaign.sentOn = new Date().toISOString();
   await campaign.save();
 

@@ -176,6 +176,8 @@ const COLLECTION_CATEGORY = {
   whatsAppCampaigns: 'Marketing',
 };
 
+const SERVICE_REPORT_CATEGORY = 'Service';
+
 const INVOICE_TYPE_CATEGORY = {
   'purchase-order': 'Purchase',
   'purchase-entry': 'Purchase',
@@ -198,12 +200,30 @@ function statForCategory(reports, category) {
     .reduce((sum, report) => sum + report.count, 0);
 }
 
+async function buildServiceReport(req, productCollection) {
+  if (!productCollection) return null;
+  const query = await branchScopedQuery(req, productCollection);
+  if (!query) return null;
+  const serviceQuery = { ...query, itemType: 'Service' };
+  const summary = await countAndLatest(productCollection, serviceQuery);
+  const row = reportRow({
+    name: 'Service Reports',
+    category: SERVICE_REPORT_CATEGORY,
+    description: `${plural(summary.count, 'service record')} in the database`,
+    count: summary.count,
+    latestDate: summary.latestDate,
+  });
+  if (row) row.downloadKey = 'services';
+  return row;
+}
+
 // GET /api/more-modules/reports-summary
 export async function getReportsSummary(req, res, next) {
   try {
     const moduleCollection = DATA_COLLECTIONS.find((collection) => collection.key === 'moduleRecords');
     const ordinaryCollections = DATA_COLLECTIONS.filter((collection) => !['invoices', 'moduleRecords'].includes(collection.key));
     const invoiceCollection = DATA_COLLECTIONS.find((collection) => collection.key === 'invoices');
+    const productCollection = DATA_COLLECTIONS.find((collection) => collection.key === 'products');
 
     const collectionRows = (await Promise.all(ordinaryCollections.map(async (collection) => {
       const query = await branchScopedQuery(req, collection);
@@ -254,7 +274,8 @@ export async function getReportsSummary(req, res, next) {
       downloadKey: `module:${row._id}`,
     }));
 
-    const reports = [...collectionRows, ...invoiceRows, ...moduleRows];
+    const serviceRow = await buildServiceReport(req, productCollection);
+    const reports = [...collectionRows, ...invoiceRows, ...(serviceRow ? [serviceRow] : []), ...moduleRows];
     const categoryCounts = reports.reduce((map, report) => {
       map.set(report.category, (map.get(report.category) || 0) + report.count);
       return map;
@@ -265,6 +286,7 @@ export async function getReportsSummary(req, res, next) {
     const inventory = statForCategory(reports, 'Inventory');
     const hr = statForCategory(reports, 'HR');
     const purchase = statForCategory(reports, 'Purchase');
+    const service = statForCategory(reports, SERVICE_REPORT_CATEGORY);
 
     res.json({
       stats: {
@@ -274,6 +296,7 @@ export async function getReportsSummary(req, res, next) {
         inventory,
         hr,
         purchase,
+        service,
       },
       categories: [...categoryCounts.entries()].map(([label, count]) => ({ label, count })),
       reports,
@@ -288,10 +311,21 @@ function csvEscape(value) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function isCsvTextColumn(header = {}) {
+  return /(^|[^a-z])(id|no\.?|number|code|phone|mobile|gstin|pan|barcode|hsn|email|date|created at|updated at)([^a-z]|$)/i.test(header.label || '');
+}
+
+function csvCellValue(header, row) {
+  const raw = formatReportCell(header.value(row));
+  if (!isCsvTextColumn(header)) return raw;
+  const text = String(raw ?? '').replace(/"/g, '""');
+  return `="${text}"`;
+}
+
 function sendCsv(res, filename, headers, rows) {
   const csv = [
     headers.map((header) => csvEscape(header.label)).join(','),
-    ...rows.map((row) => headers.map((header) => csvEscape(header.value(row))).join(',')),
+    ...rows.map((row) => headers.map((header) => csvEscape(csvCellValue(header, row))).join(',')),
   ].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -331,6 +365,22 @@ function productReportHeaders() {
     { label: 'Stock', value: (row) => row.stock },
     { label: 'Min Stock', value: (row) => row.minStockLevel },
     { label: 'Status', value: (row) => row.status },
+  ];
+}
+
+function serviceReportHeaders() {
+  return [
+    { label: 'Code', value: (row) => row.code },
+    { label: 'Service', value: (row) => row.description },
+    { label: 'Service Type', value: (row) => row.serviceType },
+    { label: 'SAC', value: (row) => row.hsn },
+    { label: 'Rate', value: (row) => row.rate },
+    { label: 'GST Rate', value: (row) => row.gstRate },
+    { label: 'Mode', value: (row) => row.serviceMode },
+    { label: 'Area', value: (row) => row.serviceArea },
+    { label: 'Technician', value: (row) => row.technician || row.staffProfessional },
+    { label: 'Status', value: (row) => row.status },
+    { label: 'Created At', value: (row) => row.createdAt },
   ];
 }
 
@@ -409,6 +459,21 @@ function tableRowsFromHeaders(headers, records) {
 
 async function loadReportData(req, key) {
   const invoiceCollection = DATA_COLLECTIONS.find((collection) => collection.key === 'invoices');
+  if (key === 'services') {
+    const productCollection = DATA_COLLECTIONS.find((collection) => collection.key === 'products');
+    const records = await productCollection.model
+      .find({ ...(await branchScopedQuery(req, productCollection)), itemType: 'Service' })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(500)
+      .lean();
+    return {
+      filename: 'service-report.csv',
+      title: 'Service Reports',
+      headers: serviceReportHeaders(),
+      records,
+    };
+  }
+
   if (key.startsWith('invoice:')) {
     const documentType = key.slice('invoice:'.length) || 'invoice';
     const records = await invoiceCollection.model

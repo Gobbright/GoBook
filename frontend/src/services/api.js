@@ -48,7 +48,7 @@ function qs(params) {
 export const api = {
   getMe: () => request('GET', '/auth/me'),
   // ── Settings ──────────────────────────────────────────────────────────────
-  getSettings: () => request('GET', '/settings'),
+  getSettings: (params) => request('GET', `/settings${qs(params ?? {})}`),
   listStaffUsers: (params) => request('GET', `/settings/users${qs(params ?? {})}`),
 
   // ── Audit Log ─────────────────────────────────────────────────────────────
@@ -57,6 +57,15 @@ export const api = {
 
   // ── Global Search ─────────────────────────────────────────────────────────
   globalSearch: (q) => request('GET', `/search${qs({ q: q ?? '' })}`),
+
+  // ── Online Store Lite ─────────────────────────────────────────────────────
+  getOnlineStoreSettings: () => request('GET', '/online-store/settings'),
+  updateOnlineStoreSettings: (payload) => request('PUT', '/online-store/settings', payload),
+  listOnlineStoreProducts: () => request('GET', '/online-store/products'),
+  updateOnlineStoreProduct: (id, payload) => request('PUT', `/online-store/products/${id}`, payload),
+  listOnlineStoreOrders: () => request('GET', '/online-store/orders'),
+  updateOnlineStoreOrderStatus: (id, status) => request('PATCH', `/online-store/orders/${id}/status`, { status }),
+  getOnlineStoreReports: () => request('GET', '/online-store/reports'),
 
   // ── Invoices ──────────────────────────────────────────────────────────────
   getNextNumber: (prefix)    => request('GET',    `/sales/invoices/next-number?prefix=${encodeURIComponent(prefix)}`),
@@ -167,6 +176,8 @@ export const api = {
   invGetProduct:        (id)             => request('GET', `/inventory/products/${id}`),
   invCreateProduct:     (payload)        => request('POST',   '/inventory/products', payload),
   invUpdateProduct:     (id, payload)    => request('PUT',    `/inventory/products/${id}`, payload),
+  invRecordBarcodePrint: (id, payload)   => request('POST',   `/inventory/products/${id}/barcode-print`, payload),
+  invResetBarcodePrintCounts: (payload)  => request('POST',   '/inventory/products/barcode-print/reset', payload),
   invDeleteProduct:     (id)             => request('DELETE', `/inventory/products/${id}`),
   invImportProducts:    (formData, params) => upload(`/inventory/products/import${qs(params ?? {})}`, formData),
 
@@ -203,6 +214,13 @@ export const api = {
   invCreateCategory:  (payload)        => request('POST',   '/inventory/categories', payload),
   invUpdateCategory:  (id, payload)    => request('PUT',    `/inventory/categories/${id}`, payload),
   invDeleteCategory:  (id)             => request('DELETE', `/inventory/categories/${id}`),
+
+  // ── Inventory: Subcategories ──────────────────────────────────────────────
+  invSubcategoryStats:  ()             => request('GET', '/inventory/subcategories/stats'),
+  invListSubcategories: (params)       => request('GET', `/inventory/subcategories${qs(params ?? {})}`),
+  invCreateSubcategory: (payload)      => request('POST',   '/inventory/subcategories', payload),
+  invUpdateSubcategory: (id, payload)  => request('PUT',    `/inventory/subcategories/${id}`, payload),
+  invDeleteSubcategory: (id)           => request('DELETE', `/inventory/subcategories/${id}`),
 
   // ── Inventory: Brands ──────────────────────────────────────────────────────
   invBrandStats:   ()               => request('GET', '/inventory/brands/stats'),

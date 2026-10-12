@@ -9,6 +9,8 @@ import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { api } from '../../../../../services/api.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
+import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 import { ShareModal } from './shared/ShareModal.jsx';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
@@ -61,6 +63,35 @@ function normalizePE(entry, poMap) {
     difference,
     matchStatus: poTotal > 0 && Math.abs(difference) < 1 ? 'matched' : 'mismatch',
   };
+}
+
+function matchesPurchaseFilters(doc, filters) {
+  const customer = doc.customer || {};
+  const haystack = [
+    doc.number,
+    doc.vendorInvoiceNo,
+    doc.linkedPoNumber,
+    customer.name,
+    customer.phone,
+    customer.gstin,
+    customer.city,
+    customer.state,
+    ...(doc.items || []).flatMap((item) => [item.description, item.name, item.productName, item.hsn, item.hsnCode, item.sac, item.barcode, item.productCode, item.code, item.itemType]),
+  ].join(' ').toLowerCase();
+  const has = (value) => String(value || '').trim().toLowerCase();
+  if (filters.customer && !has(customer.name).includes(has(filters.customer))) return false;
+  if (filters.city && !has(customer.city).includes(has(filters.city))) return false;
+  if (filters.state && !has(customer.state).includes(has(filters.state))) return false;
+  if (filters.supplyType && doc.supplyType !== filters.supplyType) return false;
+  if (filters.gstType === 'with' && !(Number(doc.gst) > 0 || (doc.items || []).some((item) => Number(item.gstRate) > 0))) return false;
+  if (filters.gstType === 'without' && (Number(doc.gst) > 0 || (doc.items || []).some((item) => Number(item.gstRate) > 0))) return false;
+  if (filters.amountMin && Number(doc.peTotal || 0) < Number(filters.amountMin)) return false;
+  if (filters.amountMax && Number(doc.peTotal || 0) > Number(filters.amountMax)) return false;
+  if (filters.itemType && !(doc.items || []).some((item) => has(item.itemType || item.type).includes(has(filters.itemType)))) return false;
+  if (filters.hsn && !haystack.includes(has(filters.hsn))) return false;
+  if (filters.productName && !haystack.includes(has(filters.productName))) return false;
+  if (filters.barcode && !haystack.includes(has(filters.barcode))) return false;
+  return true;
 }
 
 function pageNumbers(current, total) {
@@ -132,6 +163,7 @@ export function PurchaseEntryPage() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
   const [openMenu, setOpenMenu] = useState(null);
   const [shareDoc, setShareDoc] = useState(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -141,7 +173,13 @@ export function PurchaseEntryPage() {
   const [error, setError] = useState('');
   const [bizSettings, setBizSettings] = useState({});
   const [pdfDoc, setPdfDoc] = useState(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const searchRef = useRef(null);
+
+  function updateFilter(key, value) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
 
   useEffect(() => {
     async function load() {
@@ -175,19 +213,39 @@ export function PurchaseEntryPage() {
     mismatch: entries.filter((entry) => entry.matchStatus !== 'matched').length,
   }), [entries]);
 
+  const vendorOptions = useMemo(() => {
+    const vendors = new Map();
+    entries.forEach((entry) => {
+      const vendor = entry.customer || {};
+      const name = String(vendor.name || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!vendors.has(key)) vendors.set(key, vendor);
+    });
+    return [...vendors.values()].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  }, [entries]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return entries.filter((entry) => {
       if (q && !entry.number?.toLowerCase().includes(q) && !entry.vendorInvoiceNo?.toLowerCase().includes(q) && !entry.linkedPoNumber?.toLowerCase().includes(q) && !entry.customer?.name?.toLowerCase().includes(q)) return false;
       if (!isWithinDateRange(entry.date || entry.createdAt, dateFrom, dateTo)) return false;
+      if (!matchesPurchaseFilters(entry, filters)) return false;
       return true;
     });
-  }, [dateFrom, dateTo, entries, search]);
+  }, [dateFrom, dateTo, entries, filters, search]);
 
-  useEffect(() => { setPage(1); }, [dateFrom, dateTo, search]);
+  useEffect(() => { setPage(1); }, [dateFrom, dateTo, filters, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const selectedEntryIdSet = useMemo(() => new Set(selectedEntryIds), [selectedEntryIds]);
+  const selectedEntries = useMemo(
+    () => filtered.filter((entry) => selectedEntryIdSet.has(entry.id)),
+    [filtered, selectedEntryIdSet],
+  );
+  const allFilteredSelected = filtered.length > 0 && filtered.every((entry) => selectedEntryIdSet.has(entry.id));
+  const someFilteredSelected = filtered.some((entry) => selectedEntryIdSet.has(entry.id));
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginated.length,
     onOpen: (index) => navigate(`/billing/purchase-entry/${paginated[index].id}/view`),
@@ -210,9 +268,50 @@ export function PurchaseEntryPage() {
     if (!window.confirm(`Delete purchase entry ${entry.number}? This cannot be undone.`)) return;
     try {
       await api.deleteInvoice(entry.id);
+      setSelectedEntryIds((ids) => ids.filter((id) => id !== entry.id));
       setEntries((prev) => prev.filter((item) => item.id !== entry.id));
     } catch (err) {
       setError(err.message || 'Unable to delete purchase entry');
+    }
+  }
+
+  useEffect(() => {
+    const availableIds = new Set(entries.map((entry) => entry.id));
+    setSelectedEntryIds((ids) => ids.filter((id) => availableIds.has(id)));
+  }, [entries]);
+
+  function toggleEntrySelection(entryId) {
+    setSelectedEntryIds((ids) => (
+      ids.includes(entryId)
+        ? ids.filter((id) => id !== entryId)
+        : [...ids, entryId]
+    ));
+  }
+
+  function toggleFilteredSelection() {
+    const entryIds = filtered.map((entry) => entry.id);
+    if (allFilteredSelected) {
+      setSelectedEntryIds((ids) => ids.filter((id) => !entryIds.includes(id)));
+      return;
+    }
+    setSelectedEntryIds((ids) => Array.from(new Set([...ids, ...entryIds])));
+  }
+
+  async function handleBulkDelete() {
+    if (selectedEntries.length === 0) return;
+    const count = selectedEntries.length;
+    if (!window.confirm(`Delete ${count} selected purchase entr${count === 1 ? 'y' : 'ies'}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    setError('');
+    try {
+      await Promise.all(selectedEntries.map((entry) => api.deleteInvoice(entry.id)));
+      const deletedIds = new Set(selectedEntries.map((entry) => entry.id));
+      setSelectedEntryIds([]);
+      setEntries((prev) => prev.filter((entry) => !deletedIds.has(entry.id)));
+    } catch (err) {
+      setError(err.message || 'Unable to delete selected purchase entries');
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -246,7 +345,25 @@ export function PurchaseEntryPage() {
       <div className="bg-white border border-[#dfe7f1] rounded-lg overflow-hidden">
         <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[#edf2f7] px-4 py-2.5">
           <DateRangeFilter from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} onClear={() => { setDateFrom(''); setDateTo(''); }} />
+          <SalesFilterBar
+            filters={filters}
+            onChange={updateFilter}
+            customerOptions={vendorOptions}
+            customerPlaceholder="Vendor..."
+            fields={['gstType', 'customer', 'city', 'state', 'supplyType', 'amountRange', 'itemType', 'hsn', 'productName', 'barcode']}
+          />
           <ExportButtons title="Purchase Entries" filename="purchase-entries" rows={filtered} columns={exportColumns} />
+          {selectedEntries.length > 0 && (
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 size={13} />
+              Delete Selected ({selectedEntries.length})
+            </button>
+          )}
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
             <input ref={searchRef} className="pl-8 pr-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] outline-none focus:border-blue-500 w-64 font-[inherit]" placeholder="Search PE, invoice, PO or vendor... (/)" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -257,6 +374,18 @@ export function PurchaseEntryPage() {
           <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
+                <th className="w-12 px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    ref={(node) => {
+                      if (node) node.indeterminate = someFilteredSelected && !allFilteredSelected;
+                    }}
+                    onChange={toggleFilteredSelection}
+                    aria-label="Select all purchase entries"
+                    className="h-4 w-4 rounded border-[#cbd5e1] text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
                 {['PE No.', 'Vendor Invoice', 'Linked PO', 'Vendor', 'Date', 'PO Amount', 'PE Amount', 'Difference', 'Status', ''].map((label, i) => (
                   <th key={label || i} className={`text-xs font-semibold uppercase tracking-wide text-[#536173] px-4 py-3 ${i >= 5 && i <= 7 ? 'text-right' : 'text-left'}`}>{label}</th>
                 ))}
@@ -264,9 +393,18 @@ export function PurchaseEntryPage() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-16 text-[#536173] text-[13px]">No purchase entries match your search.</td></tr>
+                <tr><td colSpan={11} className="text-center py-16 text-[#536173] text-[13px]">No purchase entries match your search.</td></tr>
               ) : paginated.map((entry, rowIndex) => (
                 <tr key={entry.id} className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}>
+                  <td className="px-4 py-3.5 align-top">
+                    <input
+                      type="checkbox"
+                      checked={selectedEntryIdSet.has(entry.id)}
+                      onChange={() => toggleEntrySelection(entry.id)}
+                      aria-label={`Select ${entry.number}`}
+                      className="h-4 w-4 rounded border-[#cbd5e1] text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
                   <td className="px-4 py-3.5"><Link to={`/billing/purchase-entry/${entry.id}/view`} className="text-[13px] font-semibold text-blue-600 no-underline hover:underline">{entry.number}</Link></td>
                   <td className="px-4 py-3.5 text-[13px] text-[#374151]">{entry.vendorInvoiceNo || <span className="text-[#b0bec5]">-</span>}</td>
                   <td className="px-4 py-3.5 text-[13px] text-[#374151]">{entry.linkedPoNumber || <span className="text-[#b0bec5]">Not linked</span>}</td>

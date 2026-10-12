@@ -38,6 +38,7 @@ const AVATAR_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
 const PAGE_SIZE = 8;
+const preventPasswordPaste = (event) => event.preventDefault();
 const EMPTY = {
   name: '',
   email: '',
@@ -245,10 +246,14 @@ export function UsersRolesPage() {
       ...(form.password ? { password: form.password } : {}),
     };
     try {
-      if (editingId) await apiClient(`/settings/users/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
-      else await apiClient('/settings/users', { method: 'POST', body: JSON.stringify(payload) });
+      const savedUser = editingId
+        ? await apiClient(`/settings/users/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) })
+        : await apiClient('/settings/users', { method: 'POST', body: JSON.stringify(payload) });
       await load();
       resetForm();
+      if (!editingId && savedUser?.credentialsEmailSent === false) {
+        window.alert(`User created, but the login details email was not sent. ${savedUser.credentialsEmailError || 'Please check SMTP settings.'}`);
+      }
     } catch (err) {
       setFormError(err.message || 'Unable to save user');
     }
@@ -321,13 +326,14 @@ export function UsersRolesPage() {
             <div className="relative">
               <input
                 className="w-full border border-[#dbe4ef] rounded-md pl-3 pr-10 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]"
-                placeholder={editingId ? 'New password (optional)' : 'Password *'}
                 required={!editingId}
                 minLength={8}
                 pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}"
                 title="Password must be at least 8 characters and include one letter and one number"
                 type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
                 value={form.password}
+                onPaste={preventPasswordPaste}
                 onChange={(e) => updateForm('password', e.target.value)}
               />
               <button

@@ -9,6 +9,8 @@ import {
 } from '../../../../services/salesAccountingStatus.js';
 import { httpError } from '../../../../utils/httpError.js';
 import { buildSalesAggregationPipeline, unwrapFacetResult } from '../shared/salesFilters.js';
+import { branchForNewRecord, branchScopedAggregateMatch, branchScopedQuery } from '../../../../utils/branchScope.js';
+import { withBusinessSettings } from '../shared/invoiceBusinessSettings.js';
 
 const DOCTYPE = 'debit-note';
 
@@ -37,7 +39,8 @@ export async function getNextDebitNoteNumber(req, res, next) {
 export async function listDebitNotes(req, res, next) {
   try {
     const { page = 1, limit = 50 } = req.query;
-    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, DOCTYPE, { includePayment: false });
+    const baseMatch = await branchScopedAggregateMatch(req, { model: Invoice, ownerField: 'userId' });
+    const pipeline = buildSalesAggregationPipeline(req.query, req.user.id, DOCTYPE, { includePayment: false, baseMatch });
     const result = await Invoice.aggregate(pipeline);
     const { data, total } = unwrapFacetResult(result);
 
@@ -50,9 +53,10 @@ export async function listDebitNotes(req, res, next) {
 // GET /api/sales/debit-notes/:id
 export async function getDebitNote(req, res, next) {
   try {
-    const note = await Invoice.findOne({ _id: req.params.id, userId: req.user.id, documentType: DOCTYPE }).lean();
+    const note = await Invoice.findOne(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id, documentType: DOCTYPE })).lean();
     if (!note) return next(httpError(404, 'Debit note not found'));
-    res.json(await attachAccountingStatus(req.user.id, note));
+    const withAccounting = await attachAccountingStatus(req.user.id, note);
+    res.json(await withBusinessSettings(req, withAccounting));
   } catch (err) {
     next(err);
   }
@@ -61,7 +65,7 @@ export async function getDebitNote(req, res, next) {
 // POST /api/sales/debit-notes
 export async function createDebitNote(req, res, next) {
   try {
-    const note = await Invoice.create({ ...req.body, userId: req.user.id, businessId: req.user.businessId, documentType: DOCTYPE });
+    const note = await Invoice.create({ ...req.body, userId: req.user.id, businessId: req.user.businessId, branch: await branchForNewRecord(req, req.body.branch), documentType: DOCTYPE });
     await postDebitNoteAccounting(note, req.user);
     res.status(201).json(await attachAccountingStatus(req.user.id, note.toObject()));
   } catch (err) {
@@ -73,9 +77,11 @@ export async function createDebitNote(req, res, next) {
 // PUT /api/sales/debit-notes/:id
 export async function updateDebitNote(req, res, next) {
   try {
+    const updates = { ...req.body, documentType: DOCTYPE };
+    if (req.body.branch !== undefined) updates.branch = await branchForNewRecord(req, req.body.branch);
     const note = await Invoice.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id, documentType: DOCTYPE },
-      { $set: { ...req.body, documentType: DOCTYPE } },
+      await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id, documentType: DOCTYPE }),
+      { $set: updates },
       { new: true, runValidators: false },
     ).lean();
     if (!note) return next(httpError(404, 'Debit note not found'));
@@ -89,7 +95,7 @@ export async function updateDebitNote(req, res, next) {
 // DELETE /api/sales/debit-notes/:id
 export async function deleteDebitNote(req, res, next) {
   try {
-    const note = await Invoice.findOneAndDelete({ _id: req.params.id, userId: req.user.id, documentType: DOCTYPE }).lean();
+    const note = await Invoice.findOneAndDelete(await branchScopedQuery(req, { model: Invoice, ownerField: 'userId' }, { _id: req.params.id, documentType: DOCTYPE })).lean();
     if (!note) return next(httpError(404, 'Debit note not found'));
     await reverseAccountingPosting({ userId: req.user.id, sourceType: 'debit-note', sourceId: note._id });
     res.json({ message: 'Debit note deleted successfully' });

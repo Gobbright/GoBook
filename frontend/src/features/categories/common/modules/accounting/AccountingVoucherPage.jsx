@@ -302,13 +302,19 @@ export function AccountingVoucherPage() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white border border-[#dfe7f1] rounded-lg p-5 mb-5">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit Voucher' : 'New Voucher'}</h3>
-            <button type="button" onClick={resetForm} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#536173] hover:bg-gray-100 bg-transparent border-0 cursor-pointer" title="Close">
-              <X size={16} />
-            </button>
-          </div>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 md:items-center md:p-4" onMouseDown={(e) => e.target === e.currentTarget && resetForm()}>
+          <form onSubmit={handleSubmit} className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[#dfe7f1] bg-white shadow-2xl md:max-w-[1180px] md:rounded-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#edf2f7] bg-white px-4 py-3 md:px-5 md:py-4">
+              <div>
+                <h3 className="m-0 text-[16px] font-bold text-[#111827]">{editingId ? 'Edit Voucher' : 'Add Voucher'}</h3>
+                <p className="m-0 mt-0.5 text-[12px] font-medium text-[#64748b]">{editingId ? 'Update accounting voucher fields' : 'Enter voucher details and ledger lines'}</p>
+              </div>
+              <button type="button" onClick={resetForm} className="w-9 h-9 inline-flex items-center justify-center rounded-md text-[#536173] hover:bg-gray-100 bg-transparent border-0 cursor-pointer" title="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-5 md:px-5">
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             {[
@@ -323,7 +329,7 @@ export function AccountingVoucherPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 md:gap-4">
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-1">Voucher Type</label>
               <SelectDropdown buttonClassName={FIELD} value={form.voucherType} onChange={(v) => updateForm('voucherType', v)} options={voucherTypes} />
@@ -350,7 +356,60 @@ export function AccountingVoucherPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-[#edf2f7] rounded-lg">
+          <div className="space-y-3 md:hidden">
+            {form.lines.map((line, index) => (
+              <div key={`${index}-${line.side}-mobile`} className="rounded-xl border border-[#edf2f7] bg-[#f8fbff] p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <span className="text-[12px] font-bold text-[#0f172a]">Line {index + 1}</span>
+                  <button type="button" onClick={() => removeLine(index)} disabled={form.lines.length <= 2} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 bg-white border border-red-100 cursor-pointer disabled:opacity-30" title="Remove line">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="block text-[12px] font-medium text-[#374151]">
+                    Ledger
+                    <AutocompleteInput inputClassName={`${FIELD} mt-1 h-11`} value={line.ledgerName} onChange={(v) => updateLine(index, 'ledgerName', v)} options={ledgers.map((l) => l.name)} placeholder="Select or type ledger" />
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-[12px] font-medium text-[#374151]">
+                      Side
+                      <SelectDropdown
+                        className="mt-1"
+                        buttonClassName={`${FIELD} h-11`}
+                        value={line.side}
+                        onChange={(v) => updateLine(index, 'side', v)}
+                        options={[{ value: 'debit', label: 'Debit' }, { value: 'credit', label: 'Credit' }]}
+                      />
+                    </label>
+                    <label className="block text-[12px] font-medium text-[#374151]">
+                      Amount
+                      <input className={`${FIELD} mt-1 h-11 text-right`} required min="0" step="0.01" type="number" value={line.amount} onChange={(e) => updateLine(index, 'amount', e.target.value)} />
+                    </label>
+                  </div>
+                  <label className="block text-[12px] font-medium text-[#374151]">
+                    Group
+                    <input className={`${FIELD} mt-1 h-11`} value={line.ledgerGroup} onChange={(e) => updateLine(index, 'ledgerGroup', e.target.value)} placeholder="Ledger group" />
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-[12px] font-medium text-[#374151]">
+                      Bill Ref
+                      <input className={`${FIELD} mt-1 h-11`} value={line.billRef} onChange={(e) => updateLine(index, 'billRef', e.target.value)} />
+                    </label>
+                    <label className="block text-[12px] font-medium text-[#374151]">
+                      Cost Center
+                      <input className={`${FIELD} mt-1 h-11`} value={line.costCenter} onChange={(e) => updateLine(index, 'costCenter', e.target.value)} />
+                    </label>
+                  </div>
+                  <label className="block text-[12px] font-medium text-[#374151]">
+                    Narration
+                    <input className={`${FIELD} mt-1 h-11`} value={line.narration} onChange={(e) => updateLine(index, 'narration', e.target.value)} />
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto border border-[#edf2f7] rounded-lg md:block">
             <table className="w-full border-collapse min-w-250">
               <thead>
                 <tr>
@@ -405,12 +464,12 @@ export function AccountingVoucherPage() {
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mt-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => addLine('debit')} className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <button type="button" onClick={() => addLine('debit')} className="inline-flex h-10 items-center justify-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]">
                 <Plus size={14} />
                 Debit Line
               </button>
-              <button type="button" onClick={() => addLine('credit')} className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]">
+              <button type="button" onClick={() => addLine('credit')} className="inline-flex h-10 items-center justify-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]">
                 <Plus size={14} />
                 Credit Line
               </button>
@@ -424,8 +483,8 @@ export function AccountingVoucherPage() {
                   {Math.abs(formDiff) < 0.01 ? 'Balanced' : `Diff ${formatCurrency(Math.abs(formDiff))}`}
                 </span>
               </div>
-              <button type="button" onClick={resetForm} className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]">Cancel</button>
-              <button type="submit" disabled={saving} className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-60">
+              <button type="button" onClick={resetForm} className="h-10 px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]">Cancel</button>
+              <button type="submit" disabled={saving} className="h-10 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit] disabled:opacity-60">
                 {saving ? 'Saving...' : editingId ? 'Update Voucher' : 'Save Voucher'}
               </button>
             </div>
@@ -435,17 +494,19 @@ export function AccountingVoucherPage() {
             <textarea className={`${FIELD} min-h-20 resize-y`} value={form.narration} onChange={(e) => updateForm('narration', e.target.value)} placeholder="Narration for this voucher" />
           </div>
           {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mt-3">{formError}</p>}
-        </form>
+            </div>
+          </form>
+        </div>
       )}
 
       <div className="bg-white border border-[#dfe7f1] rounded-lg overflow-hidden">
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7]">
-          <div className="relative flex-1 min-w-55 max-w-sm">
+        <div className="grid grid-cols-2 gap-2 px-3 py-3 border-b border-[#edf2f7] md:flex md:flex-wrap md:items-center md:gap-3 md:px-5 md:py-3.5">
+          <div className="relative col-span-2 md:col-span-1 md:min-w-55 md:max-w-sm md:flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" />
-            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder="Search vouchers..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className="h-11 rounded-lg border border-[#dbe4ef] pl-9 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit] md:h-auto md:rounded-md" placeholder="Search vouchers..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <SelectDropdown className="w-36 flex-none" value={typeFilter} onChange={setTypeFilter} options={['All', ...voucherTypes]} />
-          <SelectDropdown className="w-32 flex-none" value={statusFilter} onChange={setStatusFilter} options={['All', 'Posted', 'Draft', 'Cancelled']} />
+          <SelectDropdown className="min-w-0 md:w-36 md:flex-none" buttonClassName="h-11 rounded-lg md:h-auto md:rounded-md" value={typeFilter} onChange={setTypeFilter} options={['All', ...voucherTypes]} />
+          <SelectDropdown className="min-w-0 md:w-32 md:flex-none" buttonClassName="h-11 rounded-lg md:h-auto md:rounded-md" value={statusFilter} onChange={setStatusFilter} options={['All', 'Posted', 'Draft', 'Cancelled']} />
         </div>
 
         <div className="overflow-x-auto">

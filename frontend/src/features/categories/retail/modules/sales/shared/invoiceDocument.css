@@ -113,6 +113,13 @@
   border-bottom: 0.25mm dashed #222;
 }
 
+.erp-receipt-totals + .erp-receipt-note,
+.erp-receipt-totals + .erp-receipt-words,
+.erp-receipt-totals + .erp-receipt-bank,
+.erp-receipt-after-total {
+  margin-top: 2.5mm;
+}
+
 .erp-receipt-party strong,
 .erp-receipt-bank strong,
 .erp-receipt-note strong {
@@ -373,8 +380,9 @@
 .erp-company-copy h2 {
   margin: 0 0 0.4mm;
   color: #222;
-  font: 700 15pt/1 Arial, Helvetica, sans-serif;
-  white-space: nowrap;
+  font: 700 15pt/1.05 Arial, Helvetica, sans-serif;
+  white-space: normal;
+  overflow-wrap: anywhere;
   text-decoration: none;
 }
 
@@ -392,7 +400,7 @@
 .erp-company-copy h3 {
   margin: 0.7mm 0 0;
   color: #222;
-  font: 700 11pt/1 Arial, Helvetica, sans-serif;
+  font: 400 8.8pt/1.08 Arial, Helvetica, sans-serif;
 }
 
 .erp-customer-block {
@@ -563,14 +571,19 @@
 }
 
 .erp-items-table col.erp-col-sn { width: 5.2mm; }
-.erp-items-table col.erp-col-desc { width: 88mm; }
+.erp-items-table col.erp-col-desc { width: 84mm; }
 .erp-items-table col.erp-col-hsn { width: 15mm; }
 .erp-items-table col.erp-col-gst { width: 8mm; }
-.erp-items-table col.erp-col-qty { width: 13mm; }
-.erp-items-table col.erp-col-uqc { width: 10mm; }
+.erp-items-table col.erp-col-qty { width: 15mm; }
+.erp-items-table col.erp-col-uqc { width: 12mm; }
 .erp-items-table col.erp-col-price { width: 17mm; }
 .erp-items-table col.erp-col-price-gst { width: 17mm; }
 .erp-items-table col.erp-col-amount { width: 24.8mm; }
+
+.erp-items-table.erp-items-table-purchase col.erp-col-desc { width: 58mm; }
+.erp-items-table.erp-items-table-purchase col.erp-col-variant { width: 34mm; }
+.erp-items-table.erp-items-table-purchase col.erp-col-qty { width: 13mm; }
+.erp-items-table.erp-items-table-purchase col.erp-col-amount { width: 26.8mm; }
 
 .erp-items-table th,
 .erp-items-table td {
@@ -648,6 +661,10 @@
   font-weight: 700 !important;
 }
 
+.erp-tax-row .erp-amount-cell {
+  font-weight: 400 !important;
+}
+
 .erp-filler-row td {
   padding-top: 0.7mm;
   padding-bottom: 0.7mm;
@@ -678,7 +695,7 @@
 .erp-tax-label {
   padding-right: 1.2mm !important;
   text-align: right;
-  font-weight: 700 !important;
+  font-weight: 400 !important;
   white-space: nowrap;
 }
 

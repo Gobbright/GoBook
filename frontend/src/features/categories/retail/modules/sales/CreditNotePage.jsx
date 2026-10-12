@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Calendar, Download, Eye, FileText, IndianRupee,
   MoreVertical, Pencil, Plus, Search, Share2, Trash2, TrendingUp,
@@ -10,6 +11,7 @@ import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
 import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
+import { readSalesListState, replaceSalesListQuery, salesListQuery } from '../../../../../components/forms/salesFilterUrlState.js';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
 import { useDebouncedValue } from '../../../../../hooks/useDebouncedValue.js';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
@@ -46,7 +48,7 @@ function StatCard({ label, amount, countLabel, accentColor, icon, format = 'curr
 
 // ── Row action menu ─────────────────────────────────────────────
 
-function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload }) {
+function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload, returnSearch = '' }) {
   const isOpen = openMenu === note.id;
   const btnRef = useRef(null);
   const [menuPos, setMenuPos] = useState({ top: 'auto', bottom: 'auto', right: 0 });
@@ -67,7 +69,7 @@ function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload
 
   function close() { setOpenMenu(null); }
 
-  function handleView()   { close(); window.location.assign(`/billing/credit-note/${note.id}/view`); }
+  function handleView()   { close(); window.location.assign(`/billing/credit-note/${note.id}/view${returnSearch}`); }
   function handleEdit()   { close(); window.location.assign(`/billing/credit-note/${note.id}/edit`); }
   function handleDelete() { close(); onDelete(note.id, note.number); }
 
@@ -189,12 +191,14 @@ function pageNumbers(current, total) {
 }
 
 export function CreditNotePage() {
-  const [search, setSearch] = useState('');
+  const location = useLocation();
+  const initialListState = useMemo(() => readSalesListState(), []);
+  const [search, setSearch] = useState(initialListState.search);
   const debouncedSearch = useDebouncedValue(search);
   const [openMenu, setOpenMenu] = useState(null);
-  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filters, setFilters] = useState(initialListState.filters);
+  const [dateFrom, setDateFrom] = useState(initialListState.dateFrom);
+  const [dateTo, setDateTo] = useState(initialListState.dateTo);
   const [notes, setNotes] = useState([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -208,6 +212,12 @@ export function CreditNotePage() {
   function updateFilter(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
   }
+
+  const listQuery = useMemo(() => salesListQuery({ filters, dateFrom, dateTo, search }), [filters, dateFrom, dateTo, search]);
+
+  useEffect(() => {
+    replaceSalesListQuery(location.pathname, listQuery);
+  }, [location.pathname, listQuery]);
 
   useEffect(() => {
     async function load() {
@@ -276,7 +286,7 @@ export function CreditNotePage() {
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginated.length,
-    onOpen: (index) => window.location.assign(`/billing/credit-note/${paginated[index].id}/view`),
+    onOpen: (index) => window.location.assign(`/billing/credit-note/${paginated[index].id}/view${listQuery}`),
     searchRef,
   });
 
@@ -482,6 +492,7 @@ export function CreditNotePage() {
                         onDelete={handleDeleteRequest}
                         onShare={setShareDoc}
                         onDownload={setPdfDoc}
+                        returnSearch={listQuery}
                       />
                     </td>
                   </tr>

@@ -23,7 +23,7 @@ export const documentConfigs = {
     printTitle: 'Tax Invoice',
     showDueDate: true,
     showGst: false,
-    showPayment: true,
+    showPayment: false,
     title: 'Bill of Supply',
   },
   quotation: {

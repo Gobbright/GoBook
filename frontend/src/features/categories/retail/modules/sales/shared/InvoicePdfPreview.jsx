@@ -6,7 +6,7 @@ import './invoicePdfPreview.css';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-export default function InvoicePdfPreview({ url, filename, onDownload, onPrint, printReady }) {
+export default function InvoicePdfPreview({ url, data, filename, onDownload, onPrint, printReady }) {
   const [pdf, setPdf] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -28,11 +28,12 @@ export default function InvoicePdfPreview({ url, filename, onDownload, onPrint, 
     setPdf(null);
     setPageNumber(1);
     setError('');
-    const task = getDocument({ url });
+    const source = data ? { data: data.slice(0), disableWorker: true } : { url, disableWorker: true };
+    const task = getDocument(source);
     task.promise.then((document) => { if (!cancelled) setPdf(document); })
       .catch((error) => { if (!cancelled) { console.error('PDF preview loading failed:', error.message); setError('Unable to display this invoice. You can still download the PDF.'); setRendering(false); } });
     return () => { cancelled = true; void task.destroy(); };
-  }, [url]);
+  }, [url, data]);
 
   useEffect(() => {
     if (!pdf) return;

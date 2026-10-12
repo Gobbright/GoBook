@@ -1,6 +1,8 @@
 import { Types } from 'mongoose';
 
+import { AppUser } from '../../models/AppUser.js';
 import { AuditLog } from '../../models/AuditLog.js';
+import { Branch } from '../../models/Branch.js';
 
 function escapeRegex(str) {
   return String(str ?? '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -56,9 +58,45 @@ export async function listAuditLogs(req, res, next) {
         },
       ]),
     ]);
+    const userIds = [...new Set(data.map((row) => String(row.performedBy?.userId || '')).filter(Boolean))];
+    const users = userIds.length
+      ? await AppUser.find({ _id: { $in: userIds.map((id) => toObjectId(id)) } }, { name: 1, email: 1, branch: 1 }).lean()
+      : [];
+    const userById = new Map(users.map((user) => [String(user._id), user]));
+    const branchKeys = [...new Set(users.map((user) => String(user.branch || '').trim()).filter(Boolean))];
+    const owner = req.user.businessId
+      ? await AppUser.findOne({ businessId: toObjectId(req.user.businessId), accountType: 'owner' }, { _id: 1 }).lean()
+      : null;
+    const branches = branchKeys.length
+      ? await Branch.find({
+        userId: owner?._id || toObjectId(req.user.id),
+        $or: [
+          { code: { $in: branchKeys } },
+          { name: { $in: branchKeys } },
+        ],
+      }, { name: 1, code: 1 }).lean()
+      : [];
+    const branchNameByKey = new Map();
+    branches.forEach((branch) => {
+      if (branch.code) branchNameByKey.set(String(branch.code), branch.name || branch.code);
+      if (branch.name) branchNameByKey.set(String(branch.name), branch.name);
+    });
+    const rows = data.map((row) => {
+      const user = userById.get(String(row.performedBy?.userId || ''));
+      const branchKey = user?.branch || row.performedBy?.branch || '';
+      return {
+        ...row,
+        performedBy: {
+          ...(row.performedBy || {}),
+          name: user?.name || row.performedBy?.email || 'System',
+          email: row.performedBy?.email || user?.email || '',
+          branch: branchNameByKey.get(String(branchKey)) || branchKey,
+        },
+      };
+    });
 
     res.json({
-      data,
+      data: rows,
       total,
       page: Number(page),
       limit: Number(limit),

@@ -5,7 +5,7 @@ export function metaConfig() {
   const config = env.meta;
   const origin = new URL(config.publicOrigin);
   if (origin.origin !== config.publicOrigin || origin.protocol !== 'https:') throw httpError(503, 'Meta public origin must be an HTTPS origin');
-  if (env.nodeEnv === 'production' && origin.origin !== 'https://www.gobooksuite.com') throw httpError(503, 'Meta production origin must be https://www.gobooksuite.com');
+  if (env.nodeEnv === 'production' && origin.origin !== 'https://www.gobooksuite.com' && origin.origin !== 'https://gobooksuite.com') throw httpError(503, 'Meta production origin must be https://gobooksuite.com or https://www.gobooksuite.com');
   return { ...config, callbackUrl: origin.origin + '/auth/meta/callback', settingsUrl: origin.origin + '/whatsapp/settings' };
 }
 

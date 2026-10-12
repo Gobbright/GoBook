@@ -41,6 +41,9 @@ export async function listSupplierReturnPurchases(req, res, next) {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const filter = { userId: req.user.id, documentType: 'purchase-entry' };
+    if (req.query.date) {
+      filter['meta.date'] = String(req.query.date).slice(0, 10);
+    }
     if (req.query.search) {
       const search = String(req.query.search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.$or = [{ number: new RegExp(search, 'i') }, { 'customer.name': new RegExp(search, 'i') }, { 'extra.vendorInvoiceNo': new RegExp(search, 'i') }];

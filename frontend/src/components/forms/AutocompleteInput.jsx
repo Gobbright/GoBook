@@ -77,6 +77,8 @@ export function AutocompleteInput({ value, onChange, onSelect, options = [], pla
       choose(suggestions[highlighted]);
     } else if (e.key === 'Escape') {
       setOpen(false);
+    } else if (e.key === 'Tab') {
+      setOpen(false);
     } else {
       onKeyDown?.(e);
     }
@@ -102,10 +104,11 @@ export function AutocompleteInput({ value, onChange, onSelect, options = [], pla
               key={opt.value}
               ref={(node) => { optionRefs.current[index] = node; }}
               type="button"
+              tabIndex={-1}
               onMouseEnter={() => setHighlighted(index)}
               onMouseDown={(e) => { e.preventDefault(); choose(opt); }}
-              className={`w-full flex items-center justify-between gap-2 text-left py-2 pr-3 text-[13px] cursor-pointer border-0 font-[inherit] ${opt.indent ? 'pl-7' : 'pl-3'} ${
-                index === highlighted ? 'bg-blue-50 text-[#0f172a] shadow-[inset_3px_0_0_#3b82f6]' : 'bg-transparent text-[#111827]'
+              className={`w-full flex items-center justify-between gap-2 text-left py-2 pr-3 text-[13px] cursor-pointer border-0 font-[inherit] hover:bg-blue-200 ${opt.indent ? 'pl-7' : 'pl-3'} ${
+                index === highlighted ? 'bg-blue-200 text-[#0f172a] shadow-[inset_3px_0_0_#3b82f6]' : 'bg-transparent text-[#111827]'
               }`}
             >
               <span className="truncate">{opt.label}</span>

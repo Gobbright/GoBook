@@ -12,7 +12,7 @@ import { buildBrandedEmail, escapeHtml, sendMail } from '../utils/mailer.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOGO_PATH = path.resolve(__dirname, '../../../frontend/public/gobook-logo-full.png');
 
-function invoiceNumber(payment) {
+export function invoiceNumber(payment) {
   const date = payment.paidAt || payment.createdAt || new Date();
   const stamp = new Date(date).toISOString().slice(0, 10).replace(/-/g, '');
   return `GB-${stamp}-${String(payment._id).slice(-8).toUpperCase()}`;
@@ -68,6 +68,30 @@ export function createSubscriptionInvoicePdf(payment, user) {
   });
 }
 
+export async function ensureSubscriptionInvoicePdf(paymentId) {
+  const payment = await SubscriptionPayment.findById(paymentId);
+  if (!payment || payment.status !== 'successful') return null;
+  const user = await AppUser.findById(payment.userId).lean();
+  if (!user) throw new Error('Subscription user was not found');
+
+  payment.invoiceNumber = payment.invoiceNumber || invoiceNumber(payment);
+  if (!payment.invoicePdfFileId) {
+    const pdf = await createSubscriptionInvoicePdf(payment, user);
+    const stored = await storeBuffer({
+      buffer: pdf,
+      filename: `${payment.invoiceNumber}.pdf`,
+      contentType: 'application/pdf',
+      metadata: { kind: 'subscription-invoice', paymentId: payment._id, userId: user._id, businessId: user.businessId, category: payment.category },
+    });
+    payment.invoicePdfFileId = stored.id;
+    await payment.save();
+  } else if (!payment.invoiceNumber) {
+    await payment.save();
+  }
+
+  return payment;
+}
+
 export async function sendSubscriptionInvoice(paymentId, { force = false } = {}) {
   const invoiceStateFilter = force
     ? { invoiceEmailStatus: { $ne: 'sending' } }
@@ -80,19 +104,11 @@ export async function sendSubscriptionInvoice(paymentId, { force = false } = {})
   if (!claimed) return { skipped: true };
 
   try {
+    const ensured = await ensureSubscriptionInvoicePdf(claimed._id);
+    if (!ensured) throw new Error('Subscription payment is not eligible for invoice');
+    Object.assign(claimed, ensured.toObject());
     const user = await AppUser.findById(claimed.userId).lean();
-    if (!user) throw new Error('Subscription user was not found');
-    claimed.invoiceNumber = claimed.invoiceNumber || invoiceNumber(claimed);
     const pdf = await createSubscriptionInvoicePdf(claimed, user);
-    if (!claimed.invoicePdfFileId) {
-      const stored = await storeBuffer({
-        buffer: pdf,
-        filename: `${claimed.invoiceNumber}.pdf`,
-        contentType: 'application/pdf',
-        metadata: { kind: 'subscription-invoice', paymentId: claimed._id, userId: user._id, businessId: user.businessId, category: claimed.category },
-      });
-      claimed.invoicePdfFileId = stored.id;
-    }
     await claimed.save();
     const bodyHtml = `<div style="margin:18px 0;border:1px solid #dbeafe;border-radius:12px;overflow:hidden"><table role="presentation" width="100%" cellpadding="10" cellspacing="0"><tr><td style="color:#64748b">Invoice</td><td align="right" style="font-weight:700">${escapeHtml(claimed.invoiceNumber)}</td></tr><tr style="background:#f8fafc"><td style="color:#64748b">Package</td><td align="right" style="font-weight:700">${escapeHtml(claimed.planName)}</td></tr><tr><td style="color:#64748b">Amount paid</td><td align="right" style="font-weight:800;color:#2563eb">${escapeHtml(formatAmount(claimed.amount))}</td></tr><tr style="background:#f8fafc"><td style="color:#64748b">Valid until</td><td align="right" style="font-weight:700">${escapeHtml(formatDate(user.subscriptionExpiresAt))}</td></tr></table></div>`;
     const html = buildBrandedEmail({

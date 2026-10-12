@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { createCampaign as createEmailCampaign, deleteCampaign as deleteEmailCampaign, listCampaigns as listEmailCampaigns, sendCampaignNow, updateCampaign as updateEmailCampaign } from './emailController.js';
+import { createCampaign as createEmailCampaign, deleteCampaign as deleteEmailCampaign, getEmailSettings, listCampaigns as listEmailCampaigns, saveEmailSettings, sendCampaignNow, sendCampaignTest, sendEmailSettingsTest, updateCampaign as updateEmailCampaign } from './emailController.js';
 import { downloadReport, getAiInsights, getReportRecords, getReportsSummary } from './insightsController.js';
 import { createSalesRecord, deleteSalesRecord, getNextNumber, listSalesRecords, updateSalesRecord } from './salesRecordController.js';
 import { createVendor, deleteVendor, importVendors, listVendors, updateVendor } from './vendorController.js';
@@ -55,6 +55,10 @@ moreModulesRouter.post('/whatsapp-flows/:id/duplicate', duplicateWAFlow);
 moreModulesRouter.delete('/whatsapp-flows/:id', deleteWAFlow);
 
 // Email Campaigns
+moreModulesRouter.get('/email-settings', getEmailSettings);
+moreModulesRouter.put('/email-settings', saveEmailSettings);
+moreModulesRouter.post('/email-settings/test', sendEmailSettingsTest);
+moreModulesRouter.post('/email-campaigns/test', sendCampaignTest);
 moreModulesRouter.get('/email-campaigns',      listEmailCampaigns);
 moreModulesRouter.post('/email-campaigns',     createEmailCampaign);
 moreModulesRouter.put('/email-campaigns/:id',  updateEmailCampaign);

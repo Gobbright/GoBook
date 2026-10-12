@@ -5,7 +5,7 @@ import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { getCurrentUser } from '../../../../../services/authService.js';
 
-const EMPTY = { name: '', code: '', manager: '', phone: '', email: '', city: '', status: 'Active', users: 0, revenue: 0 };
+const EMPTY = { name: '', code: '', manager: '', phone: '', email: '', address: '', city: '', state: '', pincode: '', gstin: '', status: 'Active', users: 0, revenue: 0 };
 const BRANCH_LIMIT = 3;
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]';
 const TD = 'px-5 py-3.5 border-b border-[#f3f4f6] text-[13px]';
@@ -79,7 +79,7 @@ export function MultiBranchPage() {
   }
 
   function handleEdit(b) {
-    setForm({ name: b.name, code: b.code, manager: b.manager, phone: b.phone, email: b.email, city: b.city, status: b.status, users: b.users, revenue: b.revenue });
+    setForm({ name: b.name, code: b.code, manager: b.manager, phone: b.phone, email: b.email, address: b.address || '', city: b.city, state: b.state || '', pincode: b.pincode || '', gstin: b.gstin || '', status: b.status, users: b.users, revenue: b.revenue });
     setEditingId(b._id);
     setFormError('');
     setShowForm(true);
@@ -137,7 +137,11 @@ export function MultiBranchPage() {
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Manager name" value={form.manager} onChange={(e) => updateForm('manager', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Phone" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email" type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
+            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] sm:col-span-2" placeholder="Branch address" value={form.address} onChange={(e) => updateForm('address', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="City" value={form.city} onChange={(e) => updateForm('city', e.target.value)} />
+            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="State" value={form.state} onChange={(e) => updateForm('state', e.target.value)} />
+            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Pincode" value={form.pincode} onChange={(e) => updateForm('pincode', e.target.value)} />
+            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" maxLength={15} placeholder="Branch GSTIN" value={form.gstin} onChange={(e) => updateForm('gstin', e.target.value.toUpperCase())} />
             <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="Users count" type="number" value={form.users} onChange={(e) => updateForm('users', e.target.value)} />
             <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" min="0" placeholder="Revenue (₹)" type="number" value={form.revenue} onChange={(e) => updateForm('revenue', e.target.value)} />

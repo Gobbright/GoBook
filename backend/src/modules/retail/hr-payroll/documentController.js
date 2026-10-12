@@ -74,7 +74,7 @@ export async function listDocuments(req, res, next) {
 // POST /api/hr-payroll/documents  (multipart/form-data)
 export async function createDocument(req, res, next) {
   try {
-    const { employee = '', empId = '', category = 'Other Documents', uploadedBy = 'Super Admin' } = req.body;
+    const { name = '', employee = '', empId = '', category = 'Other Documents', uploadedBy = 'Super Admin' } = req.body;
     const file = req.file;
     if (!file) return next(httpError(400, 'File is required'));
     if (!hasExpectedFileSignature(file.buffer, file.mimetype)) return next(httpError(400, 'File content does not match its declared PDF, image, or video type'));
@@ -87,7 +87,7 @@ export async function createDocument(req, res, next) {
     });
     const doc = await HRDocument.create({
       userId: req.user.id,
-      name:       file.originalname,
+      name:       name || file.originalname,
       employee,
       empId,
       category,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Menu, Moon, Search, Settings, Sun } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Moon, Search, Settings, Sun, UserCircle } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 import { useTheme } from '../../app/ThemeContext.jsx';
@@ -9,6 +9,7 @@ import { getSidebarSections } from '../../constants/navigation.js';
 import { useCurrentUser } from '../../hooks/useCurrentUser.js';
 import { normalizeAppPath } from '../../routes/navigation.js';
 import { api, SERVER_ORIGIN } from '../../services/api.js';
+import { logout } from '../../services/authService.js';
 
 function todayTimeLabel(date) {
   const day = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -60,7 +61,8 @@ export function Topbar({ onMenuClick, onOpenSearch }) {
   const [now, setNow] = useState(() => new Date());
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState('');
-  const menuRef = useRef(null);
+  const desktopMenuRef = useRef(null);
+  const mobileMenuRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -89,7 +91,9 @@ export function Topbar({ onMenuClick, onOpenSearch }) {
 
   useEffect(() => {
     function handleOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+      const insideDesktop = desktopMenuRef.current?.contains(e.target);
+      const insideMobile = mobileMenuRef.current?.contains(e.target);
+      if (!insideDesktop && !insideMobile) setMenuOpen(false);
     }
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
@@ -122,6 +126,30 @@ export function Topbar({ onMenuClick, onOpenSearch }) {
 
       <div className="flex-1" />
 
+      <div className="relative md:hidden" ref={mobileMenuRef}>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dbe4ef] bg-white text-[#536173] shadow-sm"
+          aria-label="Account"
+        >
+          <UserCircle size={20} />
+        </button>
+        {menuOpen && (
+          <div className="absolute right-0 mt-2 w-40 rounded-lg border border-[#dde6f2] bg-white p-1.5 shadow-lg z-50">
+            <div className="truncate px-2 py-1.5 text-[12.5px] font-bold text-[#111827]">{user?.name || 'User'}</div>
+            <button
+              type="button"
+              onClick={logout}
+              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] font-extrabold text-red-600"
+            >
+              <LogOut size={13} />
+              Logout
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center gap-4 ml-auto max-md:hidden">
         <button
           type="button"
@@ -140,7 +168,7 @@ export function Topbar({ onMenuClick, onOpenSearch }) {
 
         <span className="w-px h-5 bg-[#dde6f2] dark:bg-slate-700" aria-hidden="true" />
 
-        <div className="relative" ref={menuRef}>
+        <div className="relative" ref={desktopMenuRef}>
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}

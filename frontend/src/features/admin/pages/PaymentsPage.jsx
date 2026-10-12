@@ -106,8 +106,8 @@ export function PaymentsPage({ type = 'all' }) {
     label: view.title,
     count: rows.length,
     readOnly: true,
-    fields: ['customerName', 'email', 'businessName', 'category', 'tier', 'amount', 'status', 'invoiceNumber', 'invoiceEmailStatus', 'paidAt'],
-    viewFields: ['customerName', 'email', 'businessName', 'category', 'tier', 'amount', 'status', 'mode', 'orderId', 'paymentId', 'invoiceNumber', 'invoiceEmailStatus', 'invoiceEmailSentAt', 'paidAt', 'createdAt'],
+    fields: ['customerName', 'email', 'businessName', 'category', 'purpose', 'tier', 'amount', 'status', 'mode', 'bank', 'wallet', 'vpa', 'refundStatus', 'invoiceNumber', 'invoiceEmailStatus', 'paidAt'],
+    viewFields: ['customerName', 'email', 'businessName', 'category', 'purpose', 'tier', 'amount', 'status', 'mode', 'bank', 'wallet', 'vpa', 'refundStatus', 'refundRequestedAt', 'refundedAt', 'errorCode', 'errorDescription', 'orderId', 'paymentId', 'invoiceNumber', 'invoiceEmailStatus', 'invoiceEmailSentAt', 'paidAt', 'createdAt'],
     rows,
   };
 
@@ -124,7 +124,7 @@ export function PaymentsPage({ type = 'all' }) {
           </div>
         </header>
 
-        <main className="p-4 md:p-6 space-y-4 md:space-y-5 max-w-7xl mx-auto">
+        <main className="p-4 md:p-6 space-y-4 md:space-y-5">
           <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 md:px-4 py-2 md:py-3">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 md:w-4 md:h-4" />
@@ -141,4 +141,5 @@ export function PaymentsPage({ type = 'all' }) {
     </AdminLayout>
   );
 }
+
 

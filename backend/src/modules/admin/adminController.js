@@ -46,7 +46,7 @@ const SALT_ROUNDS = 12;
 
 const COLLECTIONS = [
   { key: 'businesses', label: 'Businesses', model: Business, fields: ['name', 'category', 'createdAt'] },
-  { key: 'users', label: 'Users', model: AppUser, fields: ['name', 'email', 'phone', 'role', 'status', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'subscriptionStartDate', 'subscriptionExpiresAt', 'trialEndsAt', 'authProvider', 'createdAt', 'lastLogin'] },
+  { key: 'users', label: 'Users', model: AppUser, fields: ['name', 'email', 'phone', 'role', 'status', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'subscriptionStatus', 'billingStatus', 'paymentMethodVerified', 'paymentMethodVerifiedAt', 'subscriptionStartDate', 'subscriptionExpiresAt', 'trialStartedAt', 'trialEndsAt', 'authProvider', 'createdAt', 'lastLogin'] },
   { key: 'businessSettings', label: 'Business Settings', model: BusinessSettings, fields: ['businessName', 'businessEmail', 'phone', 'gstin', 'city', 'state'] },
   { key: 'branches', label: 'Branches', model: Branch, fields: ['name', 'code', 'city', 'state', 'status'] },
   { key: 'customers', label: 'Customers', model: Customer, fields: ['name', 'email', 'phone', 'gstin', 'city'] },
@@ -93,7 +93,7 @@ const ADMIN_RECORD_TYPES = {
   trialDays: { group: 'Settings', label: 'Trial Days', title: 'Trial Days data', status: 'Active', amount: 0, target: 'Trial Users', notes: 'Trial day settings data' },
   gracePeriod: { group: 'Settings', label: 'Grace Period', title: 'Grace Period data', status: 'Active', amount: 0, target: 'Expired Users', notes: 'Grace period settings data' },
   autoBlockAfterExpiry: { group: 'Settings', label: 'Auto Block After Expiry', title: 'Auto Block After Expiry data', status: 'Enabled', amount: 0, target: 'Expired Users', notes: 'Auto block settings data' },
-  paymentSettings: { group: 'Settings', label: 'Payment Settings', title: 'Payment Settings data', status: 'Active', amount: 0, target: 'All Users', notes: 'Payment settings admin data' },
+  paymentSettings: { group: 'Settings', label: 'Razorpay Payment Control', title: 'Razorpay Payment Control', status: 'Enabled', amount: 0, target: 'All Users', notes: 'Enabled permits Razorpay checkout. Change status to Disabled to pause new payments.' },
 };
 
 function pickAdminRecord(doc) {
@@ -266,10 +266,26 @@ async function summarizeCollection(item, section) {
 export async function loginAdmin(req, res, next) {
   try {
     const { adminId = '', password = '' } = req.body;
-    if (adminId !== env.adminLoginId || password !== env.adminLoginPassword) {
+    const normalizedAdminId = String(adminId).trim();
+    const account = env.adminAccounts.find((item) => item.id.toLowerCase() === normalizedAdminId.toLowerCase() && item.password === String(password));
+    if (account) {
+      return res.json({ token: signAdminToken(account.id), admin: { id: account.id, name: 'Admin Panel' } });
+    }
+
+    const user = await AppUser.findOne({ email: normalizedAdminId.toLowerCase(), isPlatformOwner: true }).select('+password name email status');
+    if (!user || !user.password || !(await bcrypt.compare(String(password), user.password))) {
       return next(httpError(401, 'Invalid admin ID or password'));
     }
-    res.json({ token: signAdminToken(), admin: { id: env.adminLoginId, name: 'Admin Panel' } });
+    if (user.status !== 'Active') {
+      return next(httpError(403, 'Admin account is not active'));
+    }
+
+    user.lastLogin = new Date().toISOString();
+    await user.save();
+    res.json({
+      token: signAdminToken(user._id.toString(), { adminType: 'platform-owner' }),
+      admin: { id: user._id, name: user.name || 'Admin Panel', email: user.email, source: 'platform-owner' },
+    });
   } catch (err) {
     next(err);
   }
@@ -390,7 +406,7 @@ export async function getSubscriptionPayments(req, res, next) {
       key: 'subscriptionPayments',
       label: 'Razorpay Subscription Payments',
       count: payments.length,
-      fields: ['customerName', 'email', 'businessName', 'category', 'tier', 'amount', 'status', 'mode', 'orderId', 'paymentId', 'invoiceNumber', 'invoiceEmailStatus', 'invoiceEmailSentAt', 'paidAt', 'createdAt'],
+      fields: ['customerName', 'email', 'businessName', 'category', 'purpose', 'tier', 'amount', 'status', 'mode', 'bank', 'wallet', 'vpa', 'refundStatus', 'refundRequestedAt', 'refundedAt', 'errorCode', 'errorDescription', 'orderId', 'paymentId', 'invoiceNumber', 'invoiceEmailStatus', 'invoiceEmailSentAt', 'paidAt', 'createdAt'],
       rows: payments.map(subscriptionPaymentView),
     });
   } catch (error) {
@@ -677,6 +693,16 @@ export async function deleteAdminSectionRow(req, res, next) {
     const collectionConfig = getCollectionConfig(section);
     if (!collectionConfig) return next(httpError(404, `Section "${section}" not found`));
 
+    if (section === 'users') {
+      const deleted = await AppUser.findByIdAndUpdate(
+        id,
+        { $set: { status: 'Deleted' } },
+        { new: true, runValidators: true },
+      ).lean();
+      if (!deleted) return next(httpError(404, 'Record not found'));
+      return res.json({ deleted: true, softDeleted: true, id });
+    }
+
     const deleted = await collectionConfig.model.findByIdAndDelete(id).lean();
     if (!deleted) return next(httpError(404, 'Record not found'));
     res.json({ deleted: true, id });
@@ -734,3 +760,54 @@ export async function sendRenewalReminder(req, res, next) {
   }
 }
 
+function addYears(date, years) {
+  const next = new Date(date);
+  next.setFullYear(next.getFullYear() + years);
+  return next;
+}
+
+export async function updateUserSubscriptionState(req, res, next) {
+  try {
+    const { userId } = req.params;
+    const mode = String(req.body.mode || '').trim();
+    const user = await AppUser.findById(userId);
+    if (!user) return next(httpError(404, 'User not found'));
+
+    const now = new Date();
+    if (mode === 'expire-trial') {
+      const expiredAt = new Date(now.getTime() - 86400000);
+      user.subscriptionStatus = 'expired';
+      user.billingStatus = 'TRIAL_EXPIRED';
+      user.status = 'Active';
+      user.trialStartedAt = user.trialStartedAt || expiredAt;
+      user.trialEndsAt = expiredAt;
+      user.subscriptionExpiresAt = expiredAt;
+    } else if (mode === 'expire-subscription') {
+      const expiredAt = new Date(now.getTime() - 86400000);
+      user.subscriptionStatus = 'expired';
+      user.billingStatus = 'SUBSCRIPTION_EXPIRED';
+      user.status = 'Active';
+      user.subscriptionExpiresAt = expiredAt;
+    } else if (mode === 'activate-year') {
+      user.subscriptionStatus = 'active';
+      user.billingStatus = 'SUBSCRIPTION_ACTIVE';
+      user.status = 'Active';
+      user.paymentMethodVerified = true;
+      user.paymentMethodVerifiedAt = user.paymentMethodVerifiedAt || now;
+      user.subscriptionStartDate = now;
+      user.subscriptionExpiresAt = addYears(now, 1);
+      user.trialEndsAt = undefined;
+      if (!user.subscriptionPlan) user.subscriptionPlan = 'basic';
+    } else {
+      return next(httpError(400, 'Unsupported subscription state action'));
+    }
+
+    await user.save();
+    res.json({
+      message: 'Subscription state updated',
+      user: pickFields(user.toObject(), getCollectionConfig('users').fields),
+    });
+  } catch (err) {
+    next(err);
+  }
+}

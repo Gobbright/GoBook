@@ -21,6 +21,7 @@ const productVariantSchema = new Schema({
   mrp:           { type: Number, default: 0, min: 0 },
   rate:          { type: Number, default: 0, min: 0 },
   barcode:       { type: String, trim: true, default: '' },
+  barcodePrintCount: { type: Number, default: 0, min: 0 },
   stock:         { type: Number, default: 0, min: 0 },
   minStockLevel: { type: Number, default: 0, min: 0 },
 }, { _id: true });
@@ -102,7 +103,7 @@ const productSchema = new Schema({
   conversionToUnit: { type: String, trim: true, default: 'Nos' },
   isWeighable:   { type: Boolean, default: false },
   sellBy:        { type: String, trim: true, default: 'Unit' },
-  rate:          { type: Number, required: true, min: 0 },
+  rate:          { type: Number, required: true, default: 0, min: 0 },
   purchasePrice: { type: Number, default: 0, min: 0 },
   landingCost:   { type: Number, default: 0, min: 0 },
   mrp:           { type: Number, default: 0, min: 0 },
@@ -201,11 +202,21 @@ const productSchema = new Schema({
   maxOrderQty:   { type: Number, default: 0, min: 0 },
   supplierMappings: { type: [supplierMappingSchema], default: [] },
   barcode:       { type: String, trim: true, default: '' },
+  barcodePrintCount: { type: Number, default: 0, min: 0 },
   status:        { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
+  onlineStore: {
+    showOnline: { type: Boolean, default: false, index: true },
+    featured: { type: Boolean, default: false },
+    title: { type: String, trim: true, default: '' },
+    description: { type: String, trim: true, default: '' },
+    imageUrl: { type: String, trim: true, default: '' },
+    sortOrder: { type: Number, default: 0 },
+  },
 }, { timestamps: true });
 
 productSchema.index({ userId: 1, code: 1 }, { unique: true });
 productSchema.index({ userId: 1, barcode: 1 });
 productSchema.index({ userId: 1, description: 1, hsn: 1 });
+productSchema.index({ userId: 1, 'onlineStore.showOnline': 1, status: 1 });
 
 export const Product = model('Product', productSchema);

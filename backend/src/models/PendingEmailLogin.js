@@ -10,6 +10,9 @@ const schema = new Schema({
   sendCount: { type: Number, default: 0 },
   signupTokenHash: { type: String, select: false },
   signupExpiresAt: Date,
+  deviceLoginUserId: { type: Schema.Types.ObjectId, ref: 'AppUser' },
+  deviceLoginType: { type: String, enum: ['', 'mobile', 'desktop'], default: '' },
+  deviceLoginIdHash: { type: String, trim: true, default: '' },
   cleanupAt: { type: Date, required: true },
 });
 schema.index({ cleanupAt: 1 }, { expireAfterSeconds: 0 });

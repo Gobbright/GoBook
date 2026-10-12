@@ -28,6 +28,7 @@ const CATEGORY_MEDIA = {
 
 const COMPACT_INPUT = INPUT.replace('py-3', 'py-2.5');
 const COMPACT_LABEL = LABEL.replace('mb-2', 'mb-1.5');
+const preventPasswordPaste = (event) => event.preventDefault();
 
 function FieldError({ message }) {
   if (!message) return null;
@@ -297,7 +298,7 @@ export function OnboardingPage() {
               <label htmlFor="onboardingPassword" className={COMPACT_LABEL}>Password</label>
               <div className="relative">
                 <Lock size={15} className={ICON} />
-                <input id="onboardingPassword" type={showPassword ? 'text' : 'password'} value={form.password} onChange={set('password')} className={`${COMPACT_INPUT} pr-10 ${errors.password ? 'border-red-400' : ''}`} placeholder="Min 8 chars" />
+                <input id="onboardingPassword" type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={form.password} onPaste={preventPasswordPaste} onChange={set('password')} className={`${COMPACT_INPUT} pr-10 ${errors.password ? 'border-red-400' : ''}`} />
                 <button type="button" onClick={() => setShowPassword((s) => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-0 flex items-center ${EYE_BUTTON}`} aria-label={showPassword ? 'Hide password' : 'Show password'}>
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
@@ -310,7 +311,7 @@ export function OnboardingPage() {
             <label htmlFor="confirmOnboardingPassword" className={COMPACT_LABEL}>Confirm Password</label>
             <div className="relative">
               <Lock size={15} className={ICON} />
-              <input id="confirmOnboardingPassword" type={showPassword ? 'text' : 'password'} value={form.confirmPassword} onChange={set('confirmPassword')} className={`${COMPACT_INPUT} ${errors.confirmPassword ? 'border-red-400' : ''}`} placeholder="Re-enter password" />
+              <input id="confirmOnboardingPassword" type={showPassword ? 'text' : 'password'} value={form.confirmPassword} onPaste={preventPasswordPaste} onChange={set('confirmPassword')} className={`${COMPACT_INPUT} ${errors.confirmPassword ? 'border-red-400' : ''}`} />
             </div>
             <FieldError message={errors.confirmPassword} />
           </div>

@@ -3,6 +3,8 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { authService } from '../../services/authService.js';
 
+const preventPasswordPaste = (event) => event.preventDefault();
+
 export default function Login() {
   const { user, loading: authLoading, login, isAdmin, logout } = useAuth();
   const [params] = useSearchParams();
@@ -72,7 +74,7 @@ export default function Login() {
         <p style={{ color: '#64748b' }}>Employees can sign in with their login credentials</p>
         {error && <p className="error">{error}</p>}
         <div className="field"><label>Employee ID / Email</label><input type="text" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-        <div className="field" style={{ marginTop: 12 }}><label>Password</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
+        <div className="field" style={{ marginTop: 12 }}><label>Password</label><input type="password" placeholder="Enter your password" value={form.password} onPaste={preventPasswordPaste} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
         <button className="btn primary" style={{ width: '100%', justifyContent: 'center', marginTop: 18 }} disabled={loading}>{loading ? 'Signing in...' : 'Login'}</button>
       </form>
     </main>

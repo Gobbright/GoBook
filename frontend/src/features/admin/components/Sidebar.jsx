@@ -70,6 +70,7 @@ const SETTINGS_LINKS = [
   ['Grace Period', '/admin/settings/grace-period'],
   ['Auto Block After Expiry', '/admin/settings/auto-block-after-expiry'],
   ['Payment Settings', '/admin/settings/payment-settings'],
+  ['Razorpay Control', '/admin/payment-control'],
 ];
 const STORAGE_LINKS = [
   ['Overview', '/admin/storage/overview'],
@@ -104,7 +105,7 @@ function SubNavButton({ label, path, onClose, navigate }) {
           safeNavigate(navigate, path);
           onClose?.();
         }}
-        className="block w-full rounded-md border-0 bg-transparent px-3 py-1.5 text-left text-[12.5px] font-semibold leading-5 text-slate-600 transition hover:bg-white hover:text-blue-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-blue-300 whitespace-normal break-words cursor-pointer"
+        className="block w-full rounded-md border-0 bg-transparent px-3 py-1.5 text-left text-[12.5px] font-semibold leading-5 text-blue-100/80 transition hover:bg-white/10 hover:text-white whitespace-normal break-words cursor-pointer"
       >
         <span className="inline-block align-top">-</span> <span>{label}</span>
       </button>
@@ -115,7 +116,7 @@ function SubNavButton({ label, path, onClose, navigate }) {
 function CollapsibleNav({ icon: Icon, title, open, onToggle, links, onClose, navigate, count = 0 }) {
   return (
     <div>
-      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer">
+      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-medium text-blue-50 hover:bg-white/10 hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer">
         <span className="min-w-0 inline-flex flex-1 items-center gap-3 whitespace-normal break-words"><Icon size={16} className="flex-shrink-0" /> <span>{title}</span></span>
         <CountBadge count={count} />
         <ChevronDown size={14} className={`flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -143,17 +144,17 @@ export function Sidebar({ open, onClose, onLogout, counts = {} }) {
   return (
     <>
       {open && <div className="fixed inset-0 bg-black/50 lg:hidden z-30" onClick={onClose} />}
-      <aside className={`fixed left-0 top-0 bottom-0 w-[280px] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col z-40 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="h-12 w-full rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+      <aside className={`fixed left-0 top-0 bottom-0 w-[280px] bg-[#062844] text-white border-r border-[#0b3558] flex flex-col z-40 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-4 border-b border-white/10">
+          <div className="h-12 w-full rounded-lg bg-white flex items-center justify-center overflow-hidden">
             <img src="/gobook-logo-full.png" alt="GoBook" className="h-9 w-auto object-contain" />
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {MENU_SECTIONS.map((section) => (
             <div key={section.title}>
-              <h2 className="m-0 mb-3 text-[12px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wide px-3">{section.title}</h2>
+              <h2 className="m-0 mb-3 text-[12px] font-extrabold text-blue-100/70 uppercase tracking-wide px-3">{section.title}</h2>
               <ul className="m-0 p-0 space-y-1">
                 {section.items.map((item) => {
                   const Icon = item.icon;
@@ -165,7 +166,7 @@ export function Sidebar({ open, onClose, onLogout, counts = {} }) {
                         : item.label === 'Reports' ? <CollapsibleNav icon={Icon} title="Reports" open={openDropdown === 'reports'} onToggle={() => toggleDropdown('reports')} links={REPORT_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Settings' ? <CollapsibleNav icon={Icon} title="Settings" open={openDropdown === 'settings'} onToggle={() => toggleDropdown('settings')} links={SETTINGS_LINKS} onClose={onClose} navigate={navigate} />
                         : item.label === 'Storage' ? <CollapsibleNav icon={Icon} title="Storage" open={openDropdown === 'storage'} onToggle={() => toggleDropdown('storage')} links={STORAGE_LINKS} onClose={onClose} navigate={navigate} />
-                        : <button onClick={() => { safeNavigate(navigate, item.path); onClose?.(); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer"><Icon size={16} className="flex-shrink-0" /><span className="min-w-0 flex-1">{item.label}</span>{item.label === 'Notifications' ? <CountBadge count={counts.unreadNotifications} /> : null}</button>}
+                        : <button onClick={() => { safeNavigate(navigate, item.path); onClose?.(); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-blue-50 hover:bg-white/10 hover:text-white transition-colors text-left border-0 bg-transparent cursor-pointer"><Icon size={16} className="flex-shrink-0 text-blue-100" /><span className="min-w-0 flex-1">{item.label}</span>{item.label === 'Notifications' ? <CountBadge count={counts.unreadNotifications} /> : null}</button>}
                     </li>
                   );
                 })}
@@ -174,8 +175,8 @@ export function Sidebar({ open, onClose, onLogout, counts = {} }) {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-          <button onClick={onLogout} className="w-full h-10 rounded-lg border border-slate-200 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[13px] font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 transition">
+        <div className="p-4 border-t border-white/10">
+          <button onClick={onLogout} className="w-full h-10 rounded-lg border border-white/15 bg-white/5 text-blue-50 text-[13px] font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-white/10 transition">
             <LogOut size={16} /> Logout
           </button>
         </div>

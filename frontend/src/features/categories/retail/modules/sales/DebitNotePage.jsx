@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Calendar, Download, Eye, FileText, IndianRupee,
   MoreVertical, Pencil, Plus, Search, Share2, Trash2, TrendingUp,
@@ -7,12 +8,12 @@ import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { api } from '../../../../../services/api.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
-import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { ShareModal } from './shared/ShareModal.jsx';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
 import { useDebouncedValue } from '../../../../../hooks/useDebouncedValue.js';
+import { readSalesListState, replaceSalesListQuery, salesListQuery } from '../../../../../components/forms/salesFilterUrlState.js';
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -42,7 +43,7 @@ function StatCard({ label, amount, countLabel, accentColor, icon, format = 'curr
   );
 }
 
-function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload }) {
+function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload, returnSearch = '' }) {
   const isOpen = openMenu === note.id;
   const btnRef = useRef(null);
   const [menuPos, setMenuPos] = useState({ top: 'auto', bottom: 'auto', right: 0 });
@@ -63,7 +64,7 @@ function ActionMenu({ note, openMenu, setOpenMenu, onDelete, onShare, onDownload
 
   function close() { setOpenMenu(null); }
 
-  function handleView()   { close(); window.location.assign(`/billing/debit-note/${note.id}/view`); }
+  function handleView()   { close(); window.location.assign(`/billing/debit-note/${note.id}/view${returnSearch}`); }
   function handleEdit()   { close(); window.location.assign(`/billing/debit-note/${note.id}/edit`); }
   function handleDelete() { close(); onDelete(note.id, note.number); }
 
@@ -179,12 +180,14 @@ function pageNumbers(current, total) {
 }
 
 export function DebitNotePage() {
-  const [search, setSearch] = useState('');
+  const location = useLocation();
+  const initialListState = useMemo(() => readSalesListState(), []);
+  const [search, setSearch] = useState(initialListState.search);
   const debouncedSearch = useDebouncedValue(search);
   const [openMenu, setOpenMenu] = useState(null);
-  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filters, setFilters] = useState(initialListState.filters);
+  const [dateFrom, setDateFrom] = useState(initialListState.dateFrom);
+  const [dateTo, setDateTo] = useState(initialListState.dateTo);
   const [notes, setNotes] = useState([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -198,6 +201,12 @@ export function DebitNotePage() {
   function updateFilter(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
   }
+
+  const listQuery = useMemo(() => salesListQuery({ filters, dateFrom, dateTo, search }), [filters, dateFrom, dateTo, search]);
+
+  useEffect(() => {
+    replaceSalesListQuery(location.pathname, listQuery);
+  }, [location.pathname, listQuery]);
 
   useEffect(() => {
     async function load() {
@@ -267,7 +276,7 @@ export function DebitNotePage() {
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginated.length,
-    onOpen: (index) => window.location.assign(`/billing/debit-note/${paginated[index].id}/view`),
+    onOpen: (index) => window.location.assign(`/billing/debit-note/${paginated[index].id}/view${listQuery}`),
     searchRef,
   });
 
@@ -417,7 +426,7 @@ export function DebitNotePage() {
                     {/* Note number */}
                     <td className="px-4 py-3.5">
                       <a
-                        href={`/billing/debit-note/${note.id}/view`}
+                        href={`/billing/debit-note/${note.id}/view${listQuery}`}
                         className="text-[13px] font-semibold text-blue-600 no-underline hover:underline"
                       >
                         {note.number}
@@ -473,6 +482,7 @@ export function DebitNotePage() {
                         onDelete={handleDeleteRequest}
                         onShare={setShareDoc}
                         onDownload={setPdfDoc}
+                        returnSearch={listQuery}
                       />
                     </td>
                   </tr>

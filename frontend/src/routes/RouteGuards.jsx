@@ -67,6 +67,8 @@ export function RouteMemory() {
 
 export function PublicRoute({ children }) {
   const user = getCurrentUser();
+  const location = useLocation();
+  if (location.pathname === '/login' || location.pathname === '/register') return children;
   if (user?.needsOnboarding && !user.businessId && !user.isPlatformOwner) return children;
   return isAuthenticated() ? <Navigate to={getLastRoute()} replace /> : children;
 }
@@ -74,7 +76,7 @@ export function PublicRoute({ children }) {
 export function LegacyOnboardingRedirect() {
   const user = getCurrentUser();
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
-  if (user?.isPlatformOwner) return <Navigate to="/platform-admin" replace />;
+  if (user?.isPlatformOwner) return <Navigate to="/admin" replace />;
   return <Navigate to={user?.businessId || user?.onboardingCompleted ? '/dashboard' : '/register'} state={{ email: user?.email }} replace />;
 }
 
@@ -92,6 +94,7 @@ export function ProtectedShell() {
   const location = useLocation();
   const user = getCurrentUser();
   const [trialExpiredByClock, setTrialExpiredByClock] = useState(false);
+  const [subscriptionExpiredByClock, setSubscriptionExpiredByClock] = useState(false);
 
   useEffect(() => {
     setTrialExpiredByClock(Boolean(
@@ -99,9 +102,16 @@ export function ProtectedShell() {
       && user?.trialEndsAt
       && new Date(user.trialEndsAt).getTime() <= Date.now(),
     ));
-  }, [user?.subscriptionStatus, user?.trialEndsAt]);
+    setSubscriptionExpiredByClock(Boolean(
+      user?.subscriptionStatus === 'active'
+      && user?.subscriptionExpiresAt
+      && new Date(user.subscriptionExpiresAt).getTime() <= Date.now(),
+    ));
+  }, [user?.subscriptionStatus, user?.trialEndsAt, user?.subscriptionExpiresAt]);
 
   const trialExpired = Boolean(user?.trialExpired || trialExpiredByClock);
+  const subscriptionExpired = Boolean(subscriptionExpiredByClock || user?.billingStatus === 'SUBSCRIPTION_EXPIRED');
+  const hasActiveAccess = (user?.subscriptionStatus === 'active' && !subscriptionExpired) || (user?.subscriptionStatus === 'trial' && !trialExpired);
 
   if (user?.needsEmailVerification && location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
@@ -109,7 +119,10 @@ export function ProtectedShell() {
   if (user?.needsOnboarding && !user.businessId && !user.isPlatformOwner) {
     return <Navigate to="/register" state={{ email: user.email }} replace />;
   }
-  if (trialExpired && location.pathname !== '/payment') {
+  if (!user?.isPlatformOwner && !hasActiveAccess && user?.billingStatus === 'PAYMENT_METHOD_VERIFICATION_PENDING') {
+    return <Navigate to="/payment-method-verification" replace />;
+  }
+  if (!user?.isPlatformOwner && !hasActiveAccess && location.pathname !== '/payment') {
     return <Navigate to="/payment" replace />;
   }
   if (user && !canAccessPath(location.pathname, user)) {

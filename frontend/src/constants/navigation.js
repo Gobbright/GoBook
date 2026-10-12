@@ -25,6 +25,7 @@ const SECTION_PERMISSION = {
   financeReports: 'reports',
   dataManagement: 'data-management',
   settings: 'settings',
+  onlineStore: 'marketing',
   financeProfileSettings: 'settings',
   moreModules: 'marketing',
 };
@@ -34,6 +35,7 @@ const ROUTE_PERMISSION_RULES = [
   [/^\/billing(\/|$)/, 'billing'],
   [/^\/sales-reports$/, 'reports'],
   [/^\/purchase-reports$/, 'reports'],
+  [/^\/service-reports$/, 'reports'],
   [/^\/products$/, 'inventory'],
   [/^\/services$/, 'inventory'],
   [/^\/product-masters$/, 'inventory'],
@@ -59,7 +61,6 @@ const ROUTE_PERMISSION_RULES = [
   [/^\/customers$/, 'crm'],
   [/^\/leads$/, 'crm'],
   [/^\/follow-ups$/, 'crm'],
-  [/^\/customer-lifecycle$/, 'crm'],
   [/^\/crm-reports$/, 'reports'],
   [/^\/employee-management(\/|$)/, 'employee-management'],
   [/^\/hr-reports$/, 'reports'],
@@ -68,9 +69,11 @@ const ROUTE_PERMISSION_RULES = [
   [/^\/multi-branch$/, 'settings'],
   [/^\/users-roles$/, 'settings'],
   [/^\/audit-report$/, 'settings'],
-  [/^\/business-settings$/, 'settings'],
+  [/^\/business-settings(\/|$)/, 'settings'],
+  [/^\/templates$/, 'settings'],
   [/^\/whatsapp-business$/, 'marketing'],
   [/^\/email-marketing$/, 'marketing'],
+  [/^\/online-store(\/|$)/, 'marketing'],
   [/^\/sales-management$/, 'marketing'],
   [/^\/vendor-management$/, 'crm'],
 ];
@@ -155,7 +158,6 @@ const SECTIONS = {
       { label: 'Vendor Management', href: '/vendor-management', icon: 'UserCheck' },
       { label: 'Leads', href: '/leads', icon: 'UserPlus' },
       { label: 'Follow Ups', href: '/follow-ups', icon: 'Bell' },
-      { label: 'Customer Lifecycle', href: '/customer-lifecycle', icon: 'Activity' },
     ],
   },  inventory: {
     title: 'Inventory',
@@ -180,13 +182,22 @@ const SECTIONS = {
       { label: 'Attendance', href: '/employee-management/attendance', icon: 'CalendarCheck' },
       { label: 'Leave', href: '/employee-management/leave', icon: 'CalendarOff' },
       { label: 'Payroll', href: '/employee-management/payroll', icon: 'IndianRupee' },
-      { label: 'Notices', href: '/employee-management/notices', icon: 'Bell' },
     ],
   },  moreModules: {
     title: 'Marketing',
     items: [
       { label: 'WhatsApp Business', href: '/whatsapp-business', icon: 'MessageCircle' },
       { label: 'Email Marketing', href: '/email-marketing', icon: 'Mail' },
+    ],
+  },
+  onlineStore: {
+    title: 'Online Store',
+    items: [
+      { label: 'Setup', href: '/online-store/setup', icon: 'Settings' },
+      { label: 'Theme', href: '/online-store/theme', icon: 'Palette' },
+      { label: 'Products', href: '/online-store/products', icon: 'Package' },
+      { label: 'Orders', href: '/online-store/orders', icon: 'ShoppingCart' },
+      { label: 'Reports', href: '/online-store/reports', icon: 'BarChart3' },
     ],
   },
   dataManagement: {
@@ -204,6 +215,7 @@ const SECTIONS = {
       { label: 'Sales Reports', href: '/sales-reports', icon: 'BarChart3' },
       { label: 'Purchase Reports', href: '/purchase-reports', icon: 'BarChart3' },
       { label: 'Inventory Reports', href: '/inventory-reports', icon: 'BarChart3' },
+      { label: 'Service Reports', href: '/service-reports', icon: 'BarChart3' },
       { label: 'CRM Reports', href: '/crm-reports', icon: 'BarChart3' },
       { label: 'HR Reports', href: '/hr-reports', icon: 'BarChart3' },
       { label: 'Accounting Reports', href: '/accounting-reports', icon: 'BarChart3' },
@@ -223,6 +235,7 @@ const SECTIONS = {
       { label: 'Users & Roles', href: '/users-roles', icon: 'Shield' },
       { label: 'Audit Report', href: '/audit-report', icon: 'History' },
       { label: 'Business Settings', href: '/business-settings', icon: 'Settings' },
+      { label: 'Templates', href: '/templates', icon: 'LayoutTemplate' },
     ],
   },
 
@@ -733,10 +746,10 @@ const SECTIONS = {
 };
 
 // Shared by every category: Inventory, Accounting, GST, Customers, Employee Management, More Modules, Settings.
-const COMMON_LAYOUT = ['main', 'inventory', 'accounting', 'gst', 'crm', 'hrPayroll', 'moreModules', 'reportsHub', 'dataManagement', 'settings'];
+const COMMON_LAYOUT = ['main', 'inventory', 'accounting', 'gst', 'crm', 'hrPayroll', 'onlineStore', 'moreModules', 'reportsHub', 'dataManagement', 'settings'];
 
 const CATEGORY_LAYOUTS = {
-  retail: ['main', 'sales', 'purchase', 'inventory', 'accounting', 'gst', 'crm', 'hrPayroll', 'moreModules', 'reports', 'dataManagement', 'settings'],
+  retail: ['main', 'sales', 'purchase', 'inventory', 'accounting', 'gst', 'crm', 'hrPayroll', 'onlineStore', 'moreModules', 'reports', 'dataManagement', 'settings'],
   hospital: [
     'main', 'hospitalPatients', 'hospitalAppointments', 'hospitalBilling', 'hospitalOpd', 'hospitalIpdBeds',
     'hospitalDoctorsNursing', 'hospitalDiagnostics', 'hospitalPharmacy',

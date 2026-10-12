@@ -19,20 +19,33 @@ function loadGsiScript() {
   return scriptPromise;
 }
 
-export async function renderGoogleSignInButton(container, onCredential, onError) {
+export async function renderGoogleSignInButton(container, onCredential, onError, options = {}) {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   if (!clientId) throw new Error('Google sign-in is not configured');
   await loadGsiScript();
-  window.google.accounts.id.initialize({ client_id: clientId, ux_mode: 'popup', callback: ({ credential }) => credential ? Promise.resolve(onCredential(credential)).catch(onError) : onError(new Error('Google sign-in was cancelled')) });
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    ux_mode: 'popup',
+    callback: ({ credential }) => (
+      credential
+        ? Promise.resolve(onCredential(credential)).catch(onError)
+        : onError(new Error('Google sign-in was cancelled'))
+    ),
+  });
+
   container.replaceChildren();
-  const width = Math.floor(container.getBoundingClientRect().width);
-  const isMobile = width > 0 && width < 360;
+  const rawWidth = Math.floor(container.getBoundingClientRect().width);
+  // Google Identity Services restricts button width strictly between 200px and 400px
+  const buttonWidth = Math.min(400, Math.max(200, Number(options.width) || rawWidth || 280));
+  const isDark = document.documentElement.classList.contains('dark');
+
   window.google.accounts.id.renderButton(container, {
-    type: isMobile ? 'icon' : 'standard',
-    theme: 'outline',
+    type: 'standard',
+    theme: isDark ? 'filled_black' : 'outline',
     size: 'large',
     text: 'signin_with',
-    shape: isMobile ? 'circle' : 'rectangular',
-    width: String(Math.max(isMobile ? 40 : 240, width)),
+    shape: options.shape || 'rectangular',
+    width: buttonWidth,
+    logo_alignment: options.logoAlignment || 'left',
   });
 }

@@ -42,8 +42,13 @@ function safeFilename(name, ext) {
 }
 
 function columnWidth(column, rows) {
+  if (isDateColumn(column)) return 18;
   const maxLen = rows.reduce((max, row) => Math.max(max, String(getCell(row, column) ?? '').length), column.label.length);
   return Math.min(Math.max(maxLen + 3, 12), 28);
+}
+
+function isDateColumn(column) {
+  return /date|valid till|delivery/i.test(column.label);
 }
 
 function isNumericColumn(column) {
@@ -58,7 +63,8 @@ export function downloadExcel({ title, rows, columns, filename }) {
   const body = rows.map((row) => (
     `<tr>${columns.map((col) => {
       const align = isNumericColumn(col) ? 'right' : 'left';
-      return `<td class="${align === 'right' ? 'num' : 'txt'}">${escapeHtml(getCell(row, col))}</td>`;
+      const dateText = isDateColumn(col) ? ' date-text' : '';
+      return `<td class="${align === 'right' ? 'num' : 'txt'}${dateText}">${escapeHtml(getCell(row, col))}</td>`;
     }).join('')}</tr>`
   )).join('');
   const empty = rows.length === 0 ? `<tr><td colspan="${columns.length}" class="txt empty">No records</td></tr>` : '';
@@ -73,6 +79,7 @@ export function downloadExcel({ title, rows, columns, filename }) {
     .title { background: #1f4e78; color: #fff; font-size: 14pt; font-weight: 700; text-align: center; padding: 8px; }
     .txt { text-align: left; }
     .num { text-align: right; }
+    .date-text { min-width: 130px; width: 130px; mso-number-format:"\\@"; }
     .empty { text-align: center; color: #64748b; }
   </style>
 </head>

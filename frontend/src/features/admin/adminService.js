@@ -1,11 +1,12 @@
 import { redirectTo } from '../../routes/navigation.js';
 import { API_BASE_URL } from '../../services/apiBase.js';
+import { clearSession, getToken } from '../../services/authToken.js';
 
 const ADMIN_TOKEN_KEY = 'gobook_admin_token';
 const ADMIN_USER_KEY = 'gobook_admin_user';
 
 export function getAdminToken() {
-  return localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  return localStorage.getItem(ADMIN_TOKEN_KEY) || getToken() || '';
 }
 
 export function isAdminAuthenticated() {
@@ -20,6 +21,10 @@ export function clearAdminSession() {
 function setAdminSession(token, admin) {
   localStorage.setItem(ADMIN_TOKEN_KEY, token);
   localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(admin || {}));
+}
+
+export function commitAdminSession(token, admin) {
+  if (token && admin) setAdminSession(token, admin);
 }
 
 function isToday(value) {
@@ -212,6 +217,35 @@ export async function downloadAdminCollectionExport(collection = '') {
   URL.revokeObjectURL(url);
 }
 
+export async function downloadAdminUserBackup(userId) {
+  const response = await fetch(`${API_BASE_URL}/admin/storage/user-backups/${encodeURIComponent(userId)}`, {
+    headers: { Authorization: `Bearer ${getAdminToken()}` },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) clearAdminSession();
+    throw new Error(data.message || 'Unable to export user MongoDB backup');
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get('content-disposition') || '';
+  const filename = disposition.match(/filename="([^"]+)"/i)?.[1] || 'gobooks-user-backup.json';
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importAdminUserBackup(file) {
+  const form = new FormData();
+  form.append('backup', file);
+  return adminRequest('/admin/storage/user-backups/import', {
+    method: 'POST',
+    body: form,
+  });
+}
+
 export async function fetchAdminSection(sectionKey) {
   try {
     return await adminRequest(`/admin/section/${sectionKey}`);
@@ -280,10 +314,45 @@ export async function sendRenewalReminder(userId) {
   return adminRequest(`/admin/send-reminder/${userId}`, { method: 'POST' });
 }
 
-export function logoutAdmin() {
+export async function updateUserSubscriptionState(userId, mode) {
+  try {
+    return await adminRequest(`/admin/users/${userId}/subscription-state`, {
+      method: 'POST',
+      body: JSON.stringify({ mode }),
+    });
+  } catch (err) {
+    const message = String(err.message || '').toLowerCase();
+    if (!message.includes('route not found')) throw err;
+    const yesterday = new Date(Date.now() - 86400000).toISOString();
+    const now = new Date().toISOString();
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    const fallbackPayload = mode === 'activate-year'
+      ? {
+        subscriptionStatus: 'active',
+        billingStatus: 'SUBSCRIPTION_ACTIVE',
+        status: 'Active',
+        paymentMethodVerified: true,
+        paymentMethodVerifiedAt: now,
+        subscriptionStartDate: now,
+        subscriptionExpiresAt: nextYear.toISOString(),
+        trialEndsAt: '',
+      }
+      : {
+        subscriptionStatus: 'expired',
+        billingStatus: mode === 'expire-subscription' ? 'SUBSCRIPTION_EXPIRED' : 'TRIAL_EXPIRED',
+        status: 'Active',
+        trialEndsAt: yesterday,
+        subscriptionExpiresAt: yesterday,
+      };
+    return updateAdminTableRow('users', userId, fallbackPayload);
+  }
+}
 
+export function logoutAdmin() {
   clearAdminSession();
-  redirectTo('/admin-login');
+  clearSession();
+  redirectTo('/login');
 }
 
 export async function fetchAdminWhatsAppProvider() {
@@ -293,6 +362,3 @@ export async function fetchAdminWhatsAppProvider() {
 export async function updateAdminWhatsAppProviderStatus(businessId, payload) {
   return adminRequest(`/admin/whatsapp-provider/businesses/${businessId}/status`, { method: 'PUT', body: JSON.stringify(payload) });
 }
-
-
-

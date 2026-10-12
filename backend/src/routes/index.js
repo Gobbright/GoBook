@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { invoicePdfHandler } from '../services/invoicePdf.js';
 
 import { requireAuth } from '../middleware/auth.js';
 import { requireCategoryModule } from '../middleware/requireCategoryModule.js';
+import { requireSubscriptionAccess } from '../middleware/requireSubscriptionAccess.js';
 import { requireModuleAccess } from '../middleware/requireModuleAccess.js';
 import { requirePlatformOwner } from '../middleware/requirePlatformOwner.js';
 import { adminRouter } from '../modules/admin/routes.js';
@@ -24,21 +24,25 @@ import { inventoryRouter } from '../modules/retail/inventory/routes.js';
 import { moreModulesRouter } from '../modules/retail/more-modules/routes.js';
 import { salesRouter } from '../modules/retail/sales/routes.js';
 import { searchRouter } from '../modules/search/routes.js';
+import { onlineStoreRouter, publicOnlineStoreRouter } from '../modules/online-store/routes.js';
 import { whatsAppProviderRouter } from '../modules/whatsapp-provider/routes.js';
 import { settingsRouter } from '../modules/settings/routes.js';
 import { subscriptionRouter } from '../modules/subscriptions/routes.js';
+import { razorpayWebhook } from '../modules/subscriptions/subscriptionController.js';
 import { publicFilesRouter } from '../modules/files/routes.js';
 
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/subscriptions', subscriptionRouter);
+apiRouter.post('/razorpay/webhook', razorpayWebhook);
 apiRouter.use('/files', publicFilesRouter);
+apiRouter.use('/store', publicOnlineStoreRouter);
 apiRouter.use('/employee', employeePortalRouter);
 apiRouter.use('/admin', adminRouter);
 
 apiRouter.use(requireAuth);
-apiRouter.post('/documents/pdf', requireModuleAccess('billing'), invoicePdfHandler);
+apiRouter.use(requireSubscriptionAccess);
 
 apiRouter.use('/ai', aiRouter);
 apiRouter.use('/audit-logs', auditRouter);
@@ -57,4 +61,5 @@ apiRouter.use('/more-modules', moreModulesRouter);
 apiRouter.use('/module-records', moduleRecordsRouter);
 apiRouter.use('/settings', settingsRouter);
 apiRouter.use('/search', searchRouter);
+apiRouter.use('/online-store', onlineStoreRouter);
 apiRouter.use('/platform-admin', requirePlatformOwner, platformAdminRouter);

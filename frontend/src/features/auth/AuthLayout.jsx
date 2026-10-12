@@ -103,7 +103,7 @@ function DecorativeBackdrop() {
 
 function LightLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
   return (
-    <div className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} auth-shell auth-light-shell`}>
+    <div className={`${compact ? 'h-[100dvh] overflow-hidden auth-compact-shell' : 'min-h-screen'} auth-shell auth-light-shell`}>
       <section className="auth-light-left">
         <div className="auth-light-logo">
           <img src="/gobook-logo-full.png" alt="GoBook" />
@@ -160,7 +160,7 @@ function LightLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
 
 function DarkLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
   return (
-    <div className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} auth-shell auth-dark-shell`}>
+    <div className={`${compact ? 'h-[100dvh] overflow-hidden auth-compact-shell' : 'min-h-screen'} auth-shell auth-dark-shell`}>
       <section className="auth-dark-left">
         <DecorativeBackdrop />
         <div className="auth-dark-logo">
@@ -219,7 +219,7 @@ function DarkLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
 
 function CyberDarkLayout({ children, cardMaxWidth, compact, theme, toggleTheme }) {
   return (
-    <div className={`${compact ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'} auth-shell auth-cyber-shell`}>
+    <div className={`${compact ? 'h-[100dvh] overflow-hidden auth-compact-shell' : 'min-h-screen'} auth-shell auth-cyber-shell`}>
       <section className="auth-cyber-left">
         <DecorativeBackdrop />
         <div className="auth-cyber-left-content">

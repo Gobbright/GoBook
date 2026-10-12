@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Download, Printer, Send, Wallet, Trash2, IndianRupee } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../../../../../../services/api.js';
 import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
@@ -111,7 +112,48 @@ function enrichItemsWithProductDescriptions(items = [], products = []) {
   });
 }
 
+function catalogVariantForItem(product = {}, item = {}) {
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  if (!variants.length) return null;
+  const text = (value) => String(value || '').trim().toLowerCase();
+  const size = text(item.size || item.modelName || item.modelNumber);
+  const barcode = text(item.barcode);
+  const rate = Number(item.rate) || 0;
+  return variants.find((variant) => barcode && text(variant.barcode) === barcode && (!size || text(variant.size || variant.modelName) === size))
+    || variants.find((variant) => size && text(variant.size || variant.modelName) === size && (!rate || Number(variant.rate) === rate))
+    || variants.find((variant) => size && text(variant.size || variant.modelName) === size)
+    || null;
+}
+
+function hydrateItemsWithCatalogVariantAttrs(items = [], products = []) {
+  if (!Array.isArray(items) || !items.length || !Array.isArray(products) || !products.length) return items;
+  return items.map((item) => {
+    if (item.itemType === 'Service') return item;
+    const product = findCatalogProductForItem(products, item);
+    if (!product) return item;
+    const variant = catalogVariantForItem(product, item) || {};
+    return {
+      ...item,
+      brand: item.brand || item.other || item.variantBrand || variant.other || variant.brand || product.brand || '',
+      material: item.material || item.fabric || item.variantMaterial || variant.material || variant.fabric || product.material || product.fabric || '',
+      size: item.size || item.modelName || item.modelNumber || variant.size || variant.modelName || '',
+      barcode: item.barcode || variant.barcode || '',
+    };
+  });
+}
+
+function mergeCurrentTemplateSettings(base = {}, current = {}) {
+  return {
+    ...base,
+    invoicePrintFormat: current.invoicePrintFormat || base.invoicePrintFormat || 'normal',
+    invoiceNormalTemplate: current.invoiceNormalTemplate || current.invoiceDesignSettings?.normal?.template || base.invoiceNormalTemplate || base.invoiceDesignSettings?.normal?.template || 'professional',
+    invoiceThermalTemplate: current.invoiceThermalTemplate || current.invoiceDesignSettings?.thermal80?.template || base.invoiceThermalTemplate || base.invoiceDesignSettings?.thermal80?.template || 'standard',
+    invoiceDesignSettings: current.invoiceDesignSettings || base.invoiceDesignSettings,
+  };
+}
+
 export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
+  const location = useLocation();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -143,8 +185,19 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
     'pharmacy-bill': '/billing/pharmacy-bill',
   })[documentType] ?? '/billing/invoice';
 
+  function goBackToList() {
+    const sameOriginReferrer = document.referrer && new URL(document.referrer).origin === window.location.origin;
+    if (sameOriginReferrer && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.assign(`${listRoute}${location.search || ''}`);
+  }
+
   useEffect(() => {
-    api.getSettings().then(setBizSettings).catch(() => {});
+    api.getSettings()
+      .then((settings) => setBizSettings((current) => Object.keys(current || {}).length ? current : settings))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -168,8 +221,21 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
       try {
         const data = documentType === 'credit-note'
           ? await api.getCreditNote(invoiceId)
-          : await api.getInvoice(invoiceId);
-        if (active) setInvoice(data);
+          : documentType === 'debit-note'
+            ? await api.getDebitNote(invoiceId)
+            : await api.getInvoice(invoiceId);
+        if (active) {
+          setInvoice(data);
+          const docBizSettings = data.businessSettings || data.businessSettingsSnapshot;
+          try {
+            const currentSettings = data.branch ? await api.getSettings({ branch: data.branch }) : await api.getSettings();
+            if (active) setBizSettings(mergeCurrentTemplateSettings(docBizSettings || currentSettings || {}, currentSettings || {}));
+          } catch {
+            if (docBizSettings) {
+              setBizSettings(docBizSettings);
+            }
+          }
+        }
       } catch (err) {
         if (active) setError(err.message || 'Unable to load document');
       } finally {
@@ -235,7 +301,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
   }, [invoice, config.showGst]);
 
   const displayItems = useMemo(
-    () => enrichItemsWithProductDescriptions(invoice?.items || [], products),
+    () => enrichItemsWithProductDescriptions(hydrateItemsWithCatalogVariantAttrs(invoice?.items || [], products), products),
     [invoice?.items, products],
   );
 
@@ -268,7 +334,7 @@ export function InvoiceViewPage({ invoiceId, documentType = 'invoice' }) {
         <div className="flex items-center gap-3 flex-wrap">
           <button
             type="button"
-            onClick={() => { window.location.assign(listRoute); }}
+            onClick={goBackToList}
             className="inline-flex items-center gap-1.5 text-[13px] text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer font-[inherit] transition-colors"
           >
             <ArrowLeft size={14} />

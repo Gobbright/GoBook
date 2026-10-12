@@ -16,7 +16,7 @@ const SHORTCUT_HINTS = [
   ['Alt+P', 'Purchase'],
   ['Alt+I', 'Inventory'],
   ['Alt+C', 'Customers'],
-  ['Alt+G', 'GST'],
+  ['Shift+G', 'GST'],
   ['Alt+R', 'Reports'],
   ['Alt+T', 'Business Settings'],
 ];

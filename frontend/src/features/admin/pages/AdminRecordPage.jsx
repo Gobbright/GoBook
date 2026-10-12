@@ -22,7 +22,7 @@ const ADMIN_RECORD_VIEWS = {
   trialDays: { group: 'Settings', title: 'Trial Days', defaultStatus: 'Active' },
   gracePeriod: { group: 'Settings', title: 'Grace Period', defaultStatus: 'Active' },
   autoBlockAfterExpiry: { group: 'Settings', title: 'Auto Block After Expiry', defaultStatus: 'Enabled' },
-  paymentSettings: { group: 'Settings', title: 'Payment Settings', defaultStatus: 'Active' },
+  paymentSettings: { group: 'Settings', title: 'Razorpay Payment Control', defaultStatus: 'Disabled' },
 };
 
 const ADMIN_FIELD_CLASS = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100';
@@ -134,7 +134,7 @@ export function AdminRecordPage({ kind }) {
           </div>
         </header>
 
-        <main className="p-4 md:p-6 space-y-4 md:space-y-5 max-w-7xl mx-auto">
+        <main className="p-4 md:p-6 space-y-4 md:space-y-5">
           <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 md:p-4">
               <p className="m-0 text-xs md:text-sm text-slate-500 dark:text-slate-400 font-medium">Total Records</p>
@@ -177,5 +177,6 @@ export function AdminRecordPage({ kind }) {
     </AdminLayout>
   );
 }
+
 
 

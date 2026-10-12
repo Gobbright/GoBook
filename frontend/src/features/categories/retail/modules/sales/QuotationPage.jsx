@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Calendar, Download, Eye, IndianRupee,
   MoreVertical, Pencil, Plus, Search, Share2, Trash2, TrendingUp, FileText,
@@ -9,6 +10,7 @@ import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
 import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
+import { readSalesListState, replaceSalesListQuery, salesListQuery } from '../../../../../components/forms/salesFilterUrlState.js';
 import { ShareModal } from './shared/ShareModal.jsx';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
@@ -54,7 +56,7 @@ const ROW_ACTIONS = [
   { id: 'delete', icon: Trash2,  label: 'Delete', danger: true },
 ];
 
-function ActionMenu({ quotation, openMenu, setOpenMenu, onShare, onDownload, onDelete }) {
+function ActionMenu({ quotation, openMenu, setOpenMenu, onShare, onDownload, onDelete, returnSearch = '' }) {
   const isOpen = openMenu === quotation.id;
   const btnRef = useRef(null);
   const [menuPos, setMenuPos] = useState({ top: 'auto', bottom: 'auto', right: 0 });
@@ -76,7 +78,7 @@ function ActionMenu({ quotation, openMenu, setOpenMenu, onShare, onDownload, onD
   function handleAction(id) {
     setOpenMenu(null);
     if (id === 'view') {
-      window.location.assign(`/billing/quotation/${quotation.id}/view`);
+      window.location.assign(`/billing/quotation/${quotation.id}/view${returnSearch}`);
     } else if (id === 'edit') {
       window.location.assign(`/billing/quotation/${quotation.id}/edit`);
     } else if (id === 'share') {
@@ -170,13 +172,15 @@ function pageNumbers(current, total) {
 }
 
 export function QuotationPage() {
-  const [search, setSearch] = useState('');
+  const location = useLocation();
+  const initialListState = useMemo(() => readSalesListState(), []);
+  const [search, setSearch] = useState(initialListState.search);
   const debouncedSearch = useDebouncedValue(search);
   const [openMenu, setOpenMenu] = useState(null);
   const [shareDoc, setShareDoc] = useState(null);
-  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filters, setFilters] = useState(initialListState.filters);
+  const [dateFrom, setDateFrom] = useState(initialListState.dateFrom);
+  const [dateTo, setDateTo] = useState(initialListState.dateTo);
   const [quotations, setQuotations] = useState([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -188,6 +192,12 @@ export function QuotationPage() {
   function updateFilter(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
   }
+
+  const listQuery = useMemo(() => salesListQuery({ filters, dateFrom, dateTo, search }), [filters, dateFrom, dateTo, search]);
+
+  useEffect(() => {
+    replaceSalesListQuery(location.pathname, listQuery);
+  }, [location.pathname, listQuery]);
 
   useEffect(() => {
     async function loadQuotations() {
@@ -240,7 +250,7 @@ export function QuotationPage() {
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginated.length,
-    onOpen: (index) => window.location.assign(`/billing/quotation/${paginated[index].id}/view`),
+    onOpen: (index) => window.location.assign(`/billing/quotation/${paginated[index].id}/view${listQuery}`),
     searchRef,
   });
 
@@ -451,6 +461,7 @@ export function QuotationPage() {
                           onShare={setShareDoc}
                           onDownload={setPdfDoc}
                           onDelete={handleDelete}
+                          returnSearch={listQuery}
                         />
                       </td>
                     </tr>

@@ -1,4 +1,5 @@
 import multer from 'multer';
+import { Branch } from '../../models/Branch.js';
 import { BusinessSettings } from '../../models/BusinessSettings.js';
 import { AppUser } from '../../models/AppUser.js';
 import { Business } from '../../models/Business.js';
@@ -7,6 +8,57 @@ import { httpError } from '../../utils/httpError.js';
 import { deleteStoredFile, hasExpectedFileSignature, storeBuffer } from '../../services/gridfsStorage.js';
 
 const LEGACY_RETAIL_SUBCATEGORY = 'electronics-technology';
+
+async function settingsOwnerUserId(req) {
+  if (!req.user.businessId) return req.user.id;
+  const owner = await AppUser.findOne({ businessId: req.user.businessId, accountType: 'owner' }).select('_id').lean();
+  return owner?._id || req.user.id;
+}
+
+function normalizeBranchKey(value) {
+  const branch = String(value ?? '').trim();
+  return branch && branch !== 'all' && branch !== 'All Branches' ? branch : '';
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const BRANCH_SETTINGS_FIELDS = ['businessEmail', 'phone', 'address', 'city', 'state', 'pincode', 'gstin'];
+const BRANCH_FIELD_MAP = {
+  businessEmail: 'email',
+  phone: 'phone',
+  address: 'address',
+  city: 'city',
+  state: 'state',
+  pincode: 'pincode',
+  gstin: 'gstin',
+};
+
+async function applyBranchSettings(req, settings) {
+  const branchKey = normalizeBranchKey(req.query?.branch || req.user.branch);
+  if (!branchKey) return settings;
+  const ownerId = await settingsOwnerUserId(req);
+  const exactBranch = new RegExp(`^${escapeRegex(branchKey)}$`, 'i');
+  const branch = await Branch.findOne({
+    userId: ownerId,
+    $or: [{ code: exactBranch }, { name: exactBranch }],
+  }).lean();
+  if (!branch) return { ...settings, branch: branchKey };
+  return {
+    ...settings,
+    branch: branch.code || branch.name || branchKey,
+    branchName: branch.name || '',
+    branchCode: branch.code || '',
+    businessEmail: branch.email || settings.businessEmail,
+    phone: branch.phone || settings.phone,
+    address: branch.address || settings.address,
+    city: branch.city || settings.city,
+    state: branch.state || settings.state,
+    pincode: branch.pincode || settings.pincode,
+    gstin: branch.gstin || settings.gstin,
+  };
+}
 
 export const logoUpload = multer({
   storage: multer.memoryStorage(),
@@ -29,7 +81,7 @@ export const paymentQrUpload = multer({
 // GET /api/settings
 export async function getSettings(req, res, next) {
   try {
-    const userId = req.user.id;
+    const userId = await settingsOwnerUserId(req);
     let settings = await BusinessSettings.findOne({ userId }).lean();
     if (!settings) {
       settings = await BusinessSettings.create({ userId });
@@ -54,7 +106,7 @@ export async function getSettings(req, res, next) {
         settings = { ...settings, retailSubcategory };
       }
     }
-    res.json(settings);
+    res.json(await applyBranchSettings(req, settings));
   } catch (err) {
     next(err);
   }
@@ -63,10 +115,29 @@ export async function getSettings(req, res, next) {
 // PUT /api/settings
 export async function updateSettings(req, res, next) {
   try {
-    const userId = req.user.id;
+    const userId = await settingsOwnerUserId(req);
     const payload = { ...req.body };
     if (Object.prototype.hasOwnProperty.call(payload, 'retailSubcategory')) {
       delete payload.retailSubcategory;
+    }
+    const branchKey = normalizeBranchKey(req.query?.branch || req.user.branch);
+    if (branchKey) {
+      const branchPayload = {};
+      for (const field of BRANCH_SETTINGS_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(payload, field)) {
+          branchPayload[BRANCH_FIELD_MAP[field]] = typeof payload[field] === 'string' ? payload[field].trim() : payload[field];
+          delete payload[field];
+        }
+      }
+      if (branchPayload.gstin) branchPayload.gstin = String(branchPayload.gstin).toUpperCase();
+      if (branchPayload.email) branchPayload.email = String(branchPayload.email).toLowerCase();
+      if (Object.keys(branchPayload).length) {
+        const exactBranch = new RegExp(`^${escapeRegex(branchKey)}$`, 'i');
+        await Branch.updateOne(
+          { userId, $or: [{ code: exactBranch }, { name: exactBranch }] },
+          { $set: branchPayload },
+        );
+      }
     }
     let settings = await BusinessSettings.findOne({ userId });
     if (!settings) {
@@ -75,7 +146,7 @@ export async function updateSettings(req, res, next) {
       Object.assign(settings, payload);
       await settings.save();
     }
-    res.json(settings.toObject());
+    res.json(await applyBranchSettings(req, settings.toObject()));
   } catch (err) {
     next(err);
   }

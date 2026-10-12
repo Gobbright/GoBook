@@ -1,10 +1,10 @@
 import { Router } from 'express';
 
-import { archiveAdminNotification, createAdminRecord, deleteAdminRecord, deleteAdminSectionRow, getAdminDashboard, getAdminNotifications, getAdminRecords, getAdminSection, getAdminStats, getSubscriptionPayments, getSubscriptionPlans, loginAdmin, markAllAdminNotificationsRead, sendSubscriptionPaymentInvoice, updateAdminNotification, updateAdminRecord, updateAdminSectionRow, updateSubscriptionPlan, sendRenewalReminder } from './adminController.js';
-import { adminStorageUpload, downloadStorageFile, exportStorageCollections, getDailyReports, getStorageOverview, listStorageBusinesses, listStorageFiles, uploadStorageFile } from './storageController.js';
-import { requireEmployeeManagementAdminAuth, requireEmployeePortalRole } from '../../middleware/employeePortalAuth.js';
+import { archiveAdminNotification, createAdminRecord, deleteAdminRecord, deleteAdminSectionRow, getAdminDashboard, getAdminNotifications, getAdminRecords, getAdminSection, getAdminStats, getSubscriptionPayments, getSubscriptionPlans, loginAdmin, markAllAdminNotificationsRead, sendSubscriptionPaymentInvoice, updateAdminNotification, updateAdminRecord, updateAdminSectionRow, updateSubscriptionPlan, sendRenewalReminder, updateUserSubscriptionState } from './adminController.js';
+import { adminBackupUpload, adminStorageUpload, downloadStorageFile, exportStorageCollections, exportUserMongoBackup, getDailyReports, getStorageOverview, importUserMongoBackup, listStorageBusinesses, listStorageFiles, uploadStorageFile } from './storageController.js';
+import { requireEmployeeManagementAdminAuth } from '../../middleware/employeePortalAuth.js';
 import { getWhatsAppProviderAdminOverview, updateWhatsAppProviderStatus } from './whatsAppProviderAdminController.js';
-import { adminCorrections, adminDashboard, adminHolidays, adminLeaves, adminMonthlyAttendance, adminNotices, adminPayroll, adminTodayAttendance, approveAdminPayroll, createAdminCorrection, createAdminEmployee, createAdminLeave, createHoliday, createNotice, deleteAdminEmployee, employeePhotoUpload, generateAdminPayroll, leaveAttachmentUpload, listAdminEmployees, markAdminAttendance, updateAdminEmployee, updateAdminPayroll, updateCorrection, updateLeaveStatus } from '../employee-portal/portalController.js';
+import { adminCorrections, adminDashboard, adminHolidays, adminLeaves, adminMonthlyAttendance, adminPayroll, adminTodayAttendance, approveAdminPayroll, createAdminCorrection, createAdminEmployee, createAdminLeave, createHoliday, deleteAdminEmployee, employeePhotoUpload, generateAdminPayroll, leaveAttachmentUpload, listAdminEmployees, markAdminAttendance, updateAdminEmployee, updateAdminPayroll, updateCorrection, updateLeaveStatus } from '../employee-portal/portalController.js';
 import { requireAdminAuth } from './adminAuth.js';
 
 export const adminRouter = Router();
@@ -22,6 +22,8 @@ adminRouter.post('/storage/files', requireAdminAuth, adminStorageUpload.single('
 adminRouter.get('/storage/files/:id', requireAdminAuth, downloadStorageFile);
 adminRouter.get('/storage/businesses', requireAdminAuth, listStorageBusinesses);
 adminRouter.get('/storage/collections/export', requireAdminAuth, exportStorageCollections);
+adminRouter.get('/storage/user-backups/:userId', requireAdminAuth, exportUserMongoBackup);
+adminRouter.post('/storage/user-backups/import', requireAdminAuth, adminBackupUpload.single('backup'), importUserMongoBackup);
 adminRouter.get('/storage/daily-reports', requireAdminAuth, getDailyReports);
 adminRouter.get('/section/users', requireAdminAuth, (req, res, next) => { req.params.section = 'users'; return getAdminSection(req, res, next); });
 adminRouter.get('/section/:section', requireAdminAuth, getAdminSection);
@@ -32,6 +34,7 @@ adminRouter.post('/records/:kind', requireAdminAuth, createAdminRecord);
 adminRouter.put('/records/:kind/:id', requireAdminAuth, updateAdminRecord);
 adminRouter.delete('/records/:kind/:id', requireAdminAuth, deleteAdminRecord);
 adminRouter.post('/send-reminder/:userId', requireAdminAuth, sendRenewalReminder);
+adminRouter.post('/users/:userId/subscription-state', requireAdminAuth, updateUserSubscriptionState);
 adminRouter.get('/subscription-plans', requireAdminAuth, getSubscriptionPlans);
 adminRouter.put('/subscription-plans/:id', requireAdminAuth, updateSubscriptionPlan);
 adminRouter.get('/subscription-payments', requireAdminAuth, getSubscriptionPayments);
@@ -62,7 +65,5 @@ adminRouter.get('/payroll', ...requireHrAdmin, adminPayroll);
 adminRouter.post('/payroll/generate', ...requireHrAdmin, generateAdminPayroll);
 adminRouter.post('/payroll/approve', ...requireHrAdmin, approveAdminPayroll);
 adminRouter.put('/payroll/:id', ...requireHrAdmin, updateAdminPayroll);
-adminRouter.get('/notices', ...requireHrAdmin, adminNotices);
-adminRouter.post('/notices', ...requireHrAdmin, requireEmployeePortalRole('admin'), createNotice);
 adminRouter.get('/holidays', ...requireHrAdmin, adminHolidays);
 adminRouter.post('/holidays', ...requireHrAdmin, createHoliday);

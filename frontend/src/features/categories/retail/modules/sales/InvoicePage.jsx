@@ -3,6 +3,7 @@ import {
   Calendar, Download, Eye, FileText, IndianRupee,
   MoreVertical, Pencil, Plus, Search, Share2, Trash2, TrendingUp, Wallet, X,
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { api } from '../../../../../services/api.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
@@ -24,6 +25,36 @@ const INVOICE_NUMBER_COLLATOR = new Intl.Collator('en', { numeric: true, sensiti
 // generously-limited, server-filtered fetch, since the stat cards above the
 // table need to summarize the whole filtered set, not just one page of it.
 const FETCH_LIMIT = 500;
+const FILTER_QUERY_KEYS = Object.keys(EMPTY_SALES_FILTERS);
+
+function getInitialInvoiceListState() {
+  const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+  const filters = { ...EMPTY_SALES_FILTERS };
+  FILTER_QUERY_KEYS.forEach((key) => {
+    filters[key] = params.get(key) || '';
+  });
+  return {
+    filters,
+    dateFrom: params.get('dateFrom') || '',
+    dateTo: params.get('dateTo') || '',
+    search: params.get('search') || '',
+  };
+}
+
+function invoiceListQuery({ filters, dateFrom, dateTo, search }) {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set('dateFrom', dateFrom);
+  if (dateTo) params.set('dateTo', dateTo);
+  FILTER_QUERY_KEYS.forEach((key) => {
+    const value = filters?.[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      params.set(key, String(value));
+    }
+  });
+  if (search.trim()) params.set('search', search.trim());
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
 
 function normalizeProductForDescription(product = {}) {
   const description = product.description || product.name || product.productName || '';
@@ -58,6 +89,47 @@ function enrichItemsWithProductDescriptions(items = [], products = []) {
 }
 
 // ── Sub-components ─────────────────────────────────────────────
+
+function findCatalogProductForItem(products = [], item = {}) {
+  const text = (value) => String(value || '').trim().toLowerCase();
+  const productId = item.productId ? String(item.productId) : '';
+  const code = text(item.productCode || item.code);
+  const description = text(item.description);
+  return products.find((entry) => productId && String(entry._id || entry.id) === productId)
+    || products.find((entry) => code && text(entry.code) === code)
+    || products.find((entry) => description && text(entry.description) === description)
+    || null;
+}
+
+function catalogVariantForItem(product = {}, item = {}) {
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  if (!variants.length) return null;
+  const text = (value) => String(value || '').trim().toLowerCase();
+  const size = text(item.size || item.modelName || item.modelNumber);
+  const barcode = text(item.barcode);
+  const rate = Number(item.rate) || 0;
+  return variants.find((variant) => barcode && text(variant.barcode) === barcode && (!size || text(variant.size || variant.modelName) === size))
+    || variants.find((variant) => size && text(variant.size || variant.modelName) === size && (!rate || Number(variant.rate) === rate))
+    || variants.find((variant) => size && text(variant.size || variant.modelName) === size)
+    || null;
+}
+
+function hydrateItemsWithCatalogVariantAttrs(items = [], products = []) {
+  if (!Array.isArray(items) || !items.length || !Array.isArray(products) || !products.length) return items;
+  return items.map((item) => {
+    if (item.itemType === 'Service') return item;
+    const product = findCatalogProductForItem(products, item);
+    if (!product) return item;
+    const variant = catalogVariantForItem(product, item) || {};
+    return {
+      ...item,
+      brand: item.brand || item.other || item.variantBrand || variant.other || variant.brand || product.brand || '',
+      material: item.material || item.fabric || item.variantMaterial || variant.material || variant.fabric || product.material || product.fabric || '',
+      size: item.size || item.modelName || item.modelNumber || variant.size || variant.modelName || '',
+      barcode: item.barcode || variant.barcode || '',
+    };
+  });
+}
 
 function fmtDate(iso) {
   if (!iso) return '-';
@@ -208,7 +280,7 @@ function ShareModal({ invoice, onClose }) {
   );
 }
 
-function ActionMenu({ invoice, openMenu, setOpenMenu, onShare, onPayment, onDownload, onDelete }) {
+function ActionMenu({ invoice, openMenu, setOpenMenu, onShare, onPayment, onDownload, onDelete, returnSearch = '' }) {
   const invoiceId = invoice.id;
   const isOpen = openMenu === invoiceId;
   const btnRef = useRef(null);
@@ -231,7 +303,7 @@ function ActionMenu({ invoice, openMenu, setOpenMenu, onShare, onPayment, onDown
   function handleAction(id) {
     setOpenMenu(null);
     if (id === 'view') {
-      window.location.assign(`/billing/invoice/${invoiceId}/view`);
+      window.location.assign(`/billing/invoice/${invoiceId}/view${returnSearch}`);
     } else if (id === 'edit') {
       window.location.assign(`/billing/invoice/${invoiceId}/edit`);
     } else if (id === 'payment') {
@@ -286,6 +358,13 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
   const documentType = invoice.documentType || 'invoice';
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
   const [products, setProducts] = useState([]);
+  const snapshotBizSettings = invoice.businessSettings || invoice.businessSettingsSnapshot || {};
+  const effectiveBizSettings = {
+    ...snapshotBizSettings,
+    ...(bizSettings || {}),
+    invoicePrintFormat: bizSettings?.invoicePrintFormat || snapshotBizSettings.invoicePrintFormat || 'normal',
+    invoiceThermalTemplate: bizSettings?.invoiceThermalTemplate || bizSettings?.invoiceDesignSettings?.thermal80?.template || snapshotBizSettings.invoiceThermalTemplate || snapshotBizSettings.invoiceDesignSettings?.thermal80?.template || 'standard',
+  };
   const docMeta = {
     ...invoice.meta,
     number: invoice.number,
@@ -301,7 +380,7 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
     config.showGst,
   ), [invoice, config.showGst]);
   const displayItems = useMemo(
-    () => enrichItemsWithProductDescriptions(invoice.items || [], products),
+    () => enrichItemsWithProductDescriptions(hydrateItemsWithCatalogVariantAttrs(invoice.items || [], products), products),
     [invoice.items, products],
   );
 
@@ -332,7 +411,7 @@ function InvoicePdfDownload({ invoice, bizSettings, onDone }) {
         notes={invoice.notes || ''}
         terms={invoice.terms || ''}
         supplyType={invoice.supplyType || 'intrastate'}
-        bizSettings={bizSettings}
+        bizSettings={effectiveBizSettings}
         shipping={invoice.shipping || {}}
         sameShipping={invoice.shipping?.sameAsBilling ?? true}
         tds={invoice.tds}
@@ -472,25 +551,40 @@ function compareInvoicesByNumber(a, b) {
 // ── Main page ──────────────────────────────────────────────────
 
 export function InvoicePage() {
-  const [search, setSearch] = useState('');
+  const location = useLocation();
+  const initialListState = useMemo(() => getInitialInvoiceListState(), []);
+  const [search, setSearch] = useState(initialListState.search);
   const debouncedSearch = useDebouncedValue(search);
   const [openMenu, setOpenMenu] = useState(null);
   const [shareInvoice, setShareInvoice] = useState(null);
   const [paymentInvoice, setPaymentInvoice] = useState(null);
-  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filters, setFilters] = useState(initialListState.filters);
+  const [dateFrom, setDateFrom] = useState(initialListState.dateFrom);
+  const [dateTo, setDateTo] = useState(initialListState.dateTo);
   const [invoices, setInvoices] = useState([]);
   const [bizSettings, setBizSettings] = useState({});
   const [pdfInvoice, setPdfInvoice] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const searchRef = useRef(null);
 
   function updateFilter(key, value) {
     setFilters((f) => ({ ...f, [key]: value }));
   }
+
+  const listQuery = useMemo(
+    () => invoiceListQuery({ filters, dateFrom, dateTo, search }),
+    [filters, dateFrom, dateTo, search],
+  );
+
+  useEffect(() => {
+    const nextUrl = `${location.pathname}${listQuery}`;
+    const currentUrl = `${location.pathname}${location.search || ''}`;
+    if (nextUrl !== currentUrl) window.history.replaceState(null, '', nextUrl);
+  }, [location.pathname, location.search, listQuery]);
 
   async function loadData() {
     setLoading(true);
@@ -538,6 +632,7 @@ export function InvoicePage() {
     if (!window.confirm(`Delete ${label} ${invoice.number}? This cannot be undone.`)) return;
     try {
       await api.deleteInvoice(invoice.id);
+      setSelectedInvoiceIds((ids) => ids.filter((id) => id !== invoice.id));
       await loadData();
     } catch (err) {
       setError(err.message || `Unable to delete ${label}`);
@@ -597,10 +692,56 @@ export function InvoicePage() {
   const showingFrom = orderedInvoices.length === 0 ? 0 : pageStart + 1;
   const showingTo = Math.min(pageStart + PAGE_SIZE, orderedInvoices.length);
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
+  const selectedInvoiceIdSet = useMemo(() => new Set(selectedInvoiceIds), [selectedInvoiceIds]);
+  const selectedInvoices = useMemo(
+    () => orderedInvoices.filter((invoice) => selectedInvoiceIdSet.has(invoice.id)),
+    [orderedInvoices, selectedInvoiceIdSet],
+  );
+  const allListSelected = orderedInvoices.length > 0 && orderedInvoices.every((invoice) => selectedInvoiceIdSet.has(invoice.id));
+  const someListSelected = orderedInvoices.some((invoice) => selectedInvoiceIdSet.has(invoice.id));
+
+  useEffect(() => {
+    const availableIds = new Set(invoices.map((invoice) => invoice.id));
+    setSelectedInvoiceIds((ids) => ids.filter((id) => availableIds.has(id)));
+  }, [invoices]);
+
+  function toggleInvoiceSelection(invoiceId) {
+    setSelectedInvoiceIds((ids) => (
+      ids.includes(invoiceId)
+        ? ids.filter((id) => id !== invoiceId)
+        : [...ids, invoiceId]
+    ));
+  }
+
+  function toggleListSelection() {
+    const invoiceIds = orderedInvoices.map((invoice) => invoice.id);
+    if (allListSelected) {
+      setSelectedInvoiceIds((ids) => ids.filter((id) => !invoiceIds.includes(id)));
+      return;
+    }
+    setSelectedInvoiceIds((ids) => Array.from(new Set([...ids, ...invoiceIds])));
+  }
+
+  async function handleBulkDelete() {
+    if (selectedInvoices.length === 0) return;
+    const count = selectedInvoices.length;
+    if (!window.confirm(`Delete ${count} selected invoice${count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    setError('');
+    try {
+      await Promise.all(selectedInvoices.map((invoice) => api.deleteInvoice(invoice.id)));
+      setSelectedInvoiceIds([]);
+      await loadData();
+    } catch (err) {
+      setError(err.message || 'Unable to delete selected invoices');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
 
   const { highlightedIndex } = useListKeyboardNav({
     rowCount: paginatedInvoices.length,
-    onOpen: (index) => window.location.assign(`/billing/invoice/${paginatedInvoices[index].id}/view`),
+    onOpen: (index) => window.location.assign(`/billing/invoice/${paginatedInvoices[index].id}/view${listQuery}`),
     searchRef,
   });
 
@@ -692,7 +833,17 @@ export function InvoicePage() {
       <div className="bg-white border border-[#dfe7f1] rounded-lg overflow-hidden">
 
         {/* Search row */}
-        <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[#edf2f7] px-4 py-2.5">
+        <div className="flex flex-wrap items-stretch gap-2 border-b border-[#edf2f7] px-3 py-3 sm:items-center sm:justify-end sm:px-4 sm:py-2.5">
+          <div className="relative w-full sm:w-auto">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
+            <input
+              ref={searchRef}
+              className="h-11 w-full rounded-lg border border-[#dbe4ef] pl-8 pr-3 text-[13px] font-[inherit] outline-none focus:border-blue-500 sm:h-auto sm:w-60 sm:rounded-md sm:py-2"
+              placeholder="Search invoice or customer... (/)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <DateRangeFilter
             from={dateFrom}
             to={dateTo}
@@ -706,10 +857,20 @@ export function InvoicePage() {
             fields={['gstType', 'paymentMethod', 'paymentStatus', 'customer', 'city', 'state', 'supplyType', 'amountRange', 'itemType', 'hsn', 'productName', 'barcode']}
           />
           <ExportButtons title="Bills" filename="bills" rows={orderedInvoices} columns={exportColumns} />
-          <div className="relative">
+          {selectedInvoices.length > 0 && (
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 size={13} />
+              Delete Selected ({selectedInvoices.length})
+            </button>
+          )}
+          <div className="relative hidden" aria-hidden="true">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
             <input
-              ref={searchRef}
               className="pl-8 pr-3 py-2 border border-[#dbe4ef] rounded-md text-[13px] outline-none focus:border-blue-500 w-60 font-[inherit]"
               placeholder="Search invoice or customer… (/)"
               value={search}
@@ -726,26 +887,35 @@ export function InvoicePage() {
             paginatedInvoices.map((inv) => (
               <div key={inv.id} className="p-4 flex flex-col gap-2.5">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <a
-                      href={`/billing/invoice/${inv.id}/view`}
-                      className="text-[14px] font-semibold text-blue-600 no-underline hover:underline"
-                    >
-                      {inv.number}
-                    </a>
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      {inv.documentType === 'bill-of-supply' ? (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">No GST</span>
-                      ) : (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-500">GST</span>
-                      )}
-                      <span
-                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                          inv.supplyType === 'intrastate' ? 'bg-purple-50 text-purple-700' : 'bg-cyan-50 text-cyan-700'
-                        }`}
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedInvoiceIdSet.has(inv.id)}
+                      onChange={() => toggleInvoiceSelection(inv.id)}
+                      aria-label={`Select ${inv.number}`}
+                      className="mt-1 h-4 w-4 rounded border-[#cbd5e1] text-blue-600 focus:ring-blue-500"
+                    />
+                    <div>
+                      <a
+                        href={`/billing/invoice/${inv.id}/view${listQuery}`}
+                        className="text-[14px] font-semibold text-blue-600 no-underline hover:underline"
                       >
-                        {inv.supplyType === 'intrastate' ? 'Intra' : 'Inter'}
-                      </span>
+                        {inv.number}
+                      </a>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {inv.documentType === 'bill-of-supply' ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">No GST</span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-500">GST</span>
+                        )}
+                        <span
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                            inv.supplyType === 'intrastate' ? 'bg-purple-50 text-purple-700' : 'bg-cyan-50 text-cyan-700'
+                          }`}
+                        >
+                          {inv.supplyType === 'intrastate' ? 'Intra' : 'Inter'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-none">
@@ -758,6 +928,7 @@ export function InvoicePage() {
                       onPayment={(inv) => setPaymentInvoice({ ...inv, balance: inv.balanceDue, invoiceTotal: inv.total })}
                       onDownload={handleDownloadPdf}
                       onDelete={handleDelete}
+                      returnSearch={listQuery}
                     />
                   </div>
                 </div>
@@ -803,6 +974,18 @@ export function InvoicePage() {
           <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
+                <th className="w-12 px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={allListSelected}
+                    ref={(node) => {
+                      if (node) node.indeterminate = someListSelected && !allListSelected;
+                    }}
+                    onChange={toggleListSelection}
+                    aria-label="Select all invoices"
+                    className="h-4 w-4 rounded border-[#cbd5e1] text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
                 {[
                   { label: 'Invoice No.',    align: 'left'  },
                   { label: 'Customer',       align: 'left'  },
@@ -833,7 +1016,7 @@ export function InvoicePage() {
             <tbody>
               {orderedInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-16 text-[#536173] text-[13px]">
+                  <td colSpan={14} className="text-center py-16 text-[#536173] text-[13px]">
                     No invoices match your search.
                   </td>
                 </tr>
@@ -844,10 +1027,20 @@ export function InvoicePage() {
                       key={inv.id}
                       className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}
                     >
+                      <td className="px-4 py-3.5 align-top">
+                        <input
+                          type="checkbox"
+                          checked={selectedInvoiceIdSet.has(inv.id)}
+                          onChange={() => toggleInvoiceSelection(inv.id)}
+                          aria-label={`Select ${inv.number}`}
+                          className="h-4 w-4 rounded border-[#cbd5e1] text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
+
                       {/* Invoice number */}
                       <td className="px-4 py-3.5">
                         <a
-                          href={`/billing/invoice/${inv.id}/view`}
+                          href={`/billing/invoice/${inv.id}/view${listQuery}`}
                           className="text-[13px] font-semibold text-blue-600 no-underline hover:underline"
                         >
                           {inv.number}
@@ -952,6 +1145,7 @@ export function InvoicePage() {
                           onPayment={(inv) => setPaymentInvoice({ ...inv, balance: inv.balanceDue, invoiceTotal: inv.total })}
                           onDownload={handleDownloadPdf}
                           onDelete={handleDelete}
+                          returnSearch={listQuery}
                         />
                       </td>
                     </tr>

@@ -18,6 +18,10 @@ const businessSettingsSchema = new Schema({
     normal: { type: invoiceLayoutSchema, default: undefined },
     thermal80: { type: invoiceLayoutSchema, default: undefined },
   },
+  invoiceDesignSettings: {
+    normal: { type: Schema.Types.Mixed, default: undefined },
+    thermal80: { type: Schema.Types.Mixed, default: undefined },
+  },
   userId:          { type: Schema.Types.ObjectId, ref: 'AppUser', required: true, unique: true, index: true },
   businessName:    { type: String, default: '' },
   retailSubcategory: { type: String, enum: ['', ...RETAIL_SUBCATEGORIES], default: '' },
@@ -51,6 +55,8 @@ const businessSettingsSchema = new Schema({
   invoiceShowSignature:  { type: Boolean, default: true },
   invoiceShowGoBookBranding: { type: Boolean, default: true },
   invoicePrintFormat:    { type: String, enum: ['normal', 'thermal80'], default: 'normal' },
+  invoiceNormalTemplate:  { type: String, enum: ['professional', 'compact-ledger', 'modern-split', 'retail-detailed'], default: 'professional' },
+  invoiceThermalTemplate: { type: String, enum: ['standard', 'boxed'], default: 'standard' },
   bankName:             { type: String, default: '' },
   accountHolderName:    { type: String, default: '' },
   accountNumber:        { type: String, default: '' },
@@ -67,6 +73,7 @@ const businessSettingsSchema = new Schema({
   emailSmtpSecure:      { type: Boolean, default: false },
   emailSmtpUser:        { type: String, default: '' },
   emailSmtpPass:        { type: String, default: '', select: false },
+  emailSmtpVerifiedAt:  { type: Date },
 }, { timestamps: true });
 
 export const BusinessSettings = model('BusinessSettings', businessSettingsSchema);

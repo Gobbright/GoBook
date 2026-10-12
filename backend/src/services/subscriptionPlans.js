@@ -26,7 +26,7 @@ let initializationPromise;
 
 function defaultAmount(category, tier) {
   const group = PRICE_GROUPS.find((item) => item.categories.includes(category)) || PRICE_GROUPS[0];
-  return group.amounts[PLAN_TIERS.indexOf(tier)];
+  return group.amounts[['basic', 'mid', 'advanced'].indexOf(tier)];
 }
 
 export function ensureDefaultSubscriptionPlans() {
@@ -47,7 +47,7 @@ export function ensureDefaultSubscriptionPlans() {
 
 export async function getPlansForCategory(category, { includeDisabled = false } = {}) {
   await ensureDefaultSubscriptionPlans();
-  const query = { category };
+  const query = { category, tier: { $in: PLAN_TIERS } };
   if (!includeDisabled) query.enabled = true;
   return SubscriptionPlan.find(query).sort({ sortOrder: 1, amount: 1 }).lean();
 }

@@ -11,7 +11,6 @@ import CorrectionRequest from './pages/employee/CorrectionRequest.jsx';
 import ApplyLeave from './pages/employee/ApplyLeave.jsx';
 import LeaveStatus from './pages/employee/LeaveStatus.jsx';
 import LeaveHistory from './pages/employee/LeaveHistory.jsx';
-import Notices from './pages/employee/Notices.jsx';
 import Payslips from './pages/employee/Payslips.jsx';
 import Holidays from './pages/employee/Holidays.jsx';
 import MyProfile from './pages/employee/MyProfile.jsx';
@@ -47,7 +46,6 @@ export function EmployeePortalRoutes() {
           <Route path="/leave/apply" element={<EmployeeShell><ApplyLeave /></EmployeeShell>} />
           <Route path="/leave/status" element={<EmployeeShell><LeaveStatus /></EmployeeShell>} />
           <Route path="/leave/history" element={<EmployeeShell><LeaveHistory /></EmployeeShell>} />
-          <Route path="/notices" element={<EmployeeShell><Notices /></EmployeeShell>} />
           <Route path="/payslips" element={<EmployeeShell><Payslips /></EmployeeShell>} />
           <Route path="/holidays" element={<EmployeeShell><Holidays /></EmployeeShell>} />
           <Route path="/profile" element={<EmployeeShell><MyProfile /></EmployeeShell>} />

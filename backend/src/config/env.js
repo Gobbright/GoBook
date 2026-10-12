@@ -1,26 +1,22 @@
 import dotenv from 'dotenv';
-import dns from 'node:dns';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Always resolve .env relative to this file (Backend/src/config -> Backend/.env)
-// so it loads correctly regardless of what directory Hostinger runs the process from.
+// Always resolve .env relative to this file (backend/src/config -> backend/.env)
+// so it loads correctly regardless of the process working directory.
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// Some local DNS proxies refuse MongoDB Atlas SRV lookups even though the
-// operating-system resolver can answer them. Allow deployments to provide
-// reliable recursive DNS servers without changing the database URI or data.
-const configuredDnsServers = (process.env.DNS_SERVERS ?? '')
-  .split(',')
-  .map((server) => server.trim())
-  .filter(Boolean);
-if (configuredDnsServers.length > 0) dns.setServers(configuredDnsServers);
-
-function require(name) {
-  const val = process.env[name];
-  if (!val) throw new Error(`Missing required environment variable: ${name}`);
+const adminAccounts = [
+  { id: process.env.ADMIN_LOGIN_ID ?? 'admin', password: process.env.ADMIN_LOGIN_PASSWORD ?? 'admin@123' },
+  { id: process.env.ADMIN_LOGIN_ID_2 ?? '', password: process.env.ADMIN_LOGIN_PASSWORD_2 ?? '' },
+]
+  .map((account) => ({ id: String(account.id || '').trim(), password: String(account.password || '') }))
+  .filter((account) => account.id && account.password);
+function requireAny(...names) {
+  const val = names.map((name) => process.env[name]).find(Boolean);
+  if (!val) throw new Error(`Missing required environment variable: ${names.join(' or ')}`);
   return val;
 }
 
@@ -35,14 +31,17 @@ export const env = {
   nodeEnv:       process.env.NODE_ENV ?? 'development',
   port:          Number(process.env.PORT ?? 5000),
 
-  clientUrl:     require('CLIENT_URL'),
+  // Prefer deployment names, but keep existing local names as fallback.
+  clientUrl:     requireAny('FRONTEND_URL', 'CLIENT_URL'),
   allowedOrigins: list('ALLOWED_ORIGINS'),
-  mongodbUri:    require('MONGODB_URI'),
+  mongodbUri:    requireAny('MONGO_URI', 'MONGODB_URI'),
   mongodbDbName: process.env.MONGODB_DB_NAME ?? 'gobook',
-  jwtSecret:     require('JWT_SECRET'),
+  dnsServers:    list('DNS_SERVERS'),
+  jwtSecret:     requireAny('JWT_SECRET'),
   jwtExpiresIn:  process.env.JWT_EXPIRES_IN ?? '7d',
-  adminLoginId: process.env.ADMIN_LOGIN_ID ?? 'admin',
-  adminLoginPassword: process.env.ADMIN_LOGIN_PASSWORD ?? 'admin@123',
+  adminAccounts,
+  adminLoginId: adminAccounts[0]?.id ?? 'admin',
+  adminLoginPassword: adminAccounts[0]?.password ?? '',
   adminJwtExpiresIn: process.env.ADMIN_JWT_EXPIRES_IN ?? '8h',
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
 
@@ -57,12 +56,14 @@ export const env = {
 
   // When false, registration skips Razorpay checkout and activates the account directly.
   paymentRequired: process.env.PAYMENT_REQUIRED !== 'false',
+  onlineStoreEnabled: process.env.ONLINE_STORE_ENABLED === 'true',
 
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID ?? '',
     keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
   },
+    verificationAmountPaise: Number(process.env.RAZORPAY_VERIFICATION_AMOUNT_PAISE ?? 100),
 
   groqApiKey:    process.env.GROQ_API_KEY ?? '',
   groqModel:     process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
@@ -76,3 +77,4 @@ export const env = {
     from:   process.env.SMTP_FROM ?? '',
   },
 };
+

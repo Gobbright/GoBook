@@ -1,16 +1,17 @@
-# Local secrets
-.env
-**/.env
-!.env.example
-!**/.env.example
 
-# Generated dependencies and builds
-node_modules/
-**/node_modules/
-dist/
-**/dist/
-.playwright-output/
-**/.playwright-output/
-playwright-report/
-**/.playwright/
-**/playwright-report/
+# Backend environment variables
+backend/.env
+backend/.env.*
+
+# Frontend environment variables
+frontend/.env
+frontend/.env.*
+
+# Keep example environment files
+!backend/.env.local.example
+!frontend/.env.local.example
+
+# Dependencies and build files
+backend/node_modules/
+frontend/node_modules/
+frontend/dist/

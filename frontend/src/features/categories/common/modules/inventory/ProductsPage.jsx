@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
+import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import { Calendar, ChevronLeft, Clock, ClipboardList, IndianRupee, Info, Laptop, Package, Percent, Save, ScanLine, ShieldCheck, Tag, User, Wrench } from 'lucide-react';
 
 import { api } from '../../../../../services/api.js';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
+import { MasterDropdown } from '../../../../../components/forms/MasterDropdown.jsx';
 import { useCurrentUser } from '../../../../../hooks/useCurrentUser.js';
 import { useFocusTrap } from '../../../../../hooks/useFocusTrap.js';
 import { useListKeyboardNav } from '../../../../../hooks/useListKeyboardNav.js';
@@ -32,6 +36,308 @@ const toggleBtnClass = (active) => `flex-1 py-1.5 text-[12.5px] border-0 cursor-
 const Kbd = ({ children }) => (
   <kbd className="px-1.5 py-0.5 rounded border border-[#dbe4ef] bg-[#f8fafc] text-[11px] font-mono leading-none text-[#374151]">{children}</kbd>
 );
+
+const CAMERA_BARCODE_FORMATS = [
+  BarcodeFormat.CODE_128,
+  BarcodeFormat.CODE_39,
+  BarcodeFormat.CODE_93,
+  BarcodeFormat.EAN_13,
+  BarcodeFormat.EAN_8,
+  BarcodeFormat.UPC_A,
+  BarcodeFormat.UPC_E,
+  BarcodeFormat.ITF,
+  BarcodeFormat.CODABAR,
+  BarcodeFormat.QR_CODE,
+];
+
+function createZxingHints() {
+  const hints = new Map();
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, CAMERA_BARCODE_FORMATS);
+  hints.set(DecodeHintType.TRY_HARDER, true);
+  return hints;
+}
+
+function ProductMobileBarcodeScanner({ open, onClose, onDetected }) {
+  const videoRef = useRef(null);
+  const controlsRef = useRef(null);
+  const lastScanRef = useRef({ value: '', at: 0 });
+  const onDetectedRef = useRef(onDetected);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+
+  useEffect(() => {
+    onDetectedRef.current = onDetected;
+  }, [onDetected]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+
+    async function startScanner() {
+      setCameraReady(false);
+      setCameraError('');
+
+      if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        setCameraError('Camera scanning needs HTTPS or localhost.');
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError('Camera access is not available in this browser.');
+        return;
+      }
+
+      try {
+        const video = videoRef.current;
+        if (!video) return;
+        const reader = new BrowserMultiFormatReader(createZxingHints(), {
+          delayBetweenScanAttempts: 100,
+          delayBetweenScanSuccess: 700,
+        });
+        const controls = await reader.decodeFromConstraints(
+          {
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              focusMode: { ideal: 'continuous' },
+            },
+            audio: false,
+          },
+          video,
+          (result) => {
+            const value = String(result?.getText?.() || '').trim();
+            const now = Date.now();
+            const repeatedTooSoon = lastScanRef.current.value === value && now - lastScanRef.current.at < 1300;
+            if (value && !repeatedTooSoon) {
+              lastScanRef.current = { value, at: now };
+              onDetectedRef.current(value);
+            }
+          },
+        );
+        if (cancelled) {
+          controls.stop();
+          return;
+        }
+        controlsRef.current = controls;
+        setCameraReady(true);
+      } catch (err) {
+        if (err?.name === 'NotAllowedError') setCameraError('Camera permission was blocked.');
+        else if (err?.name === 'NotFoundError') setCameraError('No camera was found on this device.');
+        else setCameraError('Unable to start camera scanner.');
+      }
+    }
+
+    startScanner();
+
+    return () => {
+      cancelled = true;
+      controlsRef.current?.stop();
+      controlsRef.current = null;
+      lastScanRef.current = { value: '', at: 0 };
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <>
+      <button type="button" className="billing-barcode-backdrop" aria-label="Close scanner" onClick={onClose} />
+      <div className="billing-barcode-scanner" role="dialog" aria-modal="true">
+        <div className="billing-barcode-topbar">
+          <button type="button" onClick={onClose} title="Close scanner">x</button>
+          <strong>Scan Product Barcode</strong>
+          <span />
+        </div>
+        <div className="billing-barcode-camera">
+          <video ref={videoRef} muted playsInline />
+          <div className="billing-barcode-frame"><span /><span /><span /><span /></div>
+          {!cameraReady && !cameraError && (
+            <div className="billing-barcode-state">
+              <ScanLine size={28} />
+              <strong>Starting camera...</strong>
+            </div>
+          )}
+          {cameraError && (
+            <div className="billing-barcode-state error">
+              <ScanLine size={28} />
+              <strong>{cameraError}</strong>
+            </div>
+          )}
+        </div>
+        <div className="billing-barcode-footer">
+          <div className="billing-barcode-status-row">
+            <div>
+              <span>Align barcode inside the frame</span>
+              <strong>Product scan</strong>
+            </div>
+            <button type="button" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function GridCellPicker({ value = '', onChange, options = [], placeholder = '', inputClassName = '' }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value || '');
+  const [menuStyle, setMenuStyle] = useState(null);
+  const [highlighted, setHighlighted] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+  const wrapRef = useRef(null);
+  const menuRef = useRef(null);
+  const optionRefs = useRef([]);
+  const cleanOptions = optionNames(options);
+  const filteredOptions = cleanOptions
+    .filter((option) => showAll || option.toLowerCase().includes(String(query || '').toLowerCase()))
+    .slice(0, 8);
+
+  useEffect(() => {
+    function handleGridPickerOpen(event) {
+      if (event.detail?.source === wrapRef.current) return;
+      setOpen(false);
+    }
+    window.addEventListener('gobook-grid-picker-open', handleGridPickerOpen);
+    return () => window.removeEventListener('gobook-grid-picker-open', handleGridPickerOpen);
+  }, []);
+
+  useEffect(() => {
+    setQuery(value || '');
+  }, [value]);
+
+  useEffect(() => {
+    function handleOutside(event) {
+      if (wrapRef.current?.contains(event.target)) return;
+      if (menuRef.current?.contains(event.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    optionRefs.current[highlighted]?.scrollIntoView({ block: 'nearest' });
+  }, [highlighted, open]);
+
+  const commit = (nextValue) => {
+    onChange(nextValue);
+    setQuery(nextValue);
+    setOpen(false);
+  };
+
+  const openMenu = () => {
+    window.dispatchEvent(new CustomEvent('gobook-grid-picker-open', { detail: { source: wrapRef.current } }));
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuStyle({
+        left: Math.max(8, rect.right - 176),
+        top: rect.bottom + 4,
+      });
+    }
+    setHighlighted(0);
+    setOpen(true);
+  };
+
+  const menu = open && cleanOptions.length > 0 ? (
+    <div
+      ref={menuRef}
+      style={menuStyle || undefined}
+      className="fixed z-[9999] w-44 overflow-hidden rounded-md border border-[#b8cae7] bg-white shadow-xl"
+    >
+      <div className="border-b border-[#edf2f7] bg-[#f8fbff] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#64748b]">Select</div>
+      <div className="max-h-36 overflow-y-auto py-1">
+        {filteredOptions.length ? filteredOptions.map((option, index) => (
+          <button
+            key={option}
+            ref={(node) => { optionRefs.current[index] = node; }}
+            type="button"
+            tabIndex={-1}
+            className={`flex w-full items-center justify-between border-0 px-2.5 py-1.5 text-left text-[12px] font-[inherit] hover:bg-blue-200 ${index === highlighted ? 'bg-blue-200 text-[#0f172a]' : option === value ? 'bg-blue-100 font-semibold text-blue-800' : 'bg-white text-[#111827]'}`}
+            onMouseEnter={() => setHighlighted(index)}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              commit(option);
+            }}
+          >
+            <span className="truncate">{option}</span>
+          </button>
+        )) : (
+          <div className="px-3 py-2 text-[12px] text-[#64748b]">Press Enter to use custom value</div>
+        )}
+      </div>
+      {String(query || '').trim() && !cleanOptions.some((option) => option.toLowerCase() === String(query || '').trim().toLowerCase()) && (
+        <button
+          type="button"
+          tabIndex={-1}
+          className="flex w-full items-center border-0 border-t border-[#edf2f7] bg-white px-2.5 py-1.5 text-left text-[12px] font-semibold text-blue-700 hover:bg-blue-200"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            commit(String(query || '').trim());
+          }}
+        >
+          Manual type: {String(query || '').trim()}
+        </button>
+      )}
+    </div>
+  ) : null;
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <input
+        className={`${inputClassName} pr-7`}
+        value={query}
+        placeholder={placeholder}
+        onMouseDown={() => {
+          setShowAll(true);
+          openMenu();
+        }}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          onChange(event.target.value);
+          setShowAll(false);
+          openMenu();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowAll(true);
+            if (!open) {
+              openMenu();
+              return;
+            }
+            setHighlighted((current) => Math.min(filteredOptions.length - 1, current + 1));
+            return;
+          }
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (!open) {
+              openMenu();
+              return;
+            }
+            setHighlighted((current) => Math.max(0, current - 1));
+            return;
+          }
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commit(open && filteredOptions[highlighted] ? filteredOptions[highlighted] : query);
+            return;
+          }
+          if (event.key === 'Tab') {
+            setOpen(false);
+            return;
+          }
+          if (event.key === 'Escape') setOpen(false);
+        }}
+      />
+      <button type="button" tabIndex={-1} aria-hidden="true" className="pointer-events-none absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-[#64748b]">
+        <ChevronLeft size={13} className="-rotate-90" />
+      </button>
+      {createPortal(menu, document.body)}
+    </div>
+  );
+}
 
 function ShortcutsHint({ items, className = '' }) {
   return (
@@ -252,8 +558,95 @@ const EMPTY_FORM = {
   variants: [], variantAttributes: [], bundleItems: [], bundleDiscountType: 'Percentage', bundleDiscount: '', status: 'Active',
 };
 
-function genBarcode() {
-  return Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
+function currentBarcodePeriod(date = new Date()) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  return `${month}${year}`;
+}
+
+function ean13CheckDigit(first12Digits) {
+  const sum = String(first12Digits)
+    .slice(0, 12)
+    .split('')
+    .reduce((total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
+  return String((10 - (sum % 10)) % 10);
+}
+
+function hashToDigits(text, length) {
+  let hash = 5381;
+  const str = String(text || '');
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+  }
+  let digits = String(hash);
+  while (digits.length < length) {
+    hash = ((hash << 5) + hash + 1) >>> 0;
+    digits += String(hash);
+  }
+  return digits.slice(0, length);
+}
+
+function randomDigits(length) {
+  return Array.from({ length }, () => Math.floor(Math.random() * 10)).join('');
+}
+
+function productBarcodeIdentity(value = {}) {
+  return [
+    value.code,
+    value.productCode,
+    value.description,
+    value.name,
+    value.category,
+    value.subCategory,
+    value.itemGroup,
+    value.productType,
+    value.hsn,
+    value.unit,
+  ]
+    .map((part) => String(part ?? '').trim().toLowerCase())
+    .filter(Boolean)
+    .join('|');
+}
+
+function variantBarcodeIdentity(value = {}) {
+  return [
+    value.brand,
+    value.other,
+    value.variantBrand,
+    value.size,
+    value.modelName,
+    value.modelCode,
+    value.modelFamily,
+    value.modelNumber,
+    value.material,
+    value.fabric,
+    value.colour,
+    value.color,
+    value.pattern,
+    value.type,
+    value.quality,
+    value.ageGroup,
+    value.gender,
+    value.collection,
+    value.processor,
+    value.ram,
+    value.storage,
+    value.display,
+    value.graphics,
+    value.operatingSystem,
+  ]
+    .map((part) => String(part ?? '').trim().toLowerCase())
+    .filter(Boolean)
+    .join('|');
+}
+
+function genBarcode(value = {}) {
+  const productIdentity = productBarcodeIdentity(value);
+  const variantIdentity = variantBarcodeIdentity(value) || 'base';
+  const first12Digits = productIdentity
+    ? `${hashToDigits(`${productIdentity}|prefix`, 4)}${currentBarcodePeriod()}${hashToDigits(`${productIdentity}|series`, 2)}${hashToDigits(`${variantIdentity}|variant`, 2)}`
+    : `${randomDigits(4)}${currentBarcodePeriod()}${randomDigits(4)}`;
+  return `${first12Digits}${ean13CheckDigit(first12Digits)}`;
 }
 
 function blankBundleItem() {
@@ -266,6 +659,51 @@ function optionName(value) {
 
 function optionNames(values = []) {
   return [...new Set((Array.isArray(values) ? values : []).map(optionName).filter(Boolean))].sort();
+}
+
+async function loadProductMasterBrandOptions() {
+  const [masterResult, productResult] = await Promise.allSettled([
+    api.invListBrands({ limit: 1000 }),
+    api.invProductBrands(),
+  ]);
+  const masterRows = masterResult.status === 'fulfilled'
+    ? (Array.isArray(masterResult.value) ? masterResult.value : masterResult.value?.data)
+    : [];
+  const productRows = productResult.status === 'fulfilled' ? productResult.value : [];
+  return optionNames([...(Array.isArray(masterRows) ? masterRows : []), ...(Array.isArray(productRows) ? productRows : [])]);
+}
+
+const PURCHASE_VARIANT_SIZE_SUFFIXES = ['XXXL', 'XXL', 'XL', 'XS', 'L', 'M', 'S'];
+
+function inferPurchaseFashionVariant(product = {}, item = {}) {
+  const productName = String(product.description || '').trim();
+  let itemName = String(item.description || item.productName || item.name || '').trim();
+  let size = String(item.size || '').trim();
+  if (!size && productName && itemName.toLowerCase().startsWith(`${productName.toLowerCase()} `)) {
+    const suffix = itemName.slice(productName.length).trim();
+    if (suffix) size = suffix;
+  }
+  if (!size) {
+    const match = PURCHASE_VARIANT_SIZE_SUFFIXES.find((candidate) => itemName.toLowerCase().endsWith(` ${candidate.toLowerCase()}`));
+    if (match) size = match;
+  }
+  itemName = productName || itemName.replace(new RegExp(`\\s+(${PURCHASE_VARIANT_SIZE_SUFFIXES.join('|')})$`, 'i'), '').trim();
+  const brand = String(item.brand || '').trim();
+  const material = String(item.material || '').trim();
+  if (!itemName || (!size && !brand && !material)) return null;
+  return {
+    modelName: itemName,
+    size,
+    other: brand,
+    material,
+    barcode: String(item.barcode || '').trim(),
+    modelCode: '',
+    hsn: String(item.hsn || '').trim(),
+    stock: Number(item.qty) || 0,
+    unit: String(item.unit || product.unit || 'Nos').trim(),
+    rate: Number(item.rate) || Number(product.rate) || 0,
+    purchasePrice: Number(item.rate) || Number(product.purchasePrice) || 0,
+  };
 }
 
 function formatINR(v) { return '₹ ' + Number(v).toLocaleString('en-IN'); }
@@ -307,7 +745,7 @@ function isBusinessSpecialtyRetailAccount(user = {}) {
 function electronicsFormDefaults() {
   return {
     itemGroup: 'Electronics',
-    category: 'Electronics',
+    category: '',
     productType: 'Serialized',
     unit: 'Nos',
     baseUnit: 'Nos',
@@ -339,24 +777,27 @@ function electronicsFormDefaults() {
 function fashionFormDefaults() {
   return {
     itemGroup: 'Textile',
-    category: 'Fashion & Apparel',
+    category: 'Fashion & Lifestyle',
     productType: 'Standard',
     unit: 'Piece',
     baseUnit: 'Piece',
     salesUnit: 'Piece',
     purchaseUnit: 'Piece',
     gstRate: 5,
+    taxType: 'Tax Exclusive',
     serialTracking: false,
     batchTracking: false,
+    variantAttributes: ['size', 'colour'],
     variants: [],
+    packingRows: [],
   };
 }
 
 function foodGroceryFormDefaults() {
   return {
     itemGroup: 'General',
-    category: 'Food & Grocery',
-    subCategory: 'Grocery & Staples',
+    category: '',
+    subCategory: '',
     productType: 'Packaged Food',
     unit: 'Kg',
     baseUnit: 'Kg',
@@ -376,8 +817,8 @@ function foodGroceryFormDefaults() {
 function homeLivingFormDefaults() {
   return {
     itemGroup: 'General',
-    category: 'Home & Living',
-    subCategory: 'Furniture',
+    category: '',
+    subCategory: '',
     brand: '',
     productType: 'Standard',
     unit: 'Piece',
@@ -410,7 +851,7 @@ function homeLivingFormDefaults() {
 function specialtyPersonalFormDefaults() {
   return {
     itemGroup: 'General',
-    category: 'Specialty & Personal Needs',
+    category: '',
     subCategory: '',
     brand: '',
     productType: 'Standard',
@@ -444,7 +885,7 @@ function specialtyPersonalFormDefaults() {
 function businessSpecialtyFormDefaults() {
   return {
     ...specialtyPersonalFormDefaults(),
-    category: 'Business & Specialty Retail',
+    category: '',
     variantAttributes: [],
   };
 }
@@ -554,32 +995,17 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
     ...(isBusinessSpecialtyRetail ? businessSpecialtyFormDefaults() : {}),
     branchSettings: DEFAULT_BRANCH_SETTINGS.map((row) => ({ ...row })),
   };
-  const categoryOptions = isElectronicsRetail
-    ? [...new Set([...ELECTRONICS_CATEGORY_PRESETS, ...categories.filter((c) => c !== 'All Categories')])]
-    : isFashionRetail
-      ? [...new Set([...FASHION_CATEGORY_PRESETS, ...categories.filter((c) => c !== 'All Categories')])]
-      : isFoodGroceryRetail
-        ? [...new Set(['Food & Grocery', ...categories.filter((c) => c !== 'All Categories')])]
-        : isHomeLivingRetail
-          ? [...new Set([...HOME_LIVING_CATEGORIES, ...categories.filter((c) => c !== 'All Categories')])]
-          : isSpecialtyPersonalRetail
-            ? [...new Set([...SPECIALTY_PERSONAL_CATEGORIES, ...categories.filter((c) => c !== 'All Categories')])]
-            : isBusinessSpecialtyRetail
-              ? [...new Set([...BUSINESS_SPECIALTY_CATEGORIES, ...categories.filter((c) => c !== 'All Categories')])]
-              : categories.filter((c) => c !== 'All Categories');
-  const subCategoryOptions = isElectronicsRetail
-    ? [...new Set([...subCategories, ...ELECTRONICS_SUBCATEGORIES])]
-    : isFashionRetail
-      ? [...new Set([...subCategories, ...FASHION_SUBCATEGORIES])]
-      : isFoodGroceryRetail
-        ? [...new Set([...FOOD_GROCERY_SUBCATEGORIES, ...subCategories])]
-        : isHomeLivingRetail
-          ? [...new Set([...HOME_LIVING_SUBCATEGORIES, ...subCategories])]
-          : isSpecialtyPersonalRetail
-            ? [...new Set([...SPECIALTY_PERSONAL_SUBCATEGORIES, ...subCategories])]
-            : isBusinessSpecialtyRetail
-              ? [...new Set([...BUSINESS_SPECIALTY_SUBCATEGORIES, ...subCategories])]
-              : subCategories;
+  const cleanCategories = (categories || []).map(optionName).filter((c) => c && c !== 'All Categories');
+  const cleanSubCategories = (subCategories || []).map(optionName).filter(Boolean);
+  const cleanBrands = (brands || []).map(optionName).filter(Boolean);
+  const cleanColours = (colours || []).map(optionName).filter(Boolean);
+
+  const categoryOptions = cleanCategories;
+  const subCategoryOptions = cleanSubCategories;
+  const brandOptions = cleanBrands;
+  const colourOptions = [...new Set([...cleanColours, 'Black', 'White', 'Blue', 'Red', 'Green', 'Yellow', 'Pink', 'Grey', 'Brown', 'Beige', 'Navy'])];
+
+
   const modelPresets = isElectronicsRetail ? ELECTRONICS_MODEL_PRESETS : MODEL_PRESETS;
   const electronicsServiceDefaults = isElectronicsRetail || forceServiceMode
         ? {
@@ -612,7 +1038,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
         : initialProductType === 'Standard'
           ? { productType: 'Standard', variants: [] }
           : {};
-      return { ...defaultForm, ...initialTypeDefaults, code: nextCode ?? '', barcode: shouldStartAsService ? '' : initialBarcode || (isHomeLivingRetail || isSpecialtyRetail ? '' : genBarcode()) };
+      return { ...defaultForm, ...initialTypeDefaults, code: nextCode ?? '', barcode: shouldStartAsService ? '' : initialBarcode || '' };
     }
     const initialGroup = isElectronicsRetail ? 'Electronics' : isFashionRetail ? 'Textile' : isFoodGroceryRetail || isHomeLivingRetail || isSpecialtyRetail ? 'General' : (itemGroups.includes(initial?.itemGroup) ? initial.itemGroup : 'General');
     return {
@@ -661,6 +1087,63 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
   const nameInputRef = useRef(null);
   const barcodeInputRef = useRef(null);
   const modalRef = useFocusTrap({ active: !pageMode, onClose, initialFocusRef: initialBarcode ? barcodeInputRef : nameInputRef });
+
+  useEffect(() => {
+    if (mode !== 'edit' || !isFashionRetail || isService || !initial?._id || (form.variants || []).length) return;
+    let active = true;
+    async function rebuildVariantsFromPurchases() {
+      try {
+        const res = await api.listInvoices({ documentType: 'purchase-entry', limit: 500 });
+        if (!active) return;
+        const docs = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const productId = String(initial._id || initial.id || '');
+        const productName = String(initial.description || '').trim().toLowerCase();
+        const map = new Map();
+        docs.forEach((doc) => {
+          (doc.items || []).forEach((item) => {
+            const itemProductId = String(item.productId || item.product?._id || item.product?.id || '');
+            const itemName = String(item.description || '').trim().toLowerCase();
+            const matchesProduct = (productId && itemProductId === productId)
+              || (productName && (itemName === productName || itemName.startsWith(`${productName} `)));
+            if (!matchesProduct) return;
+            const row = inferPurchaseFashionVariant(initial, item);
+            if (!row) return;
+            const key = [row.modelName, row.other, row.size, row.material, row.barcode].map((part) => String(part || '').trim().toLowerCase()).join('|');
+            const current = map.get(key);
+            if (current) {
+              current.stock += Number(row.stock) || 0;
+              if (!current.rate && row.rate) current.rate = row.rate;
+              if (!current.purchasePrice && row.purchasePrice) current.purchasePrice = row.purchasePrice;
+            } else {
+              map.set(key, { ...row });
+            }
+          });
+        });
+        const rows = [...map.values()];
+        if (!rows.length) return;
+        setForm((prev) => {
+          if ((prev.variants || []).length) return prev;
+          const first = rows[0] || {};
+          return {
+            ...prev,
+            variants: rows,
+            productType: rows.length > 1 ? 'Matrix' : 'Standard',
+            brand: first.other || prev.brand || '',
+            size: first.size || prev.size || '',
+            material: first.material || prev.material || '',
+            fabric: first.material || prev.fabric || '',
+            stock: rows.reduce((sum, row) => sum + (Number(row.stock) || 0), 0),
+            rate: Number(prev.rate) > 0 ? prev.rate : first.rate || 0,
+            purchasePrice: Number(prev.purchasePrice) > 0 ? prev.purchasePrice : first.purchasePrice || 0,
+          };
+        });
+      } catch (error) {
+        console.warn('Unable to rebuild product variants from purchase entries', error);
+      }
+    }
+    rebuildVariantsFromPurchases();
+    return () => { active = false; };
+  }, [mode, isFashionRetail, isService, initial, form.variants]);
 
   useEffect(() => {
     if (!forceServiceMode || form.itemType === 'Service') return;
@@ -1045,15 +1528,15 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 </div>
                 <div>
                   <label className={labelClass}>Brand{requiredMark}</label>
-                  <input className={inputClass} placeholder="Enter brand" value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+                  <MasterDropdown buttonClassName={inputClass} placeholder="Select brand" value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} />
                 </div>
                 <div>
                   <label className={labelClass}>Category{requiredMark}</label>
-                  <input className={inputClass} placeholder="Home & Living" value={form.category || 'Home & Living'} onChange={(e) => set('category', e.target.value)} />
+                  <MasterDropdown buttonClassName={inputClass} placeholder="Select category" value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} />
                 </div>
                 <div>
                   <label className={labelClass}>Sub Category</label>
-                  <input className={inputClass} placeholder="Enter sub category" value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+                  <MasterDropdown buttonClassName={inputClass} placeholder="Select sub category" value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} />
                 </div>
                 <div>
                   <label className={labelClass}>Product Code</label>
@@ -1063,7 +1546,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                   <label className={labelClass}>Barcode</label>
                   <div className="grid grid-cols-[minmax(0,1fr)_92px]">
                     <input ref={barcodeInputRef} className={inputClass} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                    <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-none border border-l-0 border-[#cfd8e6] bg-white px-3 text-[13px] font-semibold text-[#0f172a] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode())}>
+                    <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-none border border-l-0 border-[#cfd8e6] bg-white px-3 text-[13px] font-semibold text-[#0f172a] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode(form))}>
                       <ScanLine size={13} />
                       Scan
                     </button>
@@ -1205,21 +1688,21 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               </div>
               <div>
                 <label className={labelClass}>Category{requiredMark}</label>
-                <input className={inputClass} placeholder="Home & Living" value={form.category || 'Home & Living'} onChange={(e) => set('category', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select category" value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} />
               </div>
               <div>
                 <label className={labelClass}>Sub Category{requiredMark}</label>
-                <input className={inputClass} placeholder="Enter sub category" value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select sub category" value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} />
               </div>
               <div>
                 <label className={labelClass}>Brand</label>
-                <input className={inputClass} placeholder="Enter brand" value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select brand" value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} />
               </div>
               <div>
                 <label className={labelClass}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_80px] gap-2">
                   <input ref={barcodeInputRef} className={inputClass} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                  <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-[#f8fafc] px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode())}>
+                  <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-[#f8fafc] px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode(form))}>
                     <ScanLine size={14} />
                     Scan
                   </button>
@@ -1354,7 +1837,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                       <td className="px-3 py-2">
                         <div className="grid grid-cols-[minmax(0,1fr)_34px]">
                           <input className={`${tableInputClass} rounded-r-none border-r-0`} value={variant.barcode || ''} onChange={(e) => updateVariant(idx, 'barcode', e.target.value)} />
-                          <button type="button" className="inline-flex h-9 items-center justify-center rounded-r-md border border-[#cfd8e6] bg-white text-blue-600 hover:bg-blue-50" onClick={() => updateVariant(idx, 'barcode', genBarcode())}>
+                          <button type="button" className="inline-flex h-9 items-center justify-center rounded-r-md border border-[#cfd8e6] bg-white text-blue-600 hover:bg-blue-50" onClick={() => updateVariant(idx, 'barcode', genBarcode({ ...form, ...variant }))}>
                             <ScanLine size={13} />
                           </button>
                         </div>
@@ -1451,15 +1934,15 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               </div>
               <div>
                 <label className={labelClass}>Category{requiredMark}</label>
-                <input className={inputClass} placeholder={specialtyRetailCategoryLabel} value={form.category || specialtyRetailCategoryLabel} onChange={(e) => set('category', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select category" value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} />
               </div>
               <div>
                 <label className={labelClass}>Sub Category{requiredMark}</label>
-                <input className={inputClass} placeholder="Enter sub category" value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select sub category" value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} />
               </div>
               <div>
                 <label className={labelClass}>Brand</label>
-                <input className={inputClass} placeholder="Enter brand" value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select brand" value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} />
               </div>
               <div>
                 <label className={labelClass}>Product Code</label>
@@ -1469,7 +1952,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 <label className={labelClass}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_86px]">
                   <input ref={barcodeInputRef} className={`${inputClass} rounded-r-none`} placeholder="Scan or enter barcode" value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                  <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-r-md border border-l-0 border-[#cfd8e6] bg-white px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode())}>
+                  <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-r-md border border-l-0 border-[#cfd8e6] bg-white px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode(form))}>
                     <ScanLine size={13} />
                     Scan
                   </button>
@@ -1639,15 +2122,15 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               </div>
               <div>
                 <label className={labelClass}>Category{requiredMark}</label>
-                <input className={inputClass} placeholder={specialtyRetailCategoryLabel} value={form.category || specialtyRetailCategoryLabel} onChange={(e) => set('category', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select category" value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} />
               </div>
               <div>
                 <label className={labelClass}>Sub Category{requiredMark}</label>
-                <input className={inputClass} placeholder="Enter sub category" value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select sub category" value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} />
               </div>
               <div>
                 <label className={labelClass}>Brand</label>
-                <input className={inputClass} placeholder="Enter brand" value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+                <MasterDropdown buttonClassName={inputClass} placeholder="Select brand" value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} />
               </div>
               <div>
                 <label className={labelClass}>Product Code</label>
@@ -1657,7 +2140,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 <label className={labelClass}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_86px]">
                   <input ref={barcodeInputRef} className={`${inputClass} rounded-r-none`} placeholder="Scan or enter barcode" value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                  <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-r-md border border-l-0 border-[#cfd8e6] bg-white px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode())}>
+                  <button type="button" className="inline-flex h-8 items-center justify-center gap-2 rounded-r-md border border-l-0 border-[#cfd8e6] bg-white px-3 text-[12px] font-semibold text-blue-600 hover:bg-blue-50 font-[inherit]" onClick={() => set('barcode', genBarcode(form))}>
                     <ScanLine size={13} />
                     Scan
                   </button>
@@ -1850,7 +2333,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
     return (
       <div className="mx-auto flex w-full max-w-[1880px] flex-col gap-2.5 pb-2">
         <section className={sectionClass}>
-          <div className={sectionTitleClass}>Product Type</div>
+          <div className={sectionTitleClass}>Item Product Type</div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label className="flex items-center gap-2 text-[12px] font-medium text-[#111827]">
               <input type="radio" checked={!isMultiVariant} onChange={disableMultiSize} />
@@ -1876,10 +2359,13 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <input className={inputClass} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} placeholder="Enter HSN/SAC code" />
             </FieldBox>
             <FieldBox label="Brand">
-              <input className={inputClass} placeholder="Enter brand" value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+              <MasterDropdown buttonClassName={inputClass} placeholder="Select brand" value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} />
             </FieldBox>
             <FieldBox label="Category">
-              <input className={inputClass} placeholder="Enter category" value={form.subCategory || form.category || ''} onChange={(e) => { set('subCategory', e.target.value); set('category', e.target.value); }} />
+              <MasterDropdown buttonClassName={inputClass} placeholder="Select category" value={form.category || ''} onChange={(val) => { set('category', val); if (!form.subCategory) set('subCategory', val); }} options={categoryOptions} />
+            </FieldBox>
+            <FieldBox label="Sub Category">
+              <MasterDropdown buttonClassName={inputClass} placeholder="Select sub category" value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} />
             </FieldBox>
             <FieldBox label="SKU">
               <input className={inputClass} value={form.aliasCode || ''} onChange={(e) => set('aliasCode', e.target.value)} />
@@ -1890,7 +2376,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             <FieldBox label="Barcode">
               <div className="grid grid-cols-[minmax(0,1fr)_44px]">
                 <input ref={barcodeInputRef} className={`${inputClass} rounded-r-none border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                <button type="button" className="inline-flex h-8 items-center justify-center rounded-r-md border border-[#cfd8e6] bg-white text-[#536173] cursor-pointer hover:bg-[#f8fafc]" onClick={() => set('barcode', genBarcode())}>
+                <button type="button" className="inline-flex h-8 items-center justify-center rounded-r-md border border-[#cfd8e6] bg-white text-[#536173] cursor-pointer hover:bg-[#f8fafc]" onClick={() => set('barcode', genBarcode(form))}>
                   <ScanLine size={15} />
                 </button>
               </div>
@@ -2005,7 +2491,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
           size,
           modelName: size,
           modelCode: `${baseCode}-${size.toUpperCase().replace(/\s+/g, '').replace('LITRE', 'L')}`,
-          barcode: idx === 0 ? prev.barcode || genBarcode() : genBarcode(),
+          barcode: idx === 0 ? prev.barcode || genBarcode({ ...prev, size, modelName: size }) : genBarcode({ ...prev, size, modelName: size }),
           purchasePrice: Number(prev.purchasePrice) || 0,
           mrp: Number(prev.mrp) || 0,
           rate: Number(prev.rate) || 0,
@@ -2018,7 +2504,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
     return (
       <div className="mx-auto flex w-full max-w-[1880px] flex-col gap-2.5 pb-2">
         <section className={sectionClass}>
-          <div className={sectionTitleClass}>Product Type</div>
+          <div className={sectionTitleClass}>Item Product Type</div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label className="flex items-center gap-2 text-[12px] font-medium text-[#111827]">
               <input type="radio" checked={!isMultiVariant} onChange={disableMultiSize} />
@@ -2038,10 +2524,13 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <input ref={nameInputRef} className={inputClass} value={form.description} onChange={(e) => set('description', e.target.value)} />
             </FieldBox>
             <FieldBox label="Brand">
-              <input className={inputClass} placeholder="Enter brand" value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+              <MasterDropdown buttonClassName={inputClass} placeholder="Select brand" value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} />
             </FieldBox>
             <FieldBox label="Category">
-              <input className={inputClass} placeholder="Enter category" value={form.subCategory || form.category || ''} onChange={(e) => { set('subCategory', e.target.value); set('category', e.target.value); }} />
+              <MasterDropdown buttonClassName={inputClass} placeholder="Select category" value={form.category || ''} onChange={(val) => { set('category', val); if (!form.subCategory) set('subCategory', val); }} options={categoryOptions} />
+            </FieldBox>
+            <FieldBox label="Sub Category">
+              <MasterDropdown buttonClassName={inputClass} placeholder="Select sub category" value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} />
             </FieldBox>
             <FieldBox label="Unit">
               <input className={inputClass} placeholder="Enter unit" value={form.unit || ''} onChange={(e) => updateUnit(e.target.value)} />
@@ -2100,7 +2589,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                     <td className="border border-[#dbe4ef] px-3 py-1.5">
                       <div className="grid grid-cols-[minmax(0,1fr)_34px]">
                         <input className={`${tableInputClass} rounded-r-none border-r-0`} value={variant.barcode || ''} onChange={(e) => updateVariant(idx, 'barcode', e.target.value)} />
-                        <button type="button" className="inline-flex h-7 items-center justify-center rounded-r-md border border-[#cfd8e6] bg-white text-[#536173] cursor-pointer hover:bg-[#f8fafc]" onClick={() => updateVariant(idx, 'barcode', genBarcode())}><ScanLine size={12} /></button>
+                        <button type="button" className="inline-flex h-7 items-center justify-center rounded-r-md border border-[#cfd8e6] bg-white text-[#536173] cursor-pointer hover:bg-[#f8fafc]" onClick={() => updateVariant(idx, 'barcode', genBarcode({ ...form, ...variant }))}><ScanLine size={12} /></button>
                       </div>
                     </td>
                     <td className="border border-[#dbe4ef] px-3 py-1.5"><input className={tableInputClass} type="number" min="0" step="0.01" value={variant.purchasePrice ?? ''} onChange={(e) => updateVariant(idx, 'purchasePrice', e.target.value)} /></td>
@@ -2145,7 +2634,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
   function renderSingleElectronicsProductForm() {
     const sectionClass = 'border border-[#d6dde8] bg-white px-3 py-3';
     const sectionTitleClass = 'mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#243041]';
-    const rowClass = 'grid grid-cols-[112px_minmax(0,1fr)] items-center gap-3 py-1.5';
+    const rowClass = 'grid grid-cols-1 items-start gap-1.5 py-1.5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center sm:gap-3';
     const compactInput = 'h-8 w-full rounded-none border border-[#cfd8e6] bg-white px-2 text-[12px] text-[#111827] outline-none focus:border-blue-500 font-[inherit]';
     const compactLabel = 'text-[12px] font-medium text-[#111827]';
     const productTypes = [
@@ -2178,15 +2667,15 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               </div>
               <div className={rowClass}>
                 <label className={compactLabel}>Brand *</label>
-                <input className={compactInput} value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+                <MasterDropdown buttonClassName={compactInput} value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} placeholder="Select Brand" />
               </div>
               <div className={rowClass}>
                 <label className={compactLabel}>Category *</label>
-                <input className={compactInput} value={form.category || ''} onChange={(e) => set('category', e.target.value)} />
+                <MasterDropdown buttonClassName={compactInput} value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} placeholder="Select Category" />
               </div>
               <div className={rowClass}>
                 <label className={compactLabel}>Sub Category</label>
-                <input className={compactInput} value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+                <MasterDropdown buttonClassName={compactInput} value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} placeholder="Select Subcategory" />
               </div>
               <div className="grid grid-cols-[112px_minmax(0,1fr)] items-start gap-3 py-1.5">
                 <label className={`${compactLabel} pt-1.5`}>Description</label>
@@ -2209,7 +2698,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 <label className={compactLabel}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_72px]">
                   <input ref={barcodeInputRef} className={`${compactInput} border-r-0`} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                  <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode())}>
+                  <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode(form))}>
                     <ScanLine size={13} />
                     Scan
                   </button>
@@ -2269,10 +2758,10 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             <div className={sectionClass}>
               <div className={sectionTitleClass}>Tax & Warranty</div>
               <div className="space-y-1">
-                <div className="grid grid-cols-[112px_minmax(0,1fr)_70px_minmax(0,92px)] items-center gap-3 py-1.5">
+                <div className="grid grid-cols-1 items-start gap-1.5 py-1.5 sm:grid-cols-[112px_minmax(0,1fr)_70px_minmax(0,92px)] sm:items-center sm:gap-3">
                   <label className={compactLabel}>HSN</label>
                   <input className={compactInput} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} />
-                  <label className={`${compactLabel} text-right`}>GST</label>
+                  <label className={`${compactLabel} sm:text-right`}>GST</label>
                   <input className={compactInput} inputMode="decimal" value={form.gstRate || ''} onChange={(e) => set('gstRate', e.target.value)} />
                 </div>
                 <div className={rowClass}>
@@ -2330,27 +2819,33 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
         <div className="grid min-h-0 grid-cols-1 gap-2 xl:grid-cols-[1.2fr_0.9fr_0.9fr]">
           <div className="grid min-h-0 grid-rows-[auto_auto] gap-2">
             <div className={`${sectionClass} min-h-0`}>
-              <div className={sectionTitleClass}>Product Information</div>
+              <div className={sectionTitleClass}>Item Detail</div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <FieldBox label="Product Name" required className="md:col-span-2">
+                <FieldBox label="Item Name" required className="md:col-span-2">
                   <input ref={nameInputRef} className={compactInput} value={form.description} onChange={(e) => set('description', e.target.value)} />
                 </FieldBox>
                 <FieldBox label="Brand" required>
-                  <input className={compactInput} placeholder="Enter brand" value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+                  <MasterDropdown buttonClassName={compactInput} placeholder="Select brand" value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} />
                 </FieldBox>
                 <FieldBox label="Category" required>
-                  <input className={compactInput} placeholder="Enter category" value={form.category || ''} onChange={(e) => set('category', e.target.value)} />
+                  <MasterDropdown buttonClassName={compactInput} placeholder="Select category" value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} />
                 </FieldBox>
                 <FieldBox label="Sub Category">
-                  <input className={compactInput} placeholder="Enter sub category" value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+                  <MasterDropdown buttonClassName={compactInput} placeholder="Select sub category" value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} />
                 </FieldBox>
-                <FieldBox label="Product Code">
+                <FieldBox label="SKU / Item Code">
                   <input className={compactInput} value={form.code || ''} onChange={(e) => set('code', e.target.value)} />
                 </FieldBox>
-                <FieldBox label="Barcode" className="md:col-span-2">
+                <FieldBox label="Color">
+                  <MasterDropdown buttonClassName={compactInput} placeholder="Select color" value={form.colour || ''} onChange={(val) => set('colour', val)} options={colourOptions} />
+                </FieldBox>
+                <FieldBox label="Item Image URL" className="md:col-span-2">
+                  <input className={compactInput} value={form.imageUrl || ''} onChange={(e) => set('imageUrl', e.target.value)} />
+                </FieldBox>
+                <FieldBox label="EAN / Barcode" className="md:col-span-2">
                   <div className="grid grid-cols-[minmax(0,1fr)_74px]">
                     <input ref={barcodeInputRef} className={`${compactInput} border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                    <button type="button" className={compactButton} onClick={() => set('barcode', genBarcode())}>
+                    <button type="button" className={compactButton} onClick={() => set('barcode', genBarcode(form))}>
                       <span className="inline-flex items-center justify-center gap-1"><ScanLine size={12} />Scan</span>
                     </button>
                   </div>
@@ -2359,7 +2854,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             </div>
 
             <div className={sectionClass}>
-              <div className={sectionTitleClass}>Product Attributes</div>
+              <div className={sectionTitleClass}>Fashion Attributes</div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <FieldBox label="Gender">
                   <input className={compactInput} placeholder="Enter gender" value={form.gender || ''} onChange={(e) => set('gender', e.target.value)} />
@@ -2372,6 +2867,9 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 </FieldBox>
                 <FieldBox label="Pattern">
                   <input className={compactInput} placeholder="Enter pattern" value={form.pattern || ''} onChange={(e) => set('pattern', e.target.value)} />
+                </FieldBox>
+                <FieldBox label="Style / Type">
+                  <input className={compactInput} placeholder="Enter style" value={form.type || ''} onChange={(e) => set('type', e.target.value)} />
                 </FieldBox>
               </div>
             </div>
@@ -2389,6 +2887,9 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 </FieldBox>
                 <FieldBox label="Selling Price">
                   <input className={compactInput} type="number" min="0" step="0.01" value={form.rate} onChange={(e) => set('rate', e.target.value)} />
+                </FieldBox>
+                <FieldBox label="Minimum Selling Price">
+                  <input className={compactInput} type="number" min="0" step="0.01" value={form.minSellingPrice} onChange={(e) => set('minSellingPrice', e.target.value)} />
                 </FieldBox>
               </div>
             </div>
@@ -2422,7 +2923,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
 
           <div className="grid min-h-0 grid-rows-[auto] gap-2">
             <div className={sectionClass}>
-              <div className={sectionTitleClass}>Tax & Other</div>
+              <div className={sectionTitleClass}>Taxes</div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 <FieldBox label="HSN">
                   <input className={compactInput} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} />
@@ -2430,6 +2931,36 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 <FieldBox label="GST">
                   <input className={compactInput} inputMode="decimal" placeholder="Enter GST rate" value={form.gstRate} onChange={(e) => set('gstRate', e.target.value)} />
                 </FieldBox>
+                <FieldBox label="Tax Inclusive">
+                  <select className={compactInput} value={form.taxType === 'Tax Inclusive' ? 'Yes' : 'No'} onChange={(e) => set('taxType', e.target.value === 'Yes' ? 'Tax Inclusive' : 'Tax Exclusive')}>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </FieldBox>
+                <FieldBox label="Status">
+                  <select className={compactInput} value={form.status || 'Active'} onChange={(e) => set('status', e.target.value)}>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </FieldBox>
+              </div>
+            </div>
+
+            <div className={`${sectionClass} mt-2`}>
+              <div className="mb-2.5 flex items-center justify-between gap-2">
+                <div className={sectionTitleClass}>Packing</div>
+                <button type="button" className={compactButton} onClick={() => addRow('packingRows', { pack: '', quantity: '', barcode: '' })}>+ Add</button>
+              </div>
+              <div className="grid grid-cols-[1fr_80px_1fr_32px] gap-1">
+                {(form.packingRows || []).map((row, idx) => (
+                  <div key={idx} className="contents">
+                    <input className={compactInput} placeholder="Pack" value={row.pack || ''} onChange={(e) => setRow('packingRows', idx, 'pack', e.target.value)} />
+                    <input className={compactInput} type="number" min="0" placeholder="Qty" value={row.quantity || ''} onChange={(e) => setRow('packingRows', idx, 'quantity', e.target.value)} />
+                    <input className={compactInput} placeholder="Barcode" value={row.barcode || ''} onChange={(e) => setRow('packingRows', idx, 'barcode', e.target.value)} />
+                    <button type="button" className="h-8 border border-[#d6dde8] bg-white text-red-500" onClick={() => removeRow('packingRows', idx)}><TrashIcon /></button>
+                  </div>
+                ))}
+                {!(form.packingRows || []).length && <div className="col-span-4 border border-dashed border-[#d6dde8] px-3 py-3 text-center text-[12px] text-[#536173]">No packing rows</div>}
               </div>
             </div>
           </div>
@@ -2441,6 +2972,275 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             <Save size={13} />
             {saving ? 'Saving...' : 'Save Product'}
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderGoFrugalFashionProductForm() {
+    const compactInput = 'h-10 w-full rounded-none border-0 bg-white px-2 text-[13px] text-[#111827] outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 font-[inherit]';
+    const framedInput = 'h-10 w-full rounded-md border border-[#c9d8f0] bg-white px-3 text-[13px] text-[#111827] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-[inherit]';
+    const headerClass = 'border-r border-[#82a8e8] bg-blue-600 px-2 py-2.5 text-left text-[11px] font-black uppercase text-white';
+    const cellClass = 'border-r border-b border-[#c5d4ec] bg-white p-0 align-top';
+    const rowButtonClass = 'inline-flex h-10 items-center justify-center rounded-md border border-blue-700 bg-blue-600 px-4 text-[12px] font-bold text-white hover:bg-blue-700 font-[inherit]';
+    const hydrateFashionRow = (row = {}) => ({
+      ...row,
+      modelName: row.modelName || form.description || '',
+      other: row.other || form.brand || '',
+      material: row.material || form.material || form.fabric || '',
+      barcode: row.barcode || '',
+      purchasePrice: row.purchasePrice ?? (Number(form.purchasePrice) || 0),
+      mrp: row.mrp ?? (Number(form.mrp) || 0),
+      rate: row.rate ?? (Number(form.rate) || 0),
+      minStockLevel: row.minStockLevel ?? (Number(form.minStockLevel) || 0),
+    });
+    const fashionRows = (form.variants || []).length
+      ? form.variants.map(hydrateFashionRow)
+      : [hydrateFashionRow({
+          modelName: form.description || '',
+          other: form.brand || '',
+          size: form.size || '',
+          material: form.material || form.fabric || '',
+          modelCode: form.code || '',
+          colour: form.colour || '',
+          barcode: form.barcode || '',
+          purchasePrice: Number(form.purchasePrice) || 0,
+          mrp: Number(form.mrp) || 0,
+          rate: Number(form.rate) || 0,
+          stock: Number(form.stock) || 0,
+          minStockLevel: Number(form.minStockLevel) || 0,
+        })];
+
+    const ensureFashionRows = (rows = fashionRows) => rows.length ? rows.map(hydrateFashionRow) : [hydrateFashionRow({
+      modelName: form.description || '',
+      other: form.brand || '',
+      size: '',
+      material: form.material || form.fabric || '',
+      modelCode: form.code || '',
+      colour: form.colour || '',
+      barcode: form.barcode || '',
+      purchasePrice: Number(form.purchasePrice) || 0,
+      mrp: Number(form.mrp) || 0,
+      rate: Number(form.rate) || 0,
+      stock: Number(form.stock) || 0,
+      minStockLevel: Number(form.minStockLevel) || 0,
+    })];
+
+    const updateFashionRow = (idx, field, value) => {
+      setForm((prev) => {
+        const rows = ensureFashionRows(prev.variants || []);
+        const nextRows = rows.map((row, rowIdx) => (rowIdx === idx ? { ...row, [field]: value } : row));
+        const patch = { variants: nextRows, productType: nextRows.length > 1 ? 'Matrix' : 'Standard' };
+        if (idx === 0) {
+          if (field === 'modelName') patch.description = value;
+          if (field === 'other') patch.brand = value;
+          if (field === 'size') patch.size = value;
+          if (field === 'material') {
+            patch.material = value;
+            patch.fabric = value;
+          }
+          if (field === 'modelCode') patch.code = value;
+          if (field === 'colour') patch.colour = value;
+          if (field === 'barcode') patch.barcode = value;
+          if (field === 'purchasePrice') patch.purchasePrice = value;
+          if (field === 'mrp') patch.mrp = value;
+          if (field === 'rate') patch.rate = value;
+          if (field === 'stock') patch.stock = value;
+          if (field === 'minStockLevel') patch.minStockLevel = value;
+        }
+        return { ...prev, ...patch };
+      });
+    };
+
+    const addFashionRow = () => {
+      setForm((prev) => ({
+        ...prev,
+        productType: 'Matrix',
+        variants: [
+          ...ensureFashionRows(prev.variants || []),
+          {
+            modelName: prev.description || '',
+            other: prev.brand || '',
+            size: '',
+            material: prev.material || prev.fabric || '',
+            modelCode: prev.code ? `${prev.code}-${(prev.variants || []).length + 1}` : '',
+            colour: prev.colour || '',
+            barcode: '',
+            purchasePrice: Number(prev.purchasePrice) || 0,
+            mrp: Number(prev.mrp) || 0,
+            rate: Number(prev.rate) || 0,
+            stock: 0,
+            minStockLevel: Number(prev.minStockLevel) || 0,
+          },
+        ],
+      }));
+    };
+
+    const removeFashionRow = (idx) => {
+      setForm((prev) => {
+        const nextRows = ensureFashionRows(prev.variants || []).filter((_, rowIdx) => rowIdx !== idx);
+        if (!nextRows.length) return { ...prev, variants: [], productType: 'Standard' };
+        return { ...prev, variants: nextRows, productType: nextRows.length > 1 ? 'Matrix' : 'Standard' };
+      });
+    };
+
+    return (
+      <div className="mx-auto flex w-full max-w-[1880px] flex-col gap-3 bg-white pb-24 md:pb-0">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-[#536173]">Product ID</span>
+            <input className={framedInput} placeholder="Product ID" value={form.code || ''} onChange={(e) => set('code', e.target.value)} />
+          </label>
+        </div>
+
+        <div className="grid gap-3 md:hidden">
+          {fashionRows.map((row, idx) => (
+            <div key={idx} className="rounded-xl border border-[#c5d4ec] bg-white p-3 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="text-[11px] font-black uppercase tracking-wide text-blue-700">Item {idx + 1}</div>
+                <button
+                  type="button"
+                  title="Delete row"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-300"
+                  disabled={fashionRows.length === 1}
+                  onClick={() => removeFashionRow(idx)}
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-bold text-[#536173]">Product / Service</span>
+                  <input
+                    ref={idx === 0 ? nameInputRef : null}
+                    className="h-10 w-full rounded-lg border border-[#dbe7fb] bg-white px-3 text-[12px] text-[#111827] outline-none focus:border-blue-500"
+                    placeholder="Scan / Type product or service name"
+                    value={idx === 0 ? form.description : (row.modelName || '')}
+                    onChange={(e) => updateFashionRow(idx, 'modelName', e.target.value)}
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold text-[#536173]">Brand</span>
+                    <GridCellPicker inputClassName="h-10 w-full rounded-lg border border-[#dbe7fb] bg-white px-3 text-[12px] text-[#111827] outline-none focus:border-blue-500" placeholder="Brand" value={row.other || ''} onChange={(val) => updateFashionRow(idx, 'other', val)} options={brandOptions} />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold text-[#536173]">Size</span>
+                    <GridCellPicker inputClassName="h-10 w-full rounded-lg border border-[#dbe7fb] bg-white px-3 text-[12px] text-[#111827] outline-none focus:border-blue-500" placeholder="Size" value={row.size || ''} onChange={(val) => updateFashionRow(idx, 'size', val)} options={[...new Set([...optionNames(sizes), ...SIZE_PRESETS])]} />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold text-[#536173]">Material</span>
+                    <GridCellPicker inputClassName="h-10 w-full rounded-lg border border-[#dbe7fb] bg-white px-3 text-[12px] text-[#111827] outline-none focus:border-blue-500" placeholder="Material" value={row.material || ''} onChange={(val) => updateFashionRow(idx, 'material', val)} options={FASHION_MATERIALS} />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold text-[#536173]">Barcode</span>
+                    <div className="grid grid-cols-[minmax(0,1fr)_42px]">
+                      <input className="h-10 w-full rounded-l-lg border border-r-0 border-[#dbe7fb] bg-white px-3 text-[12px] text-[#111827] outline-none focus:border-blue-500" placeholder="Barcode" value={row.barcode || ''} onChange={(e) => updateFashionRow(idx, 'barcode', e.target.value)} />
+                      <button type="button" tabIndex={-1} className="h-10 rounded-r-lg border border-[#dbe7fb] bg-blue-50 text-blue-700" onClick={() => updateFashionRow(idx, 'barcode', genBarcode({ ...form, ...row, description: idx === 0 ? form.description : row.modelName }))}><ScanLine size={14} className="mx-auto" /></button>
+                    </div>
+                  </label>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  <label className="block min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold text-[#536173]">HSN</span>
+                    <input className="h-10 w-full rounded-lg border border-[#dbe7fb] bg-white px-2 text-[12px] text-[#111827] outline-none focus:border-blue-500" placeholder="HSN" value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold text-[#536173]">Qty</span>
+                    <input className="h-10 w-full rounded-lg border border-[#dbe7fb] bg-white px-2 text-[12px] text-[#111827] outline-none focus:border-blue-500" type="number" min="0" placeholder="1" value={row.stock ?? ''} onChange={(e) => updateFashionRow(idx, 'stock', e.target.value)} />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold text-[#536173]">Unit</span>
+                    <input className="h-10 w-full rounded-lg border border-[#dbe7fb] bg-white px-2 text-[12px] text-[#111827] outline-none focus:border-blue-500" placeholder="Nos" value={form.unit || ''} onChange={(e) => setForm((prev) => ({ ...prev, unit: e.target.value, baseUnit: e.target.value, salesUnit: e.target.value, purchaseUnit: e.target.value, conversionToUnit: e.target.value }))} />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold text-[#536173]">Rate</span>
+                    <input className="h-10 w-full rounded-lg border border-[#dbe7fb] bg-white px-2 text-[12px] text-[#111827] outline-none focus:border-blue-500" type="number" min="0" step="0.01" value={row.rate ?? ''} onChange={(e) => updateFashionRow(idx, 'rate', e.target.value)} />
+                  </label>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-md border border-[#8bb0ed] bg-white shadow-sm md:block">
+          <table className="w-full min-w-[1240px] border-collapse text-[13px]">
+            <thead>
+              <tr>
+                <th className={headerClass}>Product / Service</th>
+                <th className={headerClass}>Brand</th>
+                <th className={headerClass}>Size</th>
+                <th className={headerClass}>Material</th>
+                <th className={headerClass}>Barcode</th>
+                <th className={headerClass}>HSN / SAC</th>
+                <th className={headerClass}>Qty</th>
+                <th className={headerClass}>Unit</th>
+                <th className={headerClass}>Rate</th>
+                <th className={`${headerClass} w-14 border-r-0 text-center`}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {fashionRows.map((row, idx) => (
+                <tr key={idx}>
+                  <td className={cellClass}>
+                    <input
+                      ref={idx === 0 ? nameInputRef : null}
+                      className={compactInput}
+                      placeholder="Scan / Type product or service name"
+                      value={idx === 0 ? form.description : (row.modelName || '')}
+                      onChange={(e) => updateFashionRow(idx, 'modelName', e.target.value)}
+                    />
+                  </td>
+                  <td className={cellClass}>
+                    <GridCellPicker inputClassName={compactInput} placeholder="Brand" value={row.other || ''} onChange={(val) => updateFashionRow(idx, 'other', val)} options={brandOptions} />
+                  </td>
+                  <td className={cellClass}>
+                    <GridCellPicker inputClassName={compactInput} placeholder="Size" value={row.size || ''} onChange={(val) => updateFashionRow(idx, 'size', val)} options={[...new Set([...optionNames(sizes), ...SIZE_PRESETS])]} />
+                  </td>
+                  <td className={cellClass}>
+                    <GridCellPicker inputClassName={compactInput} placeholder="Material" value={row.material || ''} onChange={(val) => updateFashionRow(idx, 'material', val)} options={FASHION_MATERIALS} />
+                  </td>
+                  <td className={cellClass}>
+                    <div className="grid grid-cols-[minmax(0,1fr)_34px]">
+                      <input className={`${compactInput} border-r border-[#dbe7fb]`} placeholder="Barcode" value={row.barcode || ''} onChange={(e) => updateFashionRow(idx, 'barcode', e.target.value)} />
+                      <button type="button" tabIndex={-1} className="h-10 border-0 bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={() => updateFashionRow(idx, 'barcode', genBarcode({ ...form, ...row, description: idx === 0 ? form.description : row.modelName }))}><ScanLine size={13} className="mx-auto" /></button>
+                    </div>
+                  </td>
+                  <td className={cellClass}><input className={compactInput} placeholder="HSN" value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} /></td>
+                  <td className={cellClass}><input className={compactInput} type="number" min="0" placeholder="1" value={row.stock ?? ''} onChange={(e) => updateFashionRow(idx, 'stock', e.target.value)} /></td>
+                  <td className={cellClass}><input className={compactInput} placeholder="Nos" value={form.unit || ''} onChange={(e) => setForm((prev) => ({ ...prev, unit: e.target.value, baseUnit: e.target.value, salesUnit: e.target.value, purchaseUnit: e.target.value, conversionToUnit: e.target.value }))} /></td>
+                  <td className={cellClass}><input className={compactInput} type="number" min="0" step="0.01" value={row.rate ?? ''} onChange={(e) => updateFashionRow(idx, 'rate', e.target.value)} /></td>
+                  <td className="border-b border-[#c5d4ec] bg-white px-2 py-1 text-center">
+                    <button
+                      type="button"
+                      title="Delete row"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:text-slate-300"
+                      disabled={fashionRows.length === 1}
+                      onClick={() => removeFashionRow(idx)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-end">
+          <button type="button" className={`${rowButtonClass} w-full md:w-auto`} onClick={addFashionRow}>+ Add Row</button>
+        </div>
+
+        <div className="sticky bottom-0 -mx-4 grid grid-cols-1 gap-3 border-t border-[#dbe7fb] bg-white/95 px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none lg:grid-cols-[1fr_auto] lg:items-start">
+          <div />
+          <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
+            <button type="button" onClick={onClose} className="h-11 rounded-lg border border-[#d6dde8] bg-white px-4 text-[12px] font-semibold text-[#374151] hover:bg-[#f8fafc] font-[inherit] md:h-10 md:rounded-none">Cancel</button>
+            <button type="submit" disabled={saving} className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-blue-600 bg-blue-600 px-4 text-[12px] font-semibold text-white hover:bg-blue-700 disabled:opacity-60 font-[inherit] md:h-10 md:rounded-none">
+              <Save size={13} />
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -2499,39 +3299,46 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
         <div className="grid min-h-0 grid-cols-1 gap-2 xl:grid-cols-[1.2fr_0.9fr_0.9fr]">
           <div className="grid min-h-0 grid-rows-[auto_auto] gap-2">
             <div className={sectionClass}>
-              <div className={sectionTitleClass}>Product Information</div>
+              <div className={sectionTitleClass}>Item Detail</div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <FieldBox label="Product Name" required className="md:col-span-2">
+                <FieldBox label="Item Name" required className="md:col-span-2">
                   <input ref={nameInputRef} className={compactInput} value={form.description} onChange={(e) => set('description', e.target.value)} />
                 </FieldBox>
                 <FieldBox label="Brand" required>
-                  <input className={compactInput} placeholder="Enter brand" value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+                  <MasterDropdown buttonClassName={compactInput} placeholder="Select brand" value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} />
                 </FieldBox>
                 <FieldBox label="Category" required>
-                  <input className={compactInput} placeholder="Enter category" value={form.category || ''} onChange={(e) => set('category', e.target.value)} />
+                  <MasterDropdown buttonClassName={compactInput} placeholder="Select category" value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} />
                 </FieldBox>
                 <FieldBox label="Sub Category">
-                  <input className={compactInput} placeholder="Enter sub category" value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+                  <MasterDropdown buttonClassName={compactInput} placeholder="Select sub category" value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} />
                 </FieldBox>
-                <FieldBox label="Product Code">
+                <FieldBox label="SKU / Item Code">
                   <input className={compactInput} value={form.code || ''} onChange={(e) => set('code', e.target.value)} />
                 </FieldBox>
-                <FieldBox label="Barcode" className="md:col-span-2">
+                <FieldBox label="Color">
+                  <MasterDropdown buttonClassName={compactInput} placeholder="Select color" value={form.colour || ''} onChange={(val) => set('colour', val)} options={colourOptions} />
+                </FieldBox>
+                <FieldBox label="Item Image URL" className="md:col-span-2">
+                  <input className={compactInput} value={form.imageUrl || ''} onChange={(e) => set('imageUrl', e.target.value)} />
+                </FieldBox>
+                <FieldBox label="EAN / Barcode" className="md:col-span-2">
                   <div className="grid grid-cols-[minmax(0,1fr)_74px]">
                     <input ref={barcodeInputRef} className={`${compactInput} border-r-0`} value={form.barcode || ''} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                    <button type="button" className={compactButton} onClick={() => set('barcode', genBarcode())}><ScanLine size={12} />Scan</button>
+                    <button type="button" className={compactButton} onClick={() => set('barcode', genBarcode(form))}><ScanLine size={12} />Scan</button>
                   </div>
                 </FieldBox>
               </div>
             </div>
 
             <div className={sectionClass}>
-              <div className={sectionTitleClass}>Product Attributes</div>
+              <div className={sectionTitleClass}>Fashion Attributes</div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                 <FieldBox label="Gender"><input className={compactInput} placeholder="Enter gender" value={form.gender || ''} onChange={(e) => set('gender', e.target.value)} /></FieldBox>
                 <FieldBox label="Collection"><input className={compactInput} placeholder="Enter collection" value={form.collection || ''} onChange={(e) => set('collection', e.target.value)} /></FieldBox>
                 <FieldBox label="Material"><input className={compactInput} placeholder="Enter material" value={form.material || form.fabric || ''} onChange={(e) => { set('material', e.target.value); set('fabric', e.target.value); }} /></FieldBox>
                 <FieldBox label="Pattern"><input className={compactInput} placeholder="Enter pattern" value={form.pattern || ''} onChange={(e) => set('pattern', e.target.value)} /></FieldBox>
+                <FieldBox label="Style / Type"><input className={compactInput} placeholder="Enter style" value={form.type || ''} onChange={(e) => set('type', e.target.value)} /></FieldBox>
               </div>
             </div>
           </div>
@@ -2543,6 +3350,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 <FieldBox label="Purchase Price" required><input className={compactInput} type="number" min="0" step="0.01" value={form.purchasePrice} onChange={(e) => set('purchasePrice', e.target.value)} /></FieldBox>
                 <FieldBox label="MRP"><input className={compactInput} type="number" min="0" step="0.01" value={form.mrp} onChange={(e) => set('mrp', e.target.value)} /></FieldBox>
                 <FieldBox label="Selling Price"><input className={compactInput} type="number" min="0" step="0.01" value={form.rate} onChange={(e) => set('rate', e.target.value)} /></FieldBox>
+                <FieldBox label="Minimum Selling Price"><input className={compactInput} type="number" min="0" step="0.01" value={form.minSellingPrice} onChange={(e) => set('minSellingPrice', e.target.value)} /></FieldBox>
               </div>
             </div>
 
@@ -2562,10 +3370,22 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
 
           <div className="grid min-h-0 grid-rows-[auto] gap-2">
             <div className={sectionClass}>
-              <div className={sectionTitleClass}>Tax & Other</div>
+              <div className={sectionTitleClass}>Taxes</div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 <FieldBox label="HSN"><input className={compactInput} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} /></FieldBox>
                 <FieldBox label="GST"><input className={compactInput} inputMode="decimal" placeholder="Enter GST rate" value={form.gstRate} onChange={(e) => set('gstRate', e.target.value)} /></FieldBox>
+                <FieldBox label="Tax Inclusive">
+                  <select className={compactInput} value={form.taxType === 'Tax Inclusive' ? 'Yes' : 'No'} onChange={(e) => set('taxType', e.target.value === 'Yes' ? 'Tax Inclusive' : 'Tax Exclusive')}>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </FieldBox>
+                <FieldBox label="Status">
+                  <select className={compactInput} value={form.status || 'Active'} onChange={(e) => set('status', e.target.value)}>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </FieldBox>
               </div>
             </div>
           </div>
@@ -2573,7 +3393,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
 
         <div className={sectionClass}>
           <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-            <div className={sectionTitleClass}>Variants</div>
+            <div className={sectionTitleClass}>Pricing</div>
             <div className="flex gap-2">
               <button type="button" className={compactButton} onClick={addFashionVariant}>+ Add Variant</button>
             </div>
@@ -2588,7 +3408,9 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                   <th className="border-b border-[#d6dde8] px-2 py-2 text-left font-semibold">Color</th>
                   <th className="border-b border-[#d6dde8] px-2 py-2 text-left font-semibold">SKU</th>
                   <th className="border-b border-[#d6dde8] px-2 py-2 text-left font-semibold">Barcode</th>
-                  <th className="border-b border-[#d6dde8] px-2 py-2 text-right font-semibold">Price</th>
+                  <th className="border-b border-[#d6dde8] px-2 py-2 text-right font-semibold">Cost Price</th>
+                  <th className="border-b border-[#d6dde8] px-2 py-2 text-right font-semibold">MRP</th>
+                  <th className="border-b border-[#d6dde8] px-2 py-2 text-right font-semibold">Selling Price</th>
                   <th className="border-b border-[#d6dde8] px-2 py-2 text-right font-semibold">Stock</th>
                   <th className="border-b border-[#d6dde8] px-2 py-2 text-center font-semibold">Action</th>
                 </tr>
@@ -2603,9 +3425,11 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                     <td className="border-b border-[#edf2f7] px-2 py-1.5">
                       <div className="grid grid-cols-[minmax(0,1fr)_34px]">
                         <input className={`${compactInput} border-r-0`} value={variant.barcode || ''} onChange={(e) => updateVariant(idx, 'barcode', e.target.value)} />
-                        <button type="button" className="h-8 border border-[#cfd8e6] bg-white text-blue-600" onClick={() => updateVariant(idx, 'barcode', genBarcode())}><ScanLine size={12} className="mx-auto" /></button>
+                        <button type="button" className="h-8 border border-[#cfd8e6] bg-white text-blue-600" onClick={() => updateVariant(idx, 'barcode', genBarcode({ ...form, ...variant }))}><ScanLine size={12} className="mx-auto" /></button>
                       </div>
                     </td>
+                    <td className="border-b border-[#edf2f7] px-2 py-1.5"><input className={`${compactInput} text-right`} type="number" min="0" step="0.01" value={variant.purchasePrice ?? ''} onChange={(e) => updateVariant(idx, 'purchasePrice', e.target.value)} /></td>
+                    <td className="border-b border-[#edf2f7] px-2 py-1.5"><input className={`${compactInput} text-right`} type="number" min="0" step="0.01" value={variant.mrp ?? ''} onChange={(e) => updateVariant(idx, 'mrp', e.target.value)} /></td>
                     <td className="border-b border-[#edf2f7] px-2 py-1.5"><input className={`${compactInput} text-right`} type="number" min="0" step="0.01" value={variant.rate ?? ''} onChange={(e) => updateVariant(idx, 'rate', e.target.value)} /></td>
                     <td className="border-b border-[#edf2f7] px-2 py-1.5"><input className={`${compactInput} text-right`} type="number" min="0" value={variant.stock ?? 0} onChange={(e) => updateVariant(idx, 'stock', e.target.value)} /></td>
                     <td className="border-b border-[#edf2f7] px-2 py-1.5 text-center">
@@ -2613,7 +3437,37 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                     </td>
                   </tr>
                 ))}
-                {!variantRows.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[12px] text-[#536173]">No variants added</td></tr>}
+                {!variantRows.length && <tr><td colSpan={10} className="px-3 py-6 text-center text-[12px] text-[#536173]">No variants added</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className={sectionClass}>
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+            <div className={sectionTitleClass}>Packing</div>
+            <button type="button" className={compactButton} onClick={() => addRow('packingRows', { pack: '', quantity: '', barcode: '' })}>+ Add Packing</button>
+          </div>
+          <div className="overflow-hidden border border-[#d6dde8]">
+            <table className="w-full border-collapse text-[12px]">
+              <thead className="bg-[#f1f5f9]">
+                <tr>
+                  <th className="border-b border-[#d6dde8] px-2 py-2 text-left font-semibold">Pack</th>
+                  <th className="border-b border-[#d6dde8] px-2 py-2 text-right font-semibold">Qty</th>
+                  <th className="border-b border-[#d6dde8] px-2 py-2 text-left font-semibold">Barcode</th>
+                  <th className="border-b border-[#d6dde8] px-2 py-2 text-center font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(form.packingRows || []).map((row, idx) => (
+                  <tr key={idx}>
+                    <td className="border-b border-[#edf2f7] px-2 py-1.5"><input className={compactInput} value={row.pack || ''} onChange={(e) => setRow('packingRows', idx, 'pack', e.target.value)} /></td>
+                    <td className="border-b border-[#edf2f7] px-2 py-1.5"><input className={`${compactInput} text-right`} type="number" min="0" value={row.quantity || ''} onChange={(e) => setRow('packingRows', idx, 'quantity', e.target.value)} /></td>
+                    <td className="border-b border-[#edf2f7] px-2 py-1.5"><input className={compactInput} value={row.barcode || ''} onChange={(e) => setRow('packingRows', idx, 'barcode', e.target.value)} /></td>
+                    <td className="border-b border-[#edf2f7] px-2 py-1.5 text-center"><button type="button" className="inline-flex h-7 w-7 items-center justify-center border border-[#d6dde8] bg-white text-red-500" onClick={() => removeRow('packingRows', idx)}><TrashIcon /></button></td>
+                  </tr>
+                ))}
+                {!(form.packingRows || []).length && <tr><td colSpan={4} className="px-3 py-6 text-center text-[12px] text-[#536173]">No packing rows</td></tr>}
               </tbody>
             </table>
           </div>
@@ -2625,7 +3479,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
   function renderCompactVariantElectronicsProductForm() {
     const sectionClass = 'border border-[#d6dde8] bg-white px-3 py-3';
     const sectionTitleClass = 'mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#243041]';
-    const rowClass = 'grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2 py-1.5';
+    const rowClass = 'grid grid-cols-1 items-start gap-1.5 py-1.5 sm:grid-cols-[96px_minmax(0,1fr)] sm:items-center sm:gap-2';
     const compactInput = 'h-8 w-full rounded-none border border-[#cfd8e6] bg-white px-2 text-[12px] text-[#111827] outline-none focus:border-blue-500 font-[inherit]';
     const compactLabel = 'text-[12px] font-medium text-[#111827]';
     const productTypes = [
@@ -2694,15 +3548,15 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             </div>
             <div className={rowClass}>
               <label className={compactLabel}>Brand *</label>
-              <input className={compactInput} value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+              <MasterDropdown buttonClassName={compactInput} value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} placeholder="Select Brand" />
             </div>
             <div className={rowClass}>
               <label className={compactLabel}>Category *</label>
-              <input className={compactInput} value={form.category || ''} onChange={(e) => set('category', e.target.value)} />
+              <MasterDropdown buttonClassName={compactInput} value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} placeholder="Select Category" />
             </div>
             <div className={rowClass}>
               <label className={compactLabel}>Sub Category</label>
-              <input className={compactInput} value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+              <MasterDropdown buttonClassName={compactInput} value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} placeholder="Select Subcategory" />
             </div>
             <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2 py-1.5">
               <label className={`${compactLabel} pt-1.5`}>Description</label>
@@ -2725,7 +3579,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <label className={compactLabel}>Barcode</label>
               <div className="grid grid-cols-[minmax(0,1fr)_72px]">
                 <input className={`${compactInput} border-r-0`} value={primaryVariant.barcode || form.barcode} onChange={(e) => setProductAndVariant('barcode', e.target.value)} />
-                <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => setProductAndVariant('barcode', genBarcode())}>
+                <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => setProductAndVariant('barcode', genBarcode({ ...form, ...primaryVariant }))}>
                   <ScanLine size={13} />
                   Scan
                 </button>
@@ -2765,7 +3619,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                     <label className={compactLabel}>Barcode</label>
                     <div className="grid grid-cols-[minmax(0,1fr)_72px]">
                       <input className={`${compactInput} border-r-0`} value={variant.barcode || ''} onChange={(e) => setCompactVariant(idx, 'barcode', e.target.value)} />
-                      <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => setCompactVariant(idx, 'barcode', genBarcode())}>
+                      <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => setCompactVariant(idx, 'barcode', genBarcode({ ...form, ...variant }))}>
                         <ScanLine size={13} />
                         Scan
                       </button>
@@ -2855,10 +3709,10 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
         <div className={sectionClass}>
           <div className={sectionTitleClass}>Tax & Warranty</div>
           <div className="space-y-1">
-            <div className="grid grid-cols-[112px_minmax(0,1fr)_70px_minmax(0,92px)] items-center gap-3 py-1.5">
+            <div className="grid grid-cols-1 items-start gap-1.5 py-1.5 sm:grid-cols-[112px_minmax(0,1fr)_70px_minmax(0,92px)] sm:items-center sm:gap-3">
               <label className={compactLabel}>HSN</label>
               <input className={compactInput} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} />
-              <label className={`${compactLabel} text-right`}>GST</label>
+              <label className={`${compactLabel} sm:text-right`}>GST</label>
               <input className={compactInput} inputMode="decimal" value={form.gstRate || ''} onChange={(e) => set('gstRate', e.target.value)} />
             </div>
             <div className={rowClass}>
@@ -3585,13 +4439,13 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <input ref={nameInputRef} className={INPUT} value={form.description} onChange={(e) => set('description', e.target.value)} />
             </Field>
             <Field label="Brand" required>
-              <input className={INPUT} value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+              <MasterDropdown value={form.brand || ''} onChange={(val) => set('brand', val)} options={brandOptions} placeholder="Select Brand" />
             </Field>
             <Field label="Category" required>
-              <input className={INPUT} value={form.category || ''} onChange={(e) => set('category', e.target.value)} />
+              <MasterDropdown value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} placeholder="Select Category" />
             </Field>
             <Field label="Sub Category" required>
-              <input className={INPUT} value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
+              <MasterDropdown value={form.subCategory || ''} onChange={(val) => set('subCategory', val)} options={subCategoryOptions} placeholder="Select Sub Category" />
             </Field>
             <Field label="Model Family" required>
               <input className={INPUT} value={form.modelFamily || ''} onChange={(e) => set('modelFamily', e.target.value)} />
@@ -3698,7 +4552,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
     const bundleTotal = rows.reduce((sum, row) => sum + ((Number(row.qty) || 0) * (Number(row.unitPrice) || 0)), 0);
     const sectionClass = 'border border-[#d6dde8] bg-white px-3 py-3';
     const sectionTitleClass = 'mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#243041]';
-    const rowClass = 'grid grid-cols-[132px_minmax(0,1fr)] items-center gap-3 py-1.5';
+    const rowClass = 'grid grid-cols-1 items-start gap-1.5 py-1.5 sm:grid-cols-[132px_minmax(0,1fr)] sm:items-center sm:gap-3';
     const compactInput = 'h-8 w-full rounded-none border border-[#cfd8e6] bg-white px-2 text-[12px] text-[#111827] outline-none focus:border-blue-500 font-[inherit]';
     const compactLabel = 'text-[12px] font-medium text-[#111827]';
 
@@ -3736,7 +4590,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
                 <label className={compactLabel}>Barcode</label>
                 <div className="grid grid-cols-[minmax(0,1fr)_72px]">
                   <input ref={barcodeInputRef} className={`${compactInput} border-r-0`} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
-                  <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode())}>
+                  <button type="button" className="inline-flex h-8 items-center justify-center gap-1 border border-[#cfd8e6] bg-white text-[11px] font-semibold text-[#243041] hover:bg-[#f8fafc] font-[inherit]" onClick={() => set('barcode', genBarcode(form))}>
                     <ScanLine size={13} />
                     Scan
                   </button>
@@ -3744,7 +4598,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               </div>
               <div className={rowClass}>
                 <label className={compactLabel}>Category</label>
-                <input className={compactInput} value={form.category || ''} onChange={(e) => set('category', e.target.value)} />
+                <MasterDropdown buttonClassName={compactInput} value={form.category || ''} onChange={(val) => set('category', val)} options={categoryOptions} placeholder="Select Category" />
               </div>
             </div>
           </div>
@@ -3963,7 +4817,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
     const bundleSuggestedRate = Math.max(0, bundleTotalForRate - bundleDiscountForRate);
     const baseRate = Number(form.rate || (isBundle ? bundleSuggestedRate : firstVariantRate) || 0);
     if (form.rate && Number(form.rate) < 0) return setErr('Valid sale price is required');
-    if ((!isMultiVariant || !firstVariantRate) && (!form.rate || Number(form.rate) < 0)) return setErr('Valid sale price is required');
+    if (!isFashionRetail && (!isMultiVariant || !firstVariantRate) && (!form.rate || Number(form.rate) < 0)) return setErr('Valid sale price is required');
     if (isBundle) {
       const bundleRows = (form.bundleItems || []).filter((row) => String(row.productName || row.sku || '').trim());
       if (!bundleRows.length) return setErr('Add at least one bundle item');
@@ -4000,6 +4854,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
         itemType: isService ? 'Service' : 'Product',
         trackInventory: isFoodGroceryRetail && !isService ? true : form.trackInventory,
         code: form.code?.trim() || nextCode || '',
+        barcode: isService ? '' : String(form.barcode || genBarcode(form)).trim(),
         rate: baseRate,
         stock: isService || isBundle ? 0 : (isMultiVariant ? variantTotalStock : Number(form.stock)),
         minStockLevel: isService ? 0 : Number(form.minStockLevel),
@@ -4008,25 +4863,25 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               .filter((v) => variantDisplayName(v))
               .map((v) => ({
                 size: String(v.size || '').trim(),
-                modelName: String(v.modelName || '').trim(),
+                modelName: String(v.modelName || (isFashionRetail ? form.description : '') || '').trim(),
                 modelCode: String(v.modelCode || '').trim(),
                 processor: String(v.processor || '').trim(),
                 ram: String(v.ram || '').trim(),
                 storage: String(v.storage || '').trim(),
                 colour: String(v.colour || '').trim(),
-                material: String(v.material || '').trim(),
+                material: String(v.material || (isFashionRetail ? (form.material || form.fabric) : '') || '').trim(),
                 pattern: String(v.pattern || '').trim(),
                 type: String(v.type || '').trim(),
                 quality: String(v.quality || '').trim(),
                 ageGroup: String(v.ageGroup || '').trim(),
-                other: String(v.other || '').trim(),
+                other: String(v.other || (isFashionRetail ? form.brand : '') || '').trim(),
                 display: String(v.display || '').trim(),
                 graphics: String(v.graphics || '').trim(),
                 operatingSystem: String(v.operatingSystem || '').trim(),
                 purchasePrice: Number(v.purchasePrice) || 0,
                 mrp: Number(v.mrp) || 0,
                 rate: Number(v.rate) || 0,
-                barcode: String(v.barcode || '').trim(),
+                barcode: String(v.barcode || genBarcode({ ...form, ...v })).trim(),
                 stock: Number(v.stock) || 0,
                 minStockLevel: Number(v.minStockLevel) || 0,
               }))
@@ -4082,7 +4937,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
       const result = mode === 'add' ? await api.invCreateProduct(payload) : await api.invUpdateProduct(initial._id, payload);
       onSave(result, { keepOpen: saveAndNew });
       if (saveAndNew && mode === 'add') {
-        setForm({ ...defaultForm, code: '', barcode: genBarcode() });
+        setForm({ ...defaultForm, code: '', barcode: '' });
         setActiveTab('General');
         requestAnimationFrame(() => nameInputRef.current?.focus());
       }
@@ -4134,7 +4989,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
             {isElectronicsRetail && !useFullScreenEditor && <p className="m-0 mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-blue-600">Electronics & Technology</p>}
           </div>
           <div className="flex items-center gap-2">
-            {useFullScreenEditor && (
+            {useFullScreenEditor && !(isFashionRetail && !isService) && (
               <>
               <button type="button" onClick={onClose} className={isSpecialtyRetail ? 'h-8 rounded-md border border-[#cfd8e6] bg-white px-4 text-[13px] font-semibold text-[#0f172a] cursor-pointer hover:bg-[#f8fafc] font-[inherit]' : 'h-7 rounded-md border border-[#d6dde8] bg-white px-3 text-[12px] font-semibold text-[#374151] cursor-pointer hover:bg-[#f8fafc] font-[inherit]'}>
                 Cancel
@@ -4200,7 +5055,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Field label="SKU / Item Code"><input className={INPUT} value={form.code || ''} onChange={(e) => set('code', e.target.value)} /></Field>
                 <Field label="Barcode Type"><input className={INPUT} value={form.barcodeType || ''} onChange={(e) => set('barcodeType', e.target.value)} /></Field>
-                <Field label="Barcode"><div className="flex gap-1.5"><input ref={barcodeInputRef} className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />{mode === 'add' && <button type="button" title="Generate Barcode" onClick={() => set('barcode', genBarcode())} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[13px] font-semibold">Gen</button>}</div></Field>
+                <Field label="Barcode"><div className="flex gap-1.5"><input ref={barcodeInputRef} className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />{mode === 'add' && <button type="button" title="Generate Barcode" onClick={() => set('barcode', genBarcode(form))} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[13px] font-semibold">Gen</button>}</div></Field>
                 <Field label="UPC"><input className={INPUT} value={form.upc || ''} onChange={(e) => set('upc', e.target.value)} /></Field>
                 <Field label="EAN"><input className={INPUT} value={form.ean || ''} onChange={(e) => set('ean', e.target.value)} /></Field>
                 <Field label="Alias Code"><input className={INPUT} value={form.aliasCode || ''} onChange={(e) => set('aliasCode', e.target.value)} /></Field>
@@ -4350,7 +5205,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
           ) : isFoodGroceryRetail && !isService ? (
             isVariantFoodGroceryProduct ? renderFoodGroceryVariantProductForm() : renderSingleFoodGroceryProductForm()
           ) : isFashionRetail && !isService ? (
-            isSingleFashionProduct ? renderSingleFashionProductForm() : renderFashionVariantProductForm()
+            renderGoFrugalFashionProductForm()
           ) : isElectronicsRetail && !isService ? (
             isBundleElectronicsProduct ? renderBundleElectronicsProductForm() : isSingleElectronicsProduct ? renderSingleElectronicsProductForm() : renderVariantElectronicsProductForm()
           ) : <div className={isElectronicsRetail && isService ? 'grid grid-cols-1 md:grid-cols-3 gap-3' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
@@ -4396,22 +5251,6 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <label className={LABEL}>Preparation Type</label>
               <input className={INPUT} value={form.preparationType || ''} onChange={(e) => set('preparationType', e.target.value)} />
             </div>
-            <div className="hidden">
-              <label className={LABEL}>Sub Category</label>
-              <input className={INPUT} value={form.subCategory || ''} onChange={(e) => set('subCategory', e.target.value)} />
-            </div>
-            <div className="hidden">
-              <label className={LABEL}>Manufacturer</label>
-              <input className={INPUT} value={form.manufacturer || ''} onChange={(e) => set('manufacturer', e.target.value)} />
-            </div>
-            <div className="hidden">
-              <label className={LABEL}>Supplier</label>
-              <input className={INPUT} value={form.supplier || ''} onChange={(e) => set('supplier', e.target.value)} />
-            </div>
-            <div className="hidden">
-              <label className={LABEL}>Product Image URL</label>
-              <input className={INPUT} value={form.imageUrl || ''} onChange={(e) => set('imageUrl', e.target.value)} />
-            </div>
             <div className={isElectronicsRetail && isService ? 'md:col-span-2' : 'sm:col-span-2'}>
               <label className={LABEL}>Description</label>
               <textarea
@@ -4422,18 +5261,37 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
 
               />
             </div>
-            <div className={isElectronicsRetail && isService ? 'md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3' : 'sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3'}>
+            <div className={isElectronicsRetail && isService ? 'md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3' : 'sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3'}>
               <div>
                 <label className={LABEL}>{isService ? 'SAC Code' : 'HSN Code'}</label>
                 <input className={INPUT} value={form.hsn || ''} onChange={(e) => set('hsn', e.target.value)} />
               </div>
               <div>
                 <label className={LABEL}>Category</label>
-                <input className={INPUT} value={form.category || ''} onChange={(e) => set('category', e.target.value)} />
+                <MasterDropdown
+                  value={form.category || ''}
+                  onChange={(val) => set('category', val)}
+                  options={categoryOptions}
+                  placeholder="Select Category"
+                />
+              </div>
+              <div>
+                <label className={LABEL}>Sub Category</label>
+                <MasterDropdown
+                  value={form.subCategory || ''}
+                  onChange={(val) => set('subCategory', val)}
+                  options={subCategoryOptions}
+                  placeholder="Select Sub Category"
+                />
               </div>
               <div>
                 <label className={LABEL}>Brand</label>
-                <input className={INPUT} value={form.brand || ''} onChange={(e) => set('brand', e.target.value)} />
+                <MasterDropdown
+                  value={form.brand || ''}
+                  onChange={(val) => set('brand', val)}
+                  options={brandOptions}
+                  placeholder="Select Brand"
+                />
               </div>
             </div>
             {!isService && itemGroups.length > 1 && !isElectronicsRetail && (
@@ -4622,7 +5480,7 @@ export function ProductModal({ mode, initial, nextCode, initialBarcode = '', ini
               <div className="flex gap-1.5">
                 <input ref={barcodeInputRef} className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} onKeyDown={handleBarcodeKeyDown} />
                 {mode === 'add' && (
-                  <button type="button" title="Regenerate" onClick={() => set('barcode', genBarcode())} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[16px] leading-none">↺</button>
+                  <button type="button" title="Regenerate" onClick={() => set('barcode', genBarcode(form))} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[16px] leading-none">↺</button>
                 )}
               </div>
             </div>
@@ -4697,7 +5555,7 @@ export function ServiceFormPage() {
     setError('');
     Promise.all([
       api.invProductCategories().catch(() => []),
-      api.invProductBrands().catch(() => []),
+      loadProductMasterBrandOptions().catch(() => []),
       api.invProductSubcategories().catch(() => []),
       api.invProductSizes().catch(() => []),
       api.invProductFabrics().catch(() => []),
@@ -4835,6 +5693,7 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [scanCode, setScanCode] = useState('');
   const [scanMessage, setScanMessage] = useState('');
+  const [showMobileScanner, setShowMobileScanner] = useState(false);
   const fileInputRef = useRef(null);
   const searchRef = useRef(null);
 
@@ -4887,7 +5746,7 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
   }
 
   function loadBrands() {
-    api.invProductBrands().then((rows) => setBrands(optionNames(rows))).catch(() => {});
+    loadProductMasterBrandOptions().then(setBrands).catch(() => {});
   }
 
   function loadSubCategories() {
@@ -4994,8 +5853,10 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
   }, []);
 
   const { highlightedIndex } = useListKeyboardNav({
-    rowCount: products.length,
+    rowCount: modal ? 0 : products.length,
+    enabled: !modal,
     onOpen: (index) => {
+      if (modal) return;
       if (isServiceSection) {
         navigate(`/services/${products[index]._id}/edit`);
         return;
@@ -5039,6 +5900,9 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
       navigate('/services/new');
       return;
     }
+    loadCategories();
+    loadBrands();
+    loadSubCategories();
     setModal({ mode: 'add', nextCode: '', initialProductType: isServiceSection ? 'Service' : isElectronicsRetail || isFashionRetail || isHomeLivingRetail || isSpecialtyPersonalRetail || isBusinessSpecialtyRetail ? 'Standard' : '', forceServiceMode: isServiceSection });
   }
 
@@ -5054,9 +5918,8 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
       || null;
   }
 
-  async function handleScanSubmit(e) {
-    e.preventDefault();
-    const code = scanCode.trim();
+  async function processScannedCode(rawCode) {
+    const code = String(rawCode || '').trim();
     if (!code) return;
     setScanMessage('');
     try {
@@ -5089,6 +5952,11 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
     } finally {
       setScanCode('');
     }
+  }
+
+  async function handleScanSubmit(e) {
+    e.preventDefault();
+    await processScannedCode(scanCode);
   }
 
   function handleImportFile(e) {
@@ -5191,7 +6059,7 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   return (
-    <div className="p-7">
+    <div className="p-4 md:p-7">
       {modal && (
         <ProductModal
           key={`${modal.mode}-${modal.forceServiceMode ? 'service' : 'product'}-${modal.initialProductType || ''}-${modal.initialBarcode || ''}-${modal.data?._id || ''}`}
@@ -5219,6 +6087,15 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
         />
       )}
 
+      <ProductMobileBarcodeScanner
+        open={showMobileScanner}
+        onClose={() => setShowMobileScanner(false)}
+        onDetected={(value) => {
+          setShowMobileScanner(false);
+          processScannedCode(value);
+        }}
+      />
+
       {pendingFile && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && setPendingFile(null)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-100 mx-4 p-6">
@@ -5234,15 +6111,15 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 mb-3">
-        <div>
-          <h1 className="m-0 text-[22px] font-bold text-[#111827]">{pageTitle}</h1>
-          <p className="m-0 text-[13px] text-[#536173] mt-0.5">{pageSubtitle}</p>
+      <div className="flex flex-col gap-3 rounded-xl border border-[#dfe7f1] bg-white p-3 mb-4 md:flex-row md:justify-between md:items-start md:border-0 md:bg-transparent md:p-0 md:mb-3">
+        <div className="min-w-0">
+          <h1 className="m-0 text-[20px] md:text-[22px] font-bold text-[#111827]">{pageTitle}</h1>
+          <p className="m-0 text-[12px] md:text-[13px] text-[#536173] mt-0.5 leading-snug">{pageSubtitle}</p>
         </div>
-        <div className="flex gap-2">
+        <div className={`grid gap-2 ${isServiceSection ? 'grid-cols-2' : 'grid-cols-3'} md:flex md:justify-end md:flex-wrap`}>
           <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImportFile} />
           <button
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit] disabled:opacity-60"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 px-2.5 md:px-4 py-2 text-[12px] md:text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit] disabled:opacity-60"
             type="button"
             disabled={importing}
             onClick={() => fileInputRef.current?.click()}
@@ -5251,7 +6128,7 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
             {importing ? 'Importing...' : 'Import Excel'}
           </button>
           <button
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 px-2.5 md:px-4 py-2 text-[12px] md:text-[13px] font-semibold text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]"
             type="button"
             title={`${addButtonLabel} (+)`}
             onClick={openAddModal}
@@ -5259,6 +6136,20 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
             <svg fill="none" height="14" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" width="14"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
             {addButtonLabel}
           </button>
+          {!isServiceSection && (
+            <button
+              className="inline-flex md:hidden min-h-10 items-center justify-center gap-1.5 px-2.5 py-2 text-[12px] font-semibold text-blue-700 bg-blue-50 rounded-md cursor-pointer hover:bg-blue-100 border border-blue-100 font-[inherit]"
+              type="button"
+              title="Scan product barcode"
+              onClick={() => {
+                setScanMessage('');
+                setShowMobileScanner(true);
+              }}
+            >
+              <ScanLine size={14} />
+              Scan
+            </button>
+          )}
         </div>
       </div>
 
@@ -5266,26 +6157,6 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
         items={[[['+'], 'Add Item'], [['/'], 'Search'], [['↑', '↓'], 'Navigate'], [['Enter'], 'Edit row']]}
         className="mb-5"
       />
-
-      <form onSubmit={handleScanSubmit} className="mb-5 bg-white border border-[#dfe7f1] rounded-xl p-4 flex flex-col md:flex-row md:items-end gap-3">
-        <div className="flex-1">
-          <label className={LABEL}>{isServiceSection ? 'Search Service Code' : isElectronicsRetail ? 'Scan Barcode / Serial / IMEI' : isFashionRetail || isFoodGroceryRetail || isHomeLivingRetail || isSpecialtyPersonalRetail || isBusinessSpecialtyRetail ? 'Scan Barcode / Product Code' : 'Scan Item Barcode'}</label>
-          <input
-            className={INPUT}
-            placeholder={scanPlaceholder}
-            value={scanCode}
-            onChange={(e) => setScanCode(e.target.value)}
-            autoComplete="off"
-          />
-          {scanMessage && <div className="mt-1.5 text-[12px] text-blue-700">{scanMessage}</div>}
-        </div>
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]"
-        >
-          Scan / Add
-        </button>
-      </form>
 
       {importResult && (
         <div className={`mb-5 px-4 py-3 rounded-lg text-[13px] border ${importResult.error ? 'bg-red-50 border-red-100 text-red-700' : 'bg-green-50 border-green-100 text-green-700'}`}>
@@ -5327,32 +6198,32 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
         ))}
       </div>
 
-      <div className="bg-white border border-[#dfe7f1] rounded-xl">
-        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7] flex-wrap">
-          <div className="relative flex-1 max-w-xs">
+      <div className="products-list-card bg-white border border-[#dfe7f1] rounded-xl overflow-hidden">
+        <div className="grid grid-cols-2 gap-2 px-3 py-3 border-b border-[#edf2f7] md:flex md:items-center md:gap-3 md:px-5 md:py-3.5 md:flex-wrap">
+          <div className="relative col-span-2 md:col-span-1 md:flex-1 md:max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
-            <input ref={searchRef} className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" placeholder={searchPlaceholder} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            <input ref={searchRef} className="h-11 md:h-auto border border-[#dbe4ef] rounded-lg md:rounded-md pl-9 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit] bg-white" placeholder={searchPlaceholder} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
           {!isSpecialRetailProductList && !lockedItemType && (
             <SelectDropdown
-              className="w-36 flex-none"
+              className="min-w-0 md:w-36 md:flex-none"
               value={itemType}
               onChange={(v) => { setItemType(v); setPage(1); }}
               options={itemTypeOptions}
             />
           )}
           <SelectDropdown
-            className="w-40 flex-none"
+            className={`${!isSpecialRetailProductList && !lockedItemType ? 'min-w-0' : 'col-span-2'} md:w-40 md:flex-none`}
             value={category}
             onChange={(v) => { setCategory(v); setPage(1); }}
             options={categories}
           />
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-[12px] font-medium text-[#536173]">
+          <div className="col-span-2 flex items-center gap-2 rounded-lg border border-[#edf2f7] bg-[#f8fbff] px-2 py-2 md:col-span-1 md:ml-auto md:border-0 md:bg-transparent md:p-0">
+            <span className="min-w-0 flex-1 text-[12px] font-medium text-[#536173] md:flex-none">
               {selectedCount} selected
             </span>
             <select
-              className="h-9 rounded-md border border-[#dbe4ef] bg-white px-3 text-[12px] font-medium text-[#111827] outline-none focus:border-blue-500 font-[inherit] disabled:opacity-60"
+              className="h-9 min-w-[132px] rounded-md border border-[#dbe4ef] bg-white px-3 text-[12px] font-medium text-[#111827] outline-none focus:border-blue-500 font-[inherit] disabled:opacity-60"
               value={bulkAction}
               disabled={bulkDeleting}
               onChange={(e) => {
@@ -5370,8 +6241,8 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
 
         {error && <div className="px-5 py-4 text-[13px] text-red-600">{error}</div>}
 
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <div className="products-list-table-wrap overflow-x-auto">
+          <table className="products-list-table w-full min-w-[960px] border-collapse">
             <thead>
               <tr>
                 <th className={TH}>
@@ -5463,6 +6334,9 @@ export function ProductsPage({ initialItemType = 'All Items', lockedItemType = '
                             navigate(`/services/${row._id}/edit`);
                             return;
                           }
+                          loadCategories();
+                          loadBrands();
+                          loadSubCategories();
                           setModal({ mode: 'edit', data: row });
                         }}
                       >

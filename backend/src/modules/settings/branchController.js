@@ -5,7 +5,7 @@ import { isBusinessSuperAdmin, scopedOwnerQuery } from '../../utils/tenantScope.
 
 const BRANCH_LIMIT = 3;
 const UNLIMITED_BRANCH_PLANS = ['advanced', 'enterprise'];
-const BRANCH_WRITE_FIELDS = ['name', 'code', 'manager', 'phone', 'email', 'city', 'status', 'users', 'revenue'];
+const BRANCH_WRITE_FIELDS = ['name', 'code', 'manager', 'phone', 'email', 'address', 'city', 'state', 'pincode', 'gstin', 'status', 'users', 'revenue'];
 
 async function branchActor(req) {
   const actor = await AppUser.findById(req.user.id).select('role accountType permissions branch businessId subscriptionPlan').lean();
@@ -41,6 +41,7 @@ function normalizeBranchPayload(body = {}) {
   }
   if (payload.code) payload.code = payload.code.toUpperCase();
   if (payload.email) payload.email = payload.email.toLowerCase();
+  if (payload.gstin) payload.gstin = payload.gstin.toUpperCase();
   if (payload.users !== undefined) payload.users = Number(payload.users) || 0;
   if (payload.revenue !== undefined) payload.revenue = Number(payload.revenue) || 0;
   return payload;

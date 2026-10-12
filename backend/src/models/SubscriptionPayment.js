@@ -7,8 +7,9 @@ const subscriptionPaymentSchema = new Schema({
   businessName: { type: String, required: true, trim: true },
   phone: { type: String, trim: true, default: '' },
   category: { type: String, enum: CATEGORIES, required: true },
-  tier: { type: String, enum: ['basic', 'mid', 'advanced'], required: true },
-  planName: { type: String, required: true, trim: true },
+  purpose: { type: String, enum: ['subscription', 'payment_method_verification'], default: 'subscription', index: true },
+  tier: { type: String, enum: ['', 'basic', 'mid', 'advanced'], default: '' },
+  planName: { type: String, trim: true, default: '' },
   amount: { type: Number, required: true, min: 1 },
   amountPaise: { type: Number, required: true, min: 100 },
   currency: { type: String, enum: ['INR'], default: 'INR' },
@@ -23,6 +24,10 @@ const subscriptionPaymentSchema = new Schema({
   errorCode: { type: String, trim: true, default: '' },
   errorDescription: { type: String, trim: true, default: '' },
   paidAt: { type: Date }, failedAt: { type: Date },
+  refundStatus: { type: String, enum: ['', 'requested', 'processed', 'failed'], default: '', index: true },
+  razorpayRefundId: { type: String, trim: true, default: '', index: true, sparse: true },
+  refundRequestedAt: { type: Date },
+  refundedAt: { type: Date },
   userId: { type: Schema.Types.ObjectId, ref: 'AppUser', index: true },
   businessId: { type: Schema.Types.ObjectId, ref: 'Business', index: true },
   webhookEventIds: [{ type: String, trim: true }],
@@ -33,4 +38,5 @@ const subscriptionPaymentSchema = new Schema({
   invoiceEmailError: { type: String, trim: true, default: '' },
 }, { timestamps: true });
 subscriptionPaymentSchema.index({ createdAt: -1 });
+subscriptionPaymentSchema.index({ userId: 1, purpose: 1, status: 1, createdAt: -1 });
 export const SubscriptionPayment = model('SubscriptionPayment', subscriptionPaymentSchema);

@@ -12,8 +12,11 @@ import { PendingSignup } from '../../models/PendingSignup.js';
 import { PendingEmailLogin } from '../../models/PendingEmailLogin.js';
 import { httpError } from '../../utils/httpError.js';
 import { buildBrandedEmail, sendMail } from '../../utils/mailer.js';
-import { completeFreeSignup } from '../../services/registrationPayments.js';
+import { completeFreeSignup, createRegistrationOrder } from '../../services/registrationPayments.js';
 import { getActivePlan, PLAN_TIERS } from '../../services/subscriptionPlans.js';
+import { repairTrialWindow } from '../../services/trialWindow.js';
+import { createLoginSession, getDeviceIdHash, getDeviceType, hasActiveOtherDeviceSession, revokeSession } from '../../services/appSessions.js';
+import { signAdminToken } from '../admin/adminAuth.js';
 
 const SALT_ROUNDS = 10;
 const RESET_OTP_EXPIRES_MINUTES = 10;
@@ -35,10 +38,43 @@ function isTrialExpired(user) {
     && new Date(user.trialEndsAt).getTime() <= Date.now();
 }
 
-export function signToken(user) {
+function normalizeBillingStatus(user) {
+  if (!user || user.isPlatformOwner) return;
+  const raw = String(user.billingStatus || '').trim().toLowerCase();
+  if (raw === 'active') user.billingStatus = 'SUBSCRIPTION_ACTIVE';
+  else if (raw === 'trial') user.billingStatus = 'TRIAL_ACTIVE';
+  else if (raw === 'expired') user.billingStatus = 'SUBSCRIPTION_EXPIRED';
+  else if (raw === 'pending') user.billingStatus = 'PAYMENT_METHOD_VERIFICATION_PENDING';
+}
+
+async function refreshBillingState(user) {
+  if (!user || user.isPlatformOwner) return user;
+  normalizeBillingStatus(user);
+  if (await repairTrialWindow(user)) return user;
+  const now = Date.now();
+  if (isTrialExpired(user)) {
+    user.subscriptionStatus = 'expired';
+    user.billingStatus = 'TRIAL_EXPIRED';
+    await user.save();
+  } else if (user.subscriptionStatus === 'active' && user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt).getTime() <= now) {
+    user.subscriptionStatus = 'expired';
+    user.billingStatus = 'SUBSCRIPTION_EXPIRED';
+    await user.save();
+  } else if (user.subscriptionStatus === 'active' && user.billingStatus !== 'SUBSCRIPTION_ACTIVE') {
+    user.billingStatus = 'SUBSCRIPTION_ACTIVE';
+    await user.save();
+  } else if (user.subscriptionStatus === 'trial' && user.billingStatus !== 'TRIAL_ACTIVE') {
+    user.billingStatus = 'TRIAL_ACTIVE';
+    await user.save();
+  } else if (!user.billingStatus) {
+    user.billingStatus = 'PAYMENT_METHOD_VERIFICATION_PENDING';
+    await user.save();
+  }
+  return user;
+}
+export function signToken(user, sessionId = '') {
   const isSuperAdmin = user.accountType === 'owner' || user.role === 'Super Admin';
-  return jwt.sign(
-    {
+  const payload = {
       sub: user._id.toString(),
       email: user.email,
       role: user.role,
@@ -50,9 +86,76 @@ export function signToken(user) {
       businessId: user.businessId?.toString(),
       category: user.category || 'retail',
       retailSubcategory: user.retailSubcategory || '',
-    },
+  };
+  if (sessionId) payload.sid = sessionId;
+  return jwt.sign(
+    payload,
     env.jwtSecret,
     { expiresIn: env.jwtExpiresIn },
+  );
+}
+
+async function issueUserSession(user, req) {
+  const { sessionId, deviceType } = await createLoginSession(user, req);
+  return {
+    token: signToken(user, sessionId),
+    session: { deviceType },
+  };
+}
+
+async function startDeviceLoginOtp(user, req) {
+  const otp = createResetOtp();
+  const deviceType = getDeviceType(req);
+  const deviceIdHash = getDeviceIdHash(req);
+  await PendingEmailLogin.findOneAndUpdate(
+    { email: user.email },
+    {
+      $set: {
+        email: user.email,
+        otpHash: await bcrypt.hash(otp, SALT_ROUNDS),
+        otpExpiresAt: new Date(Date.now() + LOGIN_OTP_EXPIRES_MINUTES * 60000),
+        otpAttempts: 0,
+        sentAt: new Date(),
+        deviceLoginUserId: user._id,
+        deviceLoginType: deviceType,
+        deviceLoginIdHash: deviceIdHash,
+        cleanupAt: new Date(Date.now() + 3600000),
+      },
+      $unset: { signupTokenHash: 1, signupExpiresAt: 1 },
+    },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+  await sendMail({ to: user.email, subject: 'Confirm your GoBooks device login', html: getLoginOtpEmailHtml({ name: user.name, otp }) });
+  return {
+    deviceVerificationRequired: true,
+    deviceType,
+    email: user.email,
+    message: `OTP sent to ${user.email}. Verify it to continue on this ${deviceType}.`,
+  };
+}
+
+async function verifyDeviceLoginOtp(user, req) {
+  const otp = String(req.body.deviceOtp || '').trim();
+  const deviceType = getDeviceType(req);
+  const deviceIdHash = getDeviceIdHash(req);
+  if (!/^\d{6}$/.test(otp)) throw httpError(400, 'Enter the 6-digit OTP sent to your email');
+  const pending = await PendingEmailLogin.findOne({
+    email: user.email,
+    deviceLoginUserId: user._id,
+    deviceLoginType: deviceType,
+    deviceLoginIdHash: deviceIdHash,
+    otpExpiresAt: { $gt: new Date() },
+    otpAttempts: { $lt: LOGIN_OTP_MAX_ATTEMPTS },
+  }).select('+otpHash');
+  if (!pending?.otpHash) throw httpError(400, 'Invalid or expired OTP');
+  if (!(await bcrypt.compare(otp, pending.otpHash))) {
+    pending.otpAttempts += 1;
+    await pending.save();
+    throw httpError(400, 'Invalid or expired OTP');
+  }
+  await PendingEmailLogin.updateOne(
+    { _id: pending._id },
+    { $unset: { otpHash: 1, otpExpiresAt: 1, deviceLoginUserId: 1, deviceLoginIdHash: 1 }, $set: { otpAttempts: 0, deviceLoginType: '' } },
   );
 }
 
@@ -77,9 +180,14 @@ export function toSafeUser(user) {
     subscriptionAmount: user.subscriptionAmount || 0,
     subscriptionStatus: user.subscriptionStatus || '',
     subscriptionExpiresAt: user.subscriptionExpiresAt || null,
+    billingStatus: user.billingStatus || (user.subscriptionStatus === 'active' ? 'SUBSCRIPTION_ACTIVE' : user.subscriptionStatus === 'trial' ? 'TRIAL_ACTIVE' : 'PAYMENT_METHOD_VERIFICATION_PENDING'),
     trialStartedAt: user.trialStartedAt || null,
     trialEndsAt: user.trialEndsAt || null,
     trialExpired: isTrialExpired(user),
+    paymentMethodVerified: Boolean(user.paymentMethodVerified),
+    paymentMethodVerifiedAt: user.paymentMethodVerifiedAt || null,
+    razorpayCustomerId: user.razorpayCustomerId || '',
+    trialDaysRemaining: user.subscriptionStatus === 'trial' && user.trialEndsAt ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / 86400000)) : 0,
     onboardingCompleted: Boolean(user.onboardingCompleted),
     emailVerified: Boolean(user.emailVerified || user.googleId),
     needsEmailVerification: Boolean(!user.googleId && !user.emailVerified),
@@ -107,9 +215,13 @@ function normalizeEmail(email = '') {
 
 function validatePassword(password) {
   if (!password) throw httpError(400, 'Password is required');
-  if (password.length < 8) throw httpError(400, 'Password must be at least 8 characters');
-  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-    throw httpError(400, 'Password must include at least one letter and one number');
+  if (
+    password.length < 8
+    || !/[A-Z]/.test(password)
+    || !/[0-9]/.test(password)
+    || !/[^A-Za-z0-9]/.test(password)
+  ) {
+    throw httpError(400, 'Password must have 8 characters, 1 capital letter, 1 number, and 1 special character');
   }
 }
 
@@ -126,6 +238,17 @@ async function ensureEmailAvailable(email, excludeUserId = null) {
   if (existing) throw httpError(409, 'Email already registered. Use another email address.');
 }
 
+export async function checkRegistrationEmailAvailability(req, res, next) {
+  try {
+    const email = normalizeEmail(req.body.email);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw httpError(400, 'Enter a valid email address');
+    await ensureEmailAvailable(email);
+    res.json({ available: true });
+  } catch (error) {
+    if (error.statusCode === 409) return res.json({ available: false, message: error.message });
+    next(error);
+  }
+}
 function buildGoogleProfile(payload, email) {
   return {
     subject: payload.sub || '', email, emailVerified: Boolean(payload.email_verified), name: payload.name || '',
@@ -272,6 +395,8 @@ function getSignupPayload(req) {
   const retailSubcategory = String(req.body.retailSubcategory ?? '').trim();
   const phone = String(req.body.phone ?? '').trim();
   const gstin = String(req.body.gstin ?? '').trim().toUpperCase();
+  const state = String(req.body.state ?? '').trim();
+  const city = String(req.body.city ?? '').trim();
   const bankName = String(req.body.bankName ?? '').trim();
   const accountHolderName = String(req.body.accountHolderName ?? '').trim();
   const accountNumber = String(req.body.accountNumber ?? '').replace(/\D/g, '');
@@ -289,6 +414,8 @@ function getSignupPayload(req) {
     retailSubcategory: category === 'retail' ? retailSubcategory : '',
     phone,
     gstin,
+    state,
+    city,
     bankName,
     accountHolderName,
     accountNumber,
@@ -305,10 +432,10 @@ async function validateSignupPayload(payload) {
   validatePassword(payload.password);
   if (!payload.businessName || payload.businessName.length < 2) throw httpError(400, 'Business name is required');
   if (!payload.phone) throw httpError(400, 'Phone number is required');
-  if (!payload.accountHolderName) throw httpError(400, 'Account holder name is required');
-  if (!payload.bankName) throw httpError(400, 'Bank name is required');
-  if (!/^\d{6,18}$/.test(payload.accountNumber)) throw httpError(400, 'Enter a valid bank account number');
-  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(payload.ifscCode)) throw httpError(400, 'Enter a valid IFSC code');
+
+
+
+
   if (!CATEGORIES.includes(payload.category)) throw httpError(400, 'Select a valid business category');
   if (payload.category === 'retail' && !RETAIL_SUBCATEGORIES.includes(payload.retailSubcategory)) {
     throw httpError(400, 'Select a valid retail subcategory');
@@ -355,8 +482,13 @@ export async function startRegistration(req, res, next) {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).select('+password');
     if (emailVerified) {
+      if (env.paymentRequired) {
+        const checkout = await createRegistrationOrder(pending);
+        return res.status(202).json({ checkout, message: 'Email verified. Complete payment to create your account.' });
+      }
       const user = await completeFreeSignup(pending);
-      return res.status(201).json({ token: signToken(user), user: toSafeUser(user), message: 'Account created. Your 15-day free trial has started.' });
+      const authSession = await issueUserSession(user, req);
+      return res.status(201).json({ ...authSession, user: toSafeUser(user), message: 'Account created. Complete Razorpay verification to start your 15-day free trial.' });
     }
 
     await sendMail({
@@ -407,8 +539,15 @@ export async function verifyRegistrationOtp(req, res, next) {
     pending.otpAttempts = 0;
     pending.otpVerifiedAt = new Date();
 
+    if (env.paymentRequired) {
+      await pending.save();
+      const checkout = await createRegistrationOrder(pending);
+      return res.status(202).json({ checkout, message: 'OTP verified. Complete payment to create your account.' });
+    }
+
     const user = await completeFreeSignup(pending);
-    res.status(201).json({ token: signToken(user), user: toSafeUser(user), message: 'Account created. Your 15-day free trial has started.' });
+    const authSession = await issueUserSession(user, req);
+    res.status(201).json({ ...authSession, user: toSafeUser(user), message: 'Account created. Complete Razorpay verification to start your 15-day free trial.' });
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, 'Email already registered. Use another email address.'));
     next(err);
@@ -437,8 +576,20 @@ export async function login(req, res, next) {
     await user.save();
     await ensureRetailSubcategory(user);
 
-    const token = signToken(user);
-    res.json({ token, user: toSafeUser(user) });
+    await refreshBillingState(user);
+    if (await hasActiveOtherDeviceSession(user._id, req)) {
+      if (!req.body.deviceOtp) return res.status(202).json(await startDeviceLoginOtp(user, req));
+      await verifyDeviceLoginOtp(user, req);
+    }
+    const authSession = await issueUserSession(user, req);
+    const safeUser = toSafeUser(user);
+    const adminSession = user.isPlatformOwner
+      ? {
+          adminToken: signAdminToken(user._id.toString(), { adminType: 'platform-owner' }),
+          admin: { id: user._id, name: user.name || 'Admin Panel', email: user.email, source: 'platform-owner' },
+        }
+      : {};
+    res.json({ ...authSession, user: safeUser, ...adminSession });
   } catch (err) {
     next(err);
   }
@@ -464,7 +615,8 @@ export async function googleLogin(req, res, next) {
       await user.save();
       if (user.onboardingCompleted) await ensureRetailSubcategory(user);
     }
-    res.json({ token: signToken(user), user: toSafeUser(user), message: 'Signed in with Google' });
+    const authSession = await issueUserSession(user, req);
+    res.json({ ...authSession, user: toSafeUser(user), message: 'Signed in with Google' });
   } catch (err) {
     next(err);
   }
@@ -542,7 +694,8 @@ export async function verifyEmailOtpLogin(req, res, next) {
     user.lastLogin = new Date().toISOString();
     await user.save();
     if (user.onboardingCompleted) await ensureRetailSubcategory(user);
-    res.json({ token: signToken(user), user: toSafeUser(user) });
+    const authSession = await issueUserSession(user, req);
+    res.json({ ...authSession, user: toSafeUser(user) });
   } catch (err) {
     next(err);
   }
@@ -563,6 +716,8 @@ export async function completeOnboarding(req, res, next) {
     const retailSubcategory = category === 'retail' ? String(req.body.retailSubcategory ?? '').trim() : '';
     const phone = String(req.body.phone ?? '').trim();
     const gstin = String(req.body.gstin ?? '').trim().toUpperCase();
+    const state = String(req.body.state ?? '').trim();
+    const city = String(req.body.city ?? '').trim();
     const password = String(req.body.password ?? '');
     const bankName = String(req.body.bankName ?? '').trim();
     const accountHolderName = String(req.body.accountHolderName ?? '').trim();
@@ -589,7 +744,7 @@ export async function completeOnboarding(req, res, next) {
           name: user.name, email: user.email,
           googleId: user.googleId, authProvider: user.authProvider || 'email', googleProfile: user.googleProfile,
           password: await bcrypt.hash(password, SALT_ROUNDS),
-          businessName, category, retailSubcategory, phone, gstin,
+          businessName, category, retailSubcategory, phone, gstin, state, city,
           bankName, accountHolderName, accountNumber, ifscCode, bankBranch, accountType,
           subscriptionPlan: '',
           subscriptionAmount: 0,
@@ -600,7 +755,8 @@ export async function completeOnboarding(req, res, next) {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).select('+password');
     const finalUser = await completeFreeSignup(pending);
-    res.status(201).json({ token: signToken(finalUser), user: toSafeUser(finalUser), message: 'Account created. Your 15-day free trial has started.' });
+    const authSession = await issueUserSession(finalUser, req);
+    res.status(201).json({ ...authSession, user: toSafeUser(finalUser), message: 'Account created. Complete Razorpay verification to start your 15-day free trial.' });
   } catch (err) {
     next(err);
   }
@@ -627,7 +783,10 @@ export async function verifyEmailOtp(req, res, next) {
     if (!/^\d{6}$/.test(otp)) return next(httpError(400, 'OTP must be 6 digits'));
     const user = await AppUser.findById(req.user.id).select('+emailVerificationOtpHash +emailVerificationOtpExpiresAt +emailVerificationOtpAttempts');
     if (!user) return next(httpError(404, 'User not found'));
-    if (user.googleId || user.emailVerified) return res.json({ token: signToken(user), user: toSafeUser(user) });
+    if (user.googleId || user.emailVerified) {
+      const authSession = await issueUserSession(user, req);
+      return res.json({ ...authSession, user: toSafeUser(user) });
+    }
     if (!user.emailVerificationOtpHash || !user.emailVerificationOtpExpiresAt) return next(httpError(400, 'Invalid or expired OTP'));
     if (user.emailVerificationOtpExpiresAt.getTime() < Date.now()) {
       user.emailVerificationOtpHash = '';
@@ -654,8 +813,18 @@ export async function verifyEmailOtp(req, res, next) {
     user.lastLogin = new Date().toISOString();
     await user.save();
 
-    const token = signToken(user);
+    const token = signToken(user, req.user.sessionId);
+    await refreshBillingState(user);
     res.json({ token, user: toSafeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function logout(req, res, next) {
+  try {
+    await revokeSession(req.user.id, req.user.sessionId);
+    res.json({ message: 'Signed out' });
   } catch (err) {
     next(err);
   }
@@ -750,6 +919,7 @@ export async function getMe(req, res, next) {
   try {
     const userDoc = await AppUser.findById(req.user.id);
     if (!userDoc) return next(httpError(404, 'User not found'));
+    await refreshBillingState(userDoc);
     res.json(await ensureSafeUserWithRetailSubcategory(userDoc));
   } catch (err) {
     next(err);

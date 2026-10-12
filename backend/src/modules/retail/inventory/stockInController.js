@@ -3,6 +3,7 @@ import { Product } from '../../../models/Product.js';
 import { httpError } from '../../../utils/httpError.js';
 import { asNumber, asText, enumValue, importSummary, parseExcelRows } from '../../../utils/excelImport.js';
 import { productRefCondition, resolveProductRefs } from './itemTypeFilter.js';
+import { Types } from 'mongoose';
 
 const STOCK_IN_IMPORT_COLUMNS = {
   'stock in no': 'stockInNo',
@@ -67,12 +68,13 @@ export async function getNextStockInNumber(req, res, next) {
 export async function getStockInStats(req, res, next) {
   try {
     const userId = req.user.id;
+    const aggregateUserId = Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : userId;
     const { itemType } = req.query;
     const refCond = productRefCondition(await resolveProductRefs(Product, userId, itemType));
     const range = monthRange();
     const [result, pending] = await Promise.all([
       StockIn.aggregate([
-        { $match: { userId, date: range, ...refCond } },
+        { $match: { userId: aggregateUserId, date: range, ...refCond } },
         {
           $group: {
             _id: null,

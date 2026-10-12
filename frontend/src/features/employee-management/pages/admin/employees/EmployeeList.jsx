@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   CheckCircle2, Download, Filter, MoreVertical, Plus, RefreshCw, Search, UserCheck,
@@ -33,7 +34,7 @@ export default function EmployeeList() {
   const { data, loading, error, setData, reload } = useLoad(adminService.employees, []);
   const [query, setQuery] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [menuId, setMenuId] = useState('');
+  const [menu, setMenu] = useState(null);
   const [filters, setFilters] = useState({ dept: '', designation: '', branch: '', manager: '', status: new Set(['Active']) });
   const rows = useMemo(() => data?.data || [], [data]);
 
@@ -77,8 +78,36 @@ export default function EmployeeList() {
   async function deactivate(row) {
     await adminService.updateEmployee(row._id, { name: row.name, email: row.email, status: 'Inactive' });
     setData((current) => ({ ...current, data: (current?.data || []).map((item) => item._id === row._id ? { ...item, status: 'Inactive' } : item) }));
-    setMenuId('');
+    setMenu(null);
   }
+
+  function toggleMenu(event, row) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMenu((current) => current?.row._id === row._id ? null : {
+      row,
+      style: {
+        top: Math.min(rect.bottom + 8, window.innerHeight - 190),
+        left: Math.max(8, Math.min(rect.right - 178, window.innerWidth - 190)),
+      },
+    });
+  }
+
+  useEffect(() => {
+    if (!menu) return undefined;
+    const close = () => setMenu(null);
+    const closeFromOutside = (event) => {
+      if (event.target.closest?.('.hr-row-menu-portal, .hr-menu-cell')) return;
+      setMenu(null);
+    };
+    document.addEventListener('mousedown', closeFromOutside);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', closeFromOutside);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [menu]);
 
   return (
     <div className="hr-screen">
@@ -89,7 +118,6 @@ export default function EmployeeList() {
         </div>
         <div className="hr-actions">
           <Link className="hr-btn primary" to="/employee-management/employees/add"><Plus size={15} /> Add Employee</Link>
-          <button className="hr-icon-btn" type="button"><MoreVertical size={17} /></button>
         </div>
       </div>
 
@@ -114,9 +142,11 @@ export default function EmployeeList() {
       <section className="hr-card">
         <div className="hr-toolbar">
           <div className="hr-search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, ID, email or mobile..." /></div>
-          <button className="hr-btn soft" type="button" onClick={() => setFiltersOpen(true)}>Filter <Filter size={14} /></button>
-          <button className="hr-icon-btn" type="button" title="Export"><Download size={16} /></button>
-          <button className="hr-icon-btn" type="button" title="Refresh" onClick={reload}><RefreshCw size={16} /></button>
+          <div className="hr-toolbar-actions">
+            <button className="hr-btn soft" type="button" onClick={() => setFiltersOpen(true)}>Filter <Filter size={14} /></button>
+            <button className="hr-icon-btn" type="button" title="Export"><Download size={16} /></button>
+            <button className="hr-icon-btn" type="button" title="Refresh" onClick={reload}><RefreshCw size={16} /></button>
+          </div>
         </div>
 
         <div className="hr-table-wrap">
@@ -133,15 +163,7 @@ export default function EmployeeList() {
                   <td>{row.employeeId}</td><td>{row.dept || '-'}</td><td>{row.designation || '-'}</td><td>{row.branch || '-'}</td><td>{row.reportingManager || '-'}</td><td>{dateText(row.joinDate)}</td>
                   <td><span className={statusClass(row.status || 'Active')}>{row.status || 'Active'}</span></td>
                   <td className="hr-menu-cell">
-                    <button className="hr-icon-btn" type="button" onClick={() => setMenuId(menuId === row._id ? '' : row._id)}><MoreVertical size={15} /></button>
-                    {menuId === row._id && (
-                      <div className="hr-row-menu">
-                        <Link to={`/employee-management/employees/${row._id}`}>View Profile</Link>
-                        <Link to={`/employee-management/employees/${row._id}/documents`}>Documents</Link>
-                        <Link to={`/employee-management/employees/add?edit=${row._id}`}>Edit</Link>
-                        <button type="button" onClick={() => deactivate(row)}>Deactivate</button>
-                      </div>
-                    )}
+                    <button className="hr-icon-btn" type="button" onClick={(event) => toggleMenu(event, row)}><MoreVertical size={15} /></button>
                   </td>
                 </tr>
               ))}
@@ -165,6 +187,16 @@ export default function EmployeeList() {
           <div className="hr-check-list"><strong>Employment Status</strong>{STATUSES.map((status) => <label key={status}><input type="checkbox" checked={filters.status.has(status)} onChange={() => toggleStatus(status)} />{status}</label>)}</div>
           <div className="hr-panel-actions"><button className="hr-btn" type="button" onClick={() => setFilters({ dept: '', designation: '', branch: '', manager: '', status: new Set() })}>Reset</button><button className="hr-btn primary" type="button" onClick={() => setFiltersOpen(false)}>Apply Filters</button></div>
         </aside>
+      )}
+
+      {menu && createPortal(
+        <div className="hr-row-menu hr-row-menu-portal" style={menu.style}>
+          <Link to={`/employee-management/employees/${menu.row._id}`} onClick={() => setMenu(null)}>View Profile</Link>
+          <Link to={`/employee-management/employees/${menu.row._id}/documents`} onClick={() => setMenu(null)}>Documents</Link>
+          <Link to={`/employee-management/employees/add?edit=${menu.row._id}`} onClick={() => setMenu(null)}>Edit</Link>
+          <button type="button" onClick={() => deactivate(menu.row)} disabled={(menu.row.status || 'Active') === 'Inactive'}>Deactivate</button>
+        </div>,
+        document.body,
       )}
     </div>
   );

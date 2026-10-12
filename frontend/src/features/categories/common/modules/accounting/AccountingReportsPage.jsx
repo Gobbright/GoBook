@@ -201,10 +201,11 @@ export function AccountingReportsPage() {
         <div className="flex flex-wrap items-center gap-2">
           {isSuperAdmin && (
             <SelectDropdown
+              className="w-[132px] flex-none sm:w-44"
               value={branch}
               onChange={setBranch}
               options={branchOptions}
-              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none min-w-44"
+              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none"
             />
           )}
           <ExportButtons title="Accounting Reports" filename={`accounting-${activeTab}`} rows={selectedRows} columns={exportColumns[activeTab]} />

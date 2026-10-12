@@ -164,8 +164,8 @@ export function GenericModulePage({ title, group, category, moduleKey, fields })
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && closeForm()}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-110 max-h-[90vh] overflow-y-auto">
+        <div className="app-form-overlay fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && closeForm()}>
+          <div className="app-form-modal bg-white rounded-xl shadow-2xl w-full max-w-110 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#edf2f7]">
               <h3 className="m-0 text-[15px] font-semibold text-[#111827]">{editingId ? `Edit ${title}` : `New ${title}`}</h3>
               <button type="button" onClick={closeForm} className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-lg leading-none font-[inherit]">✕</button>

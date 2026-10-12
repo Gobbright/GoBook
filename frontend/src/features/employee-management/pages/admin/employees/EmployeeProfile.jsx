@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CalendarCheck, Edit3, FileText, IndianRupee, MoreVertical, UserRound } from 'lucide-react';
+import { CalendarCheck, Edit3, FileText, IndianRupee, UserRound } from 'lucide-react';
 
 import { useLoad } from '../../../hooks/useLoad.js';
 import { adminService } from '../../../services/adminService.js';
@@ -32,7 +32,7 @@ export default function EmployeeProfile() {
       <section className="hr-profile-hero">
         <div className="hr-avatar-xl"><UserRound size={46} /></div>
         <div className="hr-profile-title"><h1>{employee.name}</h1><span className="hr-pill green">{employee.status || 'Active'}</span><p>{employee.employeeId} · {employee.designation || 'Employee'}<br />{employee.dept || 'Department not set'} · Joined on {fmt(employee.joinDate)}</p></div>
-        <div className="hr-actions"><Link className="hr-btn" to={`/employee-management/employees/add?edit=${employee._id}`}><Edit3 size={14} /> Edit Profile</Link><button className="hr-btn"><MoreVertical size={14} /> More Actions</button></div>
+        <div className="hr-actions"><Link className="hr-btn" to={`/employee-management/employees/add?edit=${employee._id}`}><Edit3 size={14} /> Edit Profile</Link></div>
       </section>
 
       <div className="hr-tabs">{['Overview', 'Employment', 'Attendance', 'Leave', 'Payroll', 'Documents'].map((item) => <button className={tab === item ? 'active' : ''} type="button" key={item} onClick={() => setTab(item)}>{item}</button>)}</div>

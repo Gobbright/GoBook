@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 
 import { AppUser } from '../../models/AppUser.js';
 import { httpError } from '../../utils/httpError.js';
+import { buildBrandedEmail, buildSmtpOverride, escapeHtml, sendMail } from '../../utils/mailer.js';
 import { isBusinessSuperAdmin } from '../../utils/tenantScope.js';
 
 const SALT_ROUNDS = 10;
@@ -33,7 +34,7 @@ function canManageUsers(user = {}) {
 }
 
 async function managementActor(req) {
-  const actor = await AppUser.findById(req.user.id).select('role accountType permissions branch businessId category').lean();
+  const actor = await AppUser.findById(req.user.id).select('name email role accountType permissions branch businessId category businessName').lean();
   if (!actor) throw httpError(404, 'User not found');
   return {
     ...req.user,
@@ -112,6 +113,31 @@ async function buildUserPayload(body, { requirePassword = false } = {}) {
   return payload;
 }
 
+function buildUserCredentialEmail({ user, password, businessName, actorName }) {
+  const safeEmail = escapeHtml(user.email);
+  const safePassword = escapeHtml(password);
+  const safeRole = escapeHtml(user.role || 'User');
+  const displayBusinessName = businessName || user.businessName || 'GoBooks';
+  const displayActor = actorName || 'your administrator';
+
+  return buildBrandedEmail({
+    title: 'Your GoBooks account is ready',
+    preheader: `Sign in to ${displayBusinessName} with your new account credentials.`,
+    greeting: `Hi ${user.name || 'there'},`,
+    intro: `${displayActor} created a GoBooks account for you in ${displayBusinessName}.`,
+    bodyHtml: `
+      <div style="margin:18px 0;padding:16px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;">
+        <p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.6;"><strong style="color:#0f172a;">Email:</strong> ${safeEmail}</p>
+        <p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.6;"><strong style="color:#0f172a;">Password:</strong> ${safePassword}</p>
+        <p style="margin:0;color:#334155;font-size:14px;line-height:1.6;"><strong style="color:#0f172a;">Role:</strong> ${safeRole}</p>
+      </div>
+    `,
+    notice: 'For security, sign in soon and change this password if your administrator asks you to use a personal password.',
+    footerText: 'This account was created by your GoBooks administrator.',
+    badge: 'Account access',
+  });
+}
+
 function toSafeUser(user) {
   const safe = typeof user.toObject === 'function' ? user.toObject() : { ...user };
   delete safe.password;
@@ -168,8 +194,9 @@ export async function createUser(req, res, next) {
       return next(httpError(403, 'You do not have permission to add users'));
     }
     const owner = await AppUser.findOne({ businessId: actor.businessId, accountType: 'owner' })
-      .select('businessName subscriptionStatus subscriptionExpiresAt category accountType role')
+      .select('businessName subscriptionStatus subscriptionExpiresAt category accountType role emailSmtpHost emailSmtpPort emailSmtpSecure emailSmtpUser emailSmtpPass')
       .lean();
+    const plainPassword = normalizeText(req.body.password);
     const payload = await buildUserPayload(req.body, { requirePassword: true });
     if (!payload.name || !payload.email) {
       return next(httpError(400, 'Name, email and password are required'));
@@ -192,7 +219,26 @@ export async function createUser(req, res, next) {
     payload.onboardingCompleted = true;
     payload.emailVerified = true;
     const user = await AppUser.create(payload);
-    res.status(201).json(toSafeUser(user));
+    let credentialsEmailSent = false;
+    let credentialsEmailError = '';
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'Your GoBooks account login details',
+        html: buildUserCredentialEmail({
+          user,
+          password: plainPassword,
+          businessName: payload.businessName,
+          actorName: actor.name || actor.email,
+        }),
+        smtp: buildSmtpOverride(owner, payload.businessName),
+      });
+      credentialsEmailSent = true;
+    } catch (mailErr) {
+      credentialsEmailError = mailErr?.message || 'Failed to send credentials email';
+      console.error('Failed to send new user credentials email:', credentialsEmailError);
+    }
+    res.status(201).json({ ...toSafeUser(user), credentialsEmailSent, credentialsEmailError });
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, 'Email already registered. Use another email address.'));
     next(err);

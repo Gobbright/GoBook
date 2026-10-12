@@ -9,9 +9,9 @@ import { createRazorpayOrder } from './razorpay.js';
 import { getActivePlan } from './subscriptionPlans.js';
 import { createAdminNotification } from './adminNotifications.js';
 import { sendSubscriptionInvoice } from './subscriptionInvoice.js';
+import { trialEndDate } from './trialWindow.js';
 
 const CHECKOUT_MINUTES = 30;
-const TRIAL_DAYS = 15;
 
 export async function createRegistrationOrder(pending) {
   const plan = await getActivePlan(pending.category, pending.subscriptionPlan);
@@ -83,14 +83,9 @@ function subscriptionEndDate(start) {
   return end;
 }
 
-function trialEndDate(start) {
-  const end = new Date(start);
-  end.setDate(end.getDate() + TRIAL_DAYS);
-  return end;
-}
-
 async function applyPendingSignupToExistingUser(existing, pending, { paymentId, amount } = {}) {
   if (existing.onboardingCompleted || existing.businessId) throw httpError(409, 'Account already exists. Please sign in.');
+  if (existing.trialClaimedAt) throw httpError(409, 'This account has already used its free trial. Please sign in and choose a plan.');
   let businessId = existing.businessId;
   if (!businessId) {
     const business = await Business.create({ name: pending.businessName, category: pending.category, retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '' });
@@ -114,10 +109,14 @@ async function applyPendingSignupToExistingUser(existing, pending, { paymentId, 
   existing.subscriptionPlan = pending.subscriptionPlan;
   existing.subscriptionAmount = amount ?? pending.subscriptionAmount;
   existing.subscriptionStatus = 'trial';
+  existing.billingStatus = 'TRIAL_ACTIVE';
+  existing.paymentMethodVerified = true;
+  existing.paymentMethodVerifiedAt = startDate;
   existing.subscriptionStartDate = startDate;
   existing.subscriptionExpiresAt = undefined;
   existing.trialStartedAt = startDate;
   existing.trialEndsAt = trialEndDate(startDate);
+  existing.trialClaimedAt = existing.trialClaimedAt || startDate;
   existing.lastSubscriptionPaymentId = paymentId || existing.lastSubscriptionPaymentId;
   existing.onboardingCompleted = true;
   existing.status = 'Active';
@@ -133,6 +132,8 @@ async function applyPendingSignupToExistingUser(existing, pending, { paymentId, 
         businessEmail: pending.email,
         phone: pending.phone || '',
         gstin: pending.gstin || '',
+        state: pending.state || '',
+        city: pending.city || '',
         bankName: pending.bankName || '',
         accountHolderName: pending.accountHolderName || '',
         accountNumber: pending.accountNumber || '',
@@ -168,14 +169,16 @@ export async function completeFreeSignup(pending) {
     googleProfile: pending.googleProfile,
     lastLogin: new Date().toISOString(), subscriptionPlan: pending.subscriptionPlan,
     subscriptionAmount: pending.subscriptionAmount, subscriptionStatus: 'trial',
+    billingStatus: 'TRIAL_ACTIVE', paymentMethodVerified: true, paymentMethodVerifiedAt: startDate,
     subscriptionStartDate: startDate, subscriptionExpiresAt: undefined,
-    trialStartedAt: startDate, trialEndsAt: trialEndDate(startDate),
+    trialStartedAt: startDate, trialEndsAt: trialEndDate(startDate), trialClaimedAt: startDate,
+
     onboardingCompleted: true, emailVerified: true,
   });
   await BusinessSettings.create({
     userId: user._id, businessName: pending.businessName, businessEmail: pending.email,
     retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '',
-    phone: pending.phone, gstin: pending.gstin,
+    phone: pending.phone, gstin: pending.gstin, state: pending.state || '', city: pending.city || '',
     bankName: pending.bankName || '',
     accountHolderName: pending.accountHolderName || '',
     accountNumber: pending.accountNumber || '',
@@ -252,7 +255,7 @@ export async function completePaidSignup(transaction, paymentData = {}, signatur
     await BusinessSettings.create({
       userId: user._id, businessName: pending.businessName, businessEmail: pending.email,
       retailSubcategory: pending.category === 'retail' ? pending.retailSubcategory || '' : '',
-      phone: pending.phone, gstin: pending.gstin,
+      phone: pending.phone, gstin: pending.gstin, state: pending.state || '', city: pending.city || '',
       bankName: pending.bankName || '',
       accountHolderName: pending.accountHolderName || '',
       accountNumber: pending.accountNumber || '',

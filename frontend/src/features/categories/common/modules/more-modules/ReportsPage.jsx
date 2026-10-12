@@ -11,6 +11,7 @@ import {
   ReceiptText,
   TrendingUp,
   Users,
+  X,
 } from 'lucide-react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
@@ -29,6 +30,7 @@ const EMPTY_SUMMARY = {
 const CATEGORY_STYLE = {
   Sales: { icon: TrendingUp, color: '#2563eb', bg: '#eff6ff' },
   Purchase: { icon: Building2, color: '#0891b2', bg: '#ecfeff' },
+  Service: { icon: ReceiptText, color: '#0f766e', bg: '#f0fdfa' },
   Finance: { icon: ReceiptText, color: '#16a34a', bg: '#f0fdf4' },
   Inventory: { icon: Package, color: '#d97706', bg: '#fffbeb' },
   HR: { icon: BookOpen, color: '#4f46e5', bg: '#eef2ff' },
@@ -98,11 +100,11 @@ function parseCsvTable(text = '', title = '') {
 
 function StatCard({ label, value, sub, color, bg }) {
   return (
-    <div className="bg-white border border-[#dfe7f1] rounded-lg p-4">
+    <div className="bg-white border border-[#dfe7f1] rounded-lg p-3.5 sm:p-4">
       <div className="text-xs text-[#536173]">{label}</div>
-      <div className="text-[21px] font-bold mt-1" style={{ color }}>{value}</div>
-      <div className="text-xs text-[#536173] mt-1">{sub}</div>
-      <div className="h-1 rounded-full mt-3" style={{ background: bg }} />
+      <div className="text-[20px] sm:text-[21px] font-bold mt-1" style={{ color }}>{value}</div>
+      <div className="text-[11px] sm:text-xs text-[#536173] mt-1">{sub}</div>
+      <div className="h-1 rounded-full mt-2.5 sm:mt-3" style={{ background: bg }} />
     </div>
   );
 }
@@ -256,17 +258,18 @@ export function ReportsPage() {
           </button>
           {isSuperAdmin && (
             <SelectDropdown
+              className="w-[132px] flex-none sm:w-44"
               value={branch}
               onChange={setBranch}
               options={branchOptions}
-              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none min-w-44"
+              buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none"
             />
           )}
         </div>
       </div>
 
       {statCards.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-5">
           {statCards.map((card) => <StatCard key={card.label} {...card} />)}
         </div>
       )}
@@ -292,13 +295,26 @@ export function ReportsPage() {
               <h2 className="m-0 text-[15px] font-semibold text-[#111827]">{reportData.title || activeReport.name}</h2>
               <p className="m-0 mt-0.5 text-[12.5px] text-[#536173]">{recordsLoading ? 'Loading records...' : `${reportData.count || 0} records from database`}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => handleDownloadReport(activeReport)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]"
-            >
-              <Download size={13} /> Download
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleDownloadReport(activeReport)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]"
+              >
+                <Download size={13} /> Download
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveReport(null);
+                  setReportData({ columns: [], rows: [], title: '', count: 0 });
+                  setRecordsError('');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]"
+              >
+                <X size={13} /> Close
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[760px]">
@@ -326,48 +342,6 @@ export function ReportsPage() {
         </div>
       )}
 
-      <div className="bg-white border border-[#dfe7f1] rounded-lg overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-[#edf2f7] flex items-center gap-2">
-          <BarChart3 size={16} className="text-blue-600" />
-          <span className="text-[14px] font-semibold text-[#111827]">Report Directory</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                {['Report Name', 'Category', 'Description', 'Last Updated', 'Download'].map((header) => (
-                  <th key={header} className="text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-5 py-3 border-b border-[#edf2f7]">{header}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {reports.length === 0 ? (
-                <tr>
-                  <td className="px-5 py-8 text-center text-[13px] text-[#536173]" colSpan={5}>No report records available yet.</td>
-                </tr>
-              ) : reports.map((row) => (
-                <tr key={`${row.category}-${row.name}`} className="hover:bg-gray-50">
-                  <td className="px-5 py-3.5 border-b border-[#f3f4f6] text-[13px] font-semibold text-[#111827]">{row.name}</td>
-                  <td className="px-5 py-3.5 border-b border-[#f3f4f6] text-[13px] text-[#536173]">{row.category}</td>
-                  <td className="px-5 py-3.5 border-b border-[#f3f4f6] text-[13px] text-[#536173]">{row.description}</td>
-                  <td className="px-5 py-3.5 border-b border-[#f3f4f6] text-[13px] text-[#536173]">{row.lastGenerated ?? '-'}</td>
-                  <td className="px-5 py-3.5 border-b border-[#f3f4f6] text-[13px] text-[#536173]">
-                    {row.downloadKey ? (
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadReport(row)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-semibold text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]"
-                      >
-                        <Download size={13} /> CSV
-                      </button>
-                    ) : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }

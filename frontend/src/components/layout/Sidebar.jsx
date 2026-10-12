@@ -5,8 +5,8 @@ import {
   Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, ChevronDown, Contact,
   ClipboardList, CreditCard, Database, FileCheck, FileMinus, FilePlus,
   FileSpreadsheet, FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3,
-  HeartPulse, History, Home, IndianRupee, LayoutDashboard,
-  LayoutGrid, Lock, LogIn, LogOut, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus,
+  HeartPulse, History, Home, IndianRupee, LayoutDashboard, LayoutTemplate,
+  LayoutGrid, Lock, LogIn, LogOut, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus, Palette,
   PenLine, Pill, PieChart, QrCode, Receipt, ReceiptText, RefreshCw, Route, Scale, Settings,
   Shield, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound,
   Users, UtensilsCrossed, Wallet, Warehouse, Wrench, XCircle, Zap,
@@ -23,8 +23,8 @@ const ICON_MAP = {
   Activity, AlertTriangle, ArrowRightLeft, Award, BarChart2, BarChart3, BedDouble, Bell, BookOpen,
   Building2, Bus, CalendarCheck, CalendarClock, CalendarOff, Car, CheckSquare, Contact, ClipboardList, CreditCard, Database,
   FileCheck, FileMinus, FilePlus, FileSpreadsheet,
-  FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3, HeartPulse, History, Home, LayoutDashboard, LayoutGrid,
-  Lock, LogIn, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus, PenLine,
+  FileText, FlaskConical, FolderOpen, GitBranch, GraduationCap, Grid3x3, HeartPulse, History, Home, LayoutDashboard, LayoutGrid, LayoutTemplate,
+  Lock, LogIn, Mail, MessageCircle, Microscope, Package, PackageMinus, PackagePlus, Palette, PenLine,
   Pill, PieChart, QrCode, Receipt, ReceiptText, RefreshCw, Route, Scale, Settings, Shield,
   IndianRupee, ShoppingCart, Sparkles, Stethoscope, Truck, TrendingUp, UserCheck, UserPlus, UserRound, Users,
   UtensilsCrossed, Wallet, Warehouse, Wrench, XCircle, Zap,
@@ -108,12 +108,7 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
     const currentUser = storedUser || {};
     return getSidebarSections(currentUser.category || 'other', currentUser);
   }, [storedUser]);
-  const sidebarSections = useMemo(() => {
-    if ((storedUser?.category || 'other') === 'hotel') {
-      return focusHotelSidebarSections(rawSidebarSections, currentPath);
-    }
-    return rawSidebarSections;
-  }, [currentPath, rawSidebarSections, storedUser?.category]);
+  const sidebarSections = rawSidebarSections;
   const [openSection, setOpenSection] = useState(() => {
     // Active section from current URL takes priority; otherwise restore last saved; Sales is the default
     const fromPath = findActiveSection(sidebarSections, normalizeAppPath(window.location.pathname || '/dashboard'));
@@ -337,13 +332,11 @@ export function Sidebar({ mobileOpen = false, onClose = () => {} }) {
             </div>
           ))}
         </nav>
-
-        {/* Logout */}
-        <div className="flex-none px-3 pt-3 mt-2 border-t border-white/10">
+        <div className="sidebar-logout flex-none px-3 pt-1 pb-2">
           <button
             type="button"
             onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium cursor-pointer bg-transparent border-0 font-[inherit] text-[#c8dff2] hover:text-white hover:bg-white/8 transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium cursor-pointer bg-transparent border-0 font-[inherit] text-[#c8dff2] hover:text-white hover:bg-white/8 transition-colors text-left"
           >
             <span className="flex-none text-[#7ab4d8]">
               <LogOut size={15} strokeWidth={1.75} />

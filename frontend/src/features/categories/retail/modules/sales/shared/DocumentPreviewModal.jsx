@@ -1,4 +1,10 @@
 import { getInvoiceLayoutSettings } from '../../../../../../utils/invoiceLayoutSettings.js';
+import {
+  INVOICE_DESIGN_ELEMENTS,
+  getInvoiceDesignDimensions,
+  getInvoiceDesignSettings,
+  getInvoiceThermalTemplate,
+} from '../../../../../../utils/invoiceDesignSettings.js';
 import { InvoicePdfSurface } from './InvoicePdfSurface.jsx';
 import { X } from 'lucide-react';
 
@@ -73,17 +79,33 @@ function cleanPrintableItemText(value = '') {
     .trim();
 }
 
-function itemName(item = {}) {
+function itemVariantText(item = {}) {
+  return cleanPrintableItemText(item.size || item.modelName || item.modelNumber || '');
+}
+
+function purchaseVariantText(item = {}) {
+  return [
+    item.brand || item.other || item.variantBrand || '',
+    itemVariantText(item),
+    item.material || item.fabric || item.variantMaterial || '',
+  ]
+    .map((part) => cleanPrintableItemText(part))
+    .filter(Boolean)
+    .filter((part, index, arr) => arr.findIndex((value) => value.toLowerCase() === part.toLowerCase()) === index)
+    .join(' / ');
+}
+
+function itemName(item = {}, { includeVariant = true } = {}) {
   const description = cleanPrintableItemText(item.description || item.name || item.productName || '');
-  const model = cleanPrintableItemText(item.size || item.modelName || item.modelNumber || '');
+  const model = itemVariantText(item);
   if (!description) return model || '-';
-  if (!model || description.toLowerCase().includes(model.toLowerCase())) return description;
+  if (!includeVariant || !model || description.toLowerCase().includes(model.toLowerCase())) return description;
   return `${description} ${model}`;
 }
 
-function itemDescriptionLines(item = {}) {
+function itemDescriptionLines(item = {}, options = {}) {
   const lines = [
-    itemName(item),
+    itemName(item, options),
     item.itemDescription || item.lineDescription || item.details || item.note || item.remark || '',
   ];
   const seen = new Set();
@@ -142,7 +164,17 @@ function taxRowsForInvoice({ totals = {}, items = [], charges = [], supplyType =
     });
 }
 
-function bankRowsForInvoice(bizSettings = {}, docExtra = {}) {
+function bankRowsForInvoice(bizSettings = {}, docExtra = {}, documentType = '', customer = {}) {
+  if (documentType === 'purchase-entry') {
+    return [
+      ['BANK NAME', fieldValue(docExtra.vendorBankName, customer.bankName, docExtra.bankName)],
+      ['A/C NAME', fieldValue(docExtra.vendorAccountHolderName, customer.accountHolderName, docExtra.accountHolderName, docExtra.accountName)],
+      ['A/C No.', fieldValue(docExtra.vendorAccountNumber, customer.accountNumber, docExtra.accountNumber, docExtra.accountNo)],
+      ['IFSC CODE', fieldValue(docExtra.vendorIfscCode, customer.ifscCode, docExtra.ifscCode, docExtra.ifsc)],
+      ['BRANCH', fieldValue(docExtra.vendorBankBranch, customer.bankBranch, docExtra.bankBranch)],
+    ].filter(([, value]) => value);
+  }
+
   return [
     ['BANK NAME', fieldValue(bizSettings.bankName, docExtra.bankName)],
     ['A/C NAME', fieldValue(bizSettings.accountHolderName, bizSettings.accountName, docExtra.accountName)],
@@ -203,6 +235,7 @@ export function DocumentPreviewModal({
   paymentMethod = '',
   embedded = false,
   onClose,
+  autoPrint = false,
   downloadAsPdf = false,
   printInvoice = false,
   pdfMode = false,
@@ -217,6 +250,7 @@ export function DocumentPreviewModal({
   const previewTitle = documentTitleForPreview(config);
   const isSupplierReturn = config.documentType === 'supplier-return';
   const isSalesReturn = config.documentType === 'sales-return';
+  const isPurchaseDocument = ['purchase-entry', 'purchase-order'].includes(config.documentType);
   const isReturn = isSupplierReturn || isSalesReturn;
   const returnReference = isReturn && <div style={{ padding: '8px', fontSize: '11px', borderBottom: '1px solid #ddd' }}>
     <strong>{isSupplierReturn ? 'Purchase' : 'Original invoice'}: {docExtra.originalInvoiceNo || '-'} · {formatDate(docExtra.originalInvoiceDate)}</strong>
@@ -252,18 +286,21 @@ export function DocumentPreviewModal({
   const taxableTotal = Number(totals.taxable ?? totals.subtotal ?? visibleItems.reduce((sum, item) => sum + lineCalc(item).taxable, 0)) || 0;
   const finalTotal = Number(totals.finalTotal ?? taxableTotal + taxRows.reduce((sum, row) => sum + row.amount, 0)) || 0;
   const roundOff = Number(totals.roundOff ?? Math.round(finalTotal) - finalTotal) || 0;
-  const fillerHeight = Math.max(14, 58 - visibleItems.reduce((sum, item) => sum + 5 + Math.max(0, itemDescriptionLines(item).length - 1) * 3.4, 0));
-  const bankRows = bankRowsForInvoice(bizSettings, docExtra);
-  const layoutOptions = getInvoiceLayoutSettings(bizSettings, docExtra.invoicePrintFormat || bizSettings.invoicePrintFormat);
-  const showLogo = layoutOptions.invoiceShowLogo !== false;
-  const showAmountWords = layoutOptions.invoiceShowAmountWords !== false;
-  const showBankDetails = layoutOptions.invoiceShowBankDetails !== false;
-  const showPaymentQr = layoutOptions.invoiceShowPaymentQr !== false;
-  const showNotes = layoutOptions.invoiceShowNotes !== false;
-  const showTerms = layoutOptions.invoiceShowTerms !== false;
-  const showSignature = layoutOptions.invoiceShowSignature !== false;
-  const showGoBookBranding = layoutOptions.invoiceShowGoBookBranding !== false;
-  const isThermal80 = (docExtra.invoicePrintFormat || bizSettings.invoicePrintFormat) === 'thermal80';
+  const descriptionOptions = { includeVariant: !isPurchaseDocument && config.documentType !== 'invoice' };
+  const fillerHeight = Math.max(14, 58 - visibleItems.reduce((sum, item) => sum + 5 + Math.max(0, itemDescriptionLines(item, descriptionOptions).length - 1) * 3.4, 0));
+  const bankRows = bankRowsForInvoice(bizSettings, docExtra, config.documentType, customer);
+  const printFormat = docExtra.invoicePrintFormat || bizSettings.invoicePrintFormat || 'normal';
+  const showLogo = true;
+  const showAmountWords = true;
+  const showBankDetails = true;
+  const showPaymentQr = true;
+  const showNotes = true;
+  const showTerms = true;
+  const showSignature = true;
+  const showGoBookBranding = true;
+  const isThermal80 = printFormat === 'thermal80';
+  const thermalTemplate = getInvoiceThermalTemplate(bizSettings) || docExtra.invoiceThermalTemplate || 'standard';
+  const isBoxedThermalTemplate = thermalTemplate === 'boxed';
   const visibleBankRows = showBankDetails ? bankRows : [];
   const qrSrc = fieldValue(
     bizSettings.paymentQrUrl ? `${SERVER_ORIGIN}${bizSettings.paymentQrUrl}` : '',
@@ -282,8 +319,230 @@ export function DocumentPreviewModal({
   const pdfFilename = invoiceNumber
     ? `Invoice-${String(invoiceNumber).replace(/[\\/:*?"<>|]+/g, '-')}.pdf`
     : 'Invoice.pdf';
+  const pdfItems = visibleItems.map((item, index) => {
+    const line = lineCalc(item);
+    const lines = itemDescriptionLines(item, descriptionOptions);
+    const qty = line.qty || 1;
+    return {
+      key: item.id || item._id || `${item.description}-${index}`,
+      title: lines[0] || '-',
+      lines,
+      variant: isPurchaseDocument ? purchaseVariantText(item) : '',
+      hsn: item.hsn || item.hsnCode || item.sac || '',
+      gst: showGst ? `${line.gstRate || 0}%` : '',
+      qty: formatQty(line.qty),
+      unit: String(item.unit || item.uqc || 'NOS').toUpperCase(),
+      rate: line.rate,
+      priceWithGst: showGst ? line.total / qty : line.rate,
+      amount: line.taxable,
+    };
+  });
+  const pdfTaxSummary = taxSummary.map(([rate, value]) => {
+    const gst = Number(value.gst) || 0;
+    const interstate = supplyType === 'interstate';
+    return {
+      rate: Number(rate),
+      taxable: value.taxable,
+      cgst: interstate ? 0 : gst / 2,
+      sgst: interstate ? 0 : gst / 2,
+      totalTax: gst,
+    };
+  });
+  const pdfData = {
+    printFormat,
+    invoicePrintFormat: printFormat,
+    invoiceThermalTemplate: thermalTemplate,
+    invoiceDesignSettings: bizSettings.invoiceDesignSettings,
+    isThermal80,
+    previewTitle,
+    businessName,
+    businessDescription,
+    businessAddress,
+    bizPhone: fieldValue(bizSettings.phone),
+    bizEmail: fieldValue(bizSettings.businessEmail, bizSettings.email),
+    bizGstin: bizSettings.gstin || '',
+    customerName: fieldValue(customer.name),
+    customerAddress,
+    customerGstin,
+    customerPhone: fieldValue(customer.phone, customer.mobile),
+    placeOfSupply: fieldValue(docMeta.placeOfSupply, customer.state),
+    deliveryBy: fieldValue(docExtra.deliveryBy, docExtra.transporter),
+    lrNo: fieldValue(docExtra.lrNo),
+    initials: initialsForName(businessName),
+    logoSrc,
+    qrSrc,
+    visibleItems: pdfItems,
+    isPurchaseDocument,
+    taxRows,
+    taxSummary: pdfTaxSummary,
+    visibleBankRows,
+    taxableTotal,
+    roundOff,
+    finalTotal,
+    oldBalance,
+    newBalance,
+    amountWords: numberToWords(finalTotal),
+    termLines,
+    noteLines,
+    showLogo,
+    showAmountWords,
+    showBankDetails,
+    showPaymentQr,
+    showTerms,
+    showNotes,
+    showSignature,
+    showGoBookBranding,
+    leftMeta: [
+      { label: isReturn ? 'Return No.' : 'Invoice No.', value: fieldValue(docMeta.number) },
+      { label: 'P.O. No.', value: fieldValue(docMeta.poRef, docExtra.poNo) },
+      { label: 'Challan No.', value: fieldValue(docExtra.challanNo) },
+      { label: isReturn ? 'Settlement' : 'Bill Pay Status', value: isReturn ? `${isSupplierReturn ? 'Supplier' : 'Customer'} ledger` : fieldValue(docMeta.paymentStatus, docExtra.paymentStatus, dueAmount > 0 ? `Due ${formatAmount(dueAmount)}` : 'Paid') },
+      { label: 'Bill Credit', value: fieldValue(docMeta.paymentTerms ? `${docMeta.paymentTerms} Days` : '', docExtra.creditDays ? `${docExtra.creditDays} Days` : '') },
+      { label: 'Location', value: fieldValue(docExtra.location) },
+    ],
+    rightMeta: [
+      { label: isReturn ? 'Return Date' : 'Invoice Date', value: [formatDate(docMeta.date), fieldValue(docExtra.invoiceTime, docExtra.time, docMeta.time)].filter(Boolean).join(' ') },
+      { label: 'P.O. Date', value: formatDate(docMeta.poDate || docExtra.poDate) },
+      { label: 'Pay. Mode', value: fieldValue(paymentMethod) },
+      { label: 'Salesman', value: fieldValue(docExtra.salesman) },
+      { label: 'Due Date', value: formatDate(docMeta.dueDate) },
+      { label: 'Operator', value: fieldValue(docExtra.operator) },
+    ],
+  };
 
-  const receiptContent = (
+  const receiptDesign = getInvoiceDesignSettings(bizSettings, printFormat);
+  const receiptElements = receiptDesign.elements;
+  const { width: receiptDesignWidth, height: receiptDesignHeight } = getInvoiceDesignDimensions(printFormat);
+  const designedPageIsThermal = printFormat === 'thermal80';
+  const receiptSectionVisible = (key) => {
+    if (designedPageIsThermal && ['bank', 'paymentQr', 'terms'].includes(key)) return false;
+    const element = receiptElements[key];
+    if (!element?.visible) return false;
+    if (key === 'bank') return visibleBankRows.length > 0;
+    if (key === 'paymentQr') return Boolean(qrSrc);
+    if (key === 'terms') return termLines.length > 0;
+    if (key === 'notes') return noteLines.length > 0;
+    return true;
+  };
+  const receiptBoxStyle = (key) => {
+    const element = receiptElements[key];
+    return {
+      position: 'absolute',
+      left: `${element.x / receiptDesignWidth * 100}%`,
+      top: `${element.y / receiptDesignHeight * 100}%`,
+      width: `${element.w / receiptDesignWidth * 100}%`,
+      height: `${element.h / receiptDesignHeight * 100}%`,
+      zIndex: element.z || 1,
+      overflow: 'hidden',
+      boxSizing: 'border-box',
+    };
+  };
+  const receiptBlockStyle = {
+    color: '#111',
+    fontFamily: 'Arial, Helvetica, sans-serif',
+    fontSize: designedPageIsThermal ? '7.5pt' : '10pt',
+    lineHeight: 1.18,
+    overflowWrap: 'anywhere',
+  };
+  const renderDesignedReceiptSection = (key) => {
+    if (!receiptSectionVisible(key)) return null;
+    const common = { key, style: { ...receiptBoxStyle(key), ...receiptBlockStyle } };
+    if (key === 'header') {
+      return (
+        <div {...common} style={{ ...common.style, textAlign: 'center', display: 'grid', justifyItems: 'center', alignContent: 'start', gap: '0.7mm' }}>
+          {logoSrc && <img src={logoSrc} alt="" style={{ width: designedPageIsThermal ? '14mm' : '24mm', height: designedPageIsThermal ? '14mm' : '24mm', objectFit: 'contain' }} />}
+          <strong style={{ display: 'block', fontSize: designedPageIsThermal ? '10pt' : '18pt', lineHeight: 1.05, textTransform: 'uppercase' }}>{businessName}</strong>
+          {businessDescription && <span>{businessDescription}</span>}
+          {businessAddress.slice(0, 3).map((line) => <span key={line}>{line}</span>)}
+          {bizSettings.phone && <span>Phone: {bizSettings.phone}</span>}
+          {bizSettings.gstin && <span>GSTIN: {bizSettings.gstin}</span>}
+        </div>
+      );
+    }
+    if (key === 'title') {
+      return <div {...common} style={{ ...common.style, display: 'grid', placeItems: 'center', borderTop: '0.25mm dashed #222', borderBottom: '0.25mm dashed #222', fontWeight: 800, fontSize: designedPageIsThermal ? '9pt' : '16pt', textAlign: 'center', textTransform: 'uppercase' }}>{previewTitle}</div>;
+    }
+    if (key === 'meta') {
+      return (
+        <div {...common} style={{ ...common.style, display: 'grid', gap: '1mm', borderBottom: '0.25mm dashed #222' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4mm' }}><span>No</span><b>{fieldValue(docMeta.number, invoiceNumber)}</b></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4mm' }}><span>Date</span><b>{[formatDate(docMeta.date), formatTime(docMeta.date || docMeta.time)].filter(Boolean).join(' ')}</b></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4mm' }}><span>Pay</span><b>{fieldValue(paymentMethod, docMeta.paymentStatus)}</b></div>
+        </div>
+      );
+    }
+    if (key === 'party') {
+      return (
+        <div {...common} style={{ ...common.style, display: 'grid', gap: '0.8mm', borderBottom: '0.25mm dashed #222' }}>
+          <strong style={{ textTransform: 'uppercase' }}>{isSupplierReturn ? 'Supplier' : 'Customer'}</strong>
+          <span>{fieldValue(customer.name, 'Walk-in Customer')}</span>
+          {customer.phone || customer.mobile ? <span>{fieldValue(customer.phone, customer.mobile)}</span> : null}
+        </div>
+      );
+    }
+    if (key === 'items') {
+      return (
+        <div {...common}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: designedPageIsThermal ? '7.1pt' : '9.5pt' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', borderBottom: '0.25mm solid #222' }}>Item</th>
+                <th style={{ width: '8mm', textAlign: 'center', borderBottom: '0.25mm solid #222' }}>Qty</th>
+                <th style={{ width: '14mm', textAlign: 'right', borderBottom: '0.25mm solid #222' }}>Rate</th>
+                <th style={{ width: '15mm', textAlign: 'right', borderBottom: '0.25mm solid #222' }}>Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleItems.map((item, index) => {
+                const line = lineCalc(item);
+                return (
+                  <tr key={item.id || item._id || `${item.description}-${index}`}>
+                    <td style={{ paddingTop: '1mm', verticalAlign: 'top' }}><strong>{itemName(item, descriptionOptions)}</strong></td>
+                    <td style={{ paddingTop: '1mm', textAlign: 'center', verticalAlign: 'top' }}>{formatQty(line.qty)}</td>
+                    <td style={{ paddingTop: '1mm', textAlign: 'right', verticalAlign: 'top' }}>{formatAmount(line.rate)}</td>
+                    <td style={{ paddingTop: '1mm', textAlign: 'right', verticalAlign: 'top' }}>{formatAmount(line.taxable)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    if (key === 'totals') {
+      return (
+        <div {...common} style={{ ...common.style, display: 'grid', gap: '1mm', borderTop: '0.25mm dashed #222', borderBottom: '0.25mm dashed #222' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><b>{formatAmount(finalTotal - roundOff)}</b></div>
+          {roundOff ? <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Round Off</span><b>{formatAmount(roundOff)}</b></div> : null}
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '0.25mm solid #222', paddingTop: '1mm', fontSize: designedPageIsThermal ? '9pt' : '13pt', fontWeight: 800 }}><span>Total</span><b>{formatAmount(finalTotal)}</b></div>
+        </div>
+      );
+    }
+    if (key === 'amountWords') {
+      return <div {...common}><span>Amount in words</span><br /><strong>{numberToWords(finalTotal)}</strong></div>;
+    }
+    if (key === 'bank') {
+      return <div {...common}><strong>Bank Details</strong>{visibleBankRows.map(([label, value]) => <div key={label}>{label}: {value}</div>)}</div>;
+    }
+    if (key === 'paymentQr') {
+      return <div {...common} style={{ ...common.style, display: 'grid', justifyItems: 'center', textAlign: 'center' }}><img src={qrSrc} alt="UPI Payment QR Code" crossOrigin="anonymous" style={{ width: designedPageIsThermal ? '24mm' : '34mm', height: designedPageIsThermal ? '24mm' : '34mm', objectFit: 'contain' }} /><span>Scan to Pay</span></div>;
+    }
+    if (key === 'terms') {
+      return <div {...common}><strong>Terms</strong>{termLines.map((line) => <div key={line}>{line}</div>)}</div>;
+    }
+    if (key === 'notes') {
+      return <div {...common}><strong>Notes</strong>{noteLines.map((line) => <div key={line}>{line}</div>)}</div>;
+    }
+    if (key === 'signature') {
+      return <div {...common} style={{ ...common.style, display: 'grid', alignContent: 'end', justifyItems: 'end', textAlign: 'right' }}>{stampSrc && <img src={stampSrc} alt="" style={{ width: designedPageIsThermal ? '18mm' : '28mm', height: designedPageIsThermal ? '18mm' : '28mm', objectFit: 'contain' }} />}<span>Authorized Signatory</span></div>;
+    }
+    if (key === 'footer') {
+      return <div {...common} style={{ ...common.style, textAlign: 'center', fontSize: '7pt' }}>This is a Computer Generated {previewTitle}</div>;
+    }
+    return null;
+  };
+
+  const standardReceiptContent = (
     <div className={`pdf-render erp-invoice-preview erp-receipt-preview${pdfMode ? ' erp-pdf-mode' : ''}`}>
       <section className="erp-receipt-page">
         <div className="erp-receipt-header">
@@ -308,9 +567,6 @@ export function DocumentPreviewModal({
         <div className="erp-receipt-party">
           <strong>{isSupplierReturn ? 'Supplier' : 'Customer'}</strong>
           <p>{fieldValue(customer.name, 'Walk-in Customer')}</p>
-          {customerGstin && <p>GSTIN: {customerGstin}</p>}
-          {customer.phone && <p>Mobile: {customer.phone}</p>}
-          {customerAddress.slice(0, 2).map((line) => <p key={line}>{line}</p>)}
         </div>
 
         {returnReference}
@@ -329,9 +585,7 @@ export function DocumentPreviewModal({
               return (
                 <tr key={item.id || item._id || `${item.description}-${index}`}>
                   <td>
-                    <strong>{itemName(item)}</strong>
-                    {(item.hsn || item.hsnCode || item.sac) && <span>HSN: {item.hsn || item.hsnCode || item.sac}</span>}
-                    {showGst && line.gstRate ? <span>GST: {line.gstRate}%</span> : null}
+                    <strong>{itemName(item, descriptionOptions)}</strong>
                   </td>
                   <td>{formatQty(line.qty)}</td>
                   <td>{formatAmount(line.rate)}</td>
@@ -343,8 +597,7 @@ export function DocumentPreviewModal({
         </table>
 
         <div className="erp-receipt-totals">
-          <div><span>Subtotal</span><b>{formatAmount(taxableTotal)}</b></div>
-          {taxRows.map((row) => <div key={row.label}><span>{row.label}</span><b>{formatAmount(row.amount)}</b></div>)}
+          <div><span>Subtotal</span><b>{formatAmount(finalTotal - roundOff)}</b></div>
           {roundOff ? <div><span>Round Off</span><b>{formatAmount(roundOff)}</b></div> : null}
           <div className="erp-receipt-grand"><span>Total</span><b>{formatAmount(finalTotal)}</b></div>
         </div>
@@ -356,29 +609,8 @@ export function DocumentPreviewModal({
           </div>
         )}
 
-        {(showBankDetails && visibleBankRows.length > 0) && (
-          <div className="erp-receipt-bank">
-            <strong>Bank Details</strong>
-            {visibleBankRows.map(([label, value]) => <p key={label}>{label}: {value}</p>)}
-          </div>
-        )}
-
-        {showPaymentQr && qrSrc && (
-          <div className="erp-receipt-qr">
-            <img src={qrSrc} alt="UPI Payment QR Code" crossOrigin="anonymous" />
-            <span>Scan to Pay</span>
-          </div>
-        )}
-
-        {showTerms && termLines.length > 0 && (
-          <div className="erp-receipt-note">
-            <strong>Terms</strong>
-            {termLines.map((line) => <p key={line}>{line}</p>)}
-          </div>
-        )}
-
         {showNotes && noteLines.length > 0 && (
-          <div className="erp-receipt-note">
+          <div className="erp-receipt-note erp-receipt-after-total">
             <strong>Notes</strong>
             {noteLines.map((line) => <p key={line}>{line}</p>)}
           </div>
@@ -396,9 +628,81 @@ export function DocumentPreviewModal({
     </div>
   );
 
+  const boxedReceiptContent = (
+    <div className={`pdf-render erp-invoice-preview erp-receipt-preview${pdfMode ? ' erp-pdf-mode' : ''}`}>
+      <section className="erp-receipt-page">
+        <div style={{ border: '0.35mm solid #777', padding: '4mm', minHeight: '132mm', height: 'auto', overflow: 'visible', boxSizing: 'border-box' }}>
+          <div style={{ textAlign: 'center', marginBottom: '4mm' }}>
+            <strong style={{ display: 'block', fontSize: '10pt', lineHeight: 1.15 }}>{businessName || 'GoBook'}</strong>
+            {businessAddress.slice(0, 2).map((line) => <div key={line} style={{ fontSize: '7.5pt', lineHeight: 1.2 }}>{line}</div>)}
+            {bizSettings.phone && <div style={{ fontSize: '7.5pt', lineHeight: 1.2 }}>Phone: {bizSettings.phone}</div>}
+          </div>
+
+          <div style={{ textAlign: 'center', fontSize: '11pt', fontWeight: 700, letterSpacing: '0.2px', marginBottom: '3mm' }}>{previewTitle}</div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '3mm', fontSize: '8pt', marginBottom: '3mm' }}>
+            <span>Invoice#: {fieldValue(docMeta.number, invoiceNumber)}</span>
+            <span>Date: {formatDate(docMeta.date)}</span>
+          </div>
+
+          <div style={{ borderTop: '0.25mm dashed #333', borderBottom: '0.25mm dashed #333', padding: '1.5mm 0', marginBottom: '2mm' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '7.5pt' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '6mm', textAlign: 'left', fontWeight: 400 }}>#</th>
+                  <th style={{ textAlign: 'left', fontWeight: 400 }}>Item</th>
+                  <th style={{ width: '13mm', textAlign: 'right', fontWeight: 400 }}>Qty</th>
+                  <th style={{ width: '16mm', textAlign: 'right', fontWeight: 400 }}>Rate</th>
+                  <th style={{ width: '17mm', textAlign: 'right', fontWeight: 400 }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleItems.map((item, index) => {
+                  const line = lineCalc(item);
+                  return (
+                    <tr key={item.id || item._id || `${item.description}-${index}`}>
+                      <td style={{ paddingTop: '1.2mm', verticalAlign: 'top' }}>{index + 1}</td>
+                      <td style={{ paddingTop: '1.2mm', verticalAlign: 'top' }}>{itemName(item, descriptionOptions)}</td>
+                      <td style={{ paddingTop: '1.2mm', textAlign: 'right', verticalAlign: 'top' }}>{formatQty(line.qty)}</td>
+                      <td style={{ paddingTop: '1.2mm', textAlign: 'right', verticalAlign: 'top' }}>{formatAmount(line.rate)}</td>
+                      <td style={{ paddingTop: '1.2mm', textAlign: 'right', verticalAlign: 'top' }}>{formatAmount(line.taxable)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ borderBottom: '0.25mm solid #333', paddingBottom: '2mm', marginBottom: '2mm', fontSize: '8pt' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Sub Total</span><span>{formatAmount(taxableTotal)}</span></div>
+            {taxRows.map((row) => (
+              <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{row.label}</span><span>{formatAmount(row.amount)}</span></div>
+            ))}
+            {roundOff ? <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Round Off</span><span>{formatAmount(roundOff)}</span></div> : null}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderBottom: '0.35mm solid #333', padding: '1mm 0 2.5mm', fontWeight: 800 }}>
+            <span style={{ fontSize: '14pt' }}>TOTAL</span>
+            <span style={{ fontSize: '14pt' }}>{formatAmount(finalTotal)}</span>
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: '7mm', fontSize: '12pt' }}>Thank you!</div>
+          {showGoBookBranding && <div className="erp-receipt-footer">This is a Computer Generated {previewTitle}</div>}
+        </div>
+      </section>
+    </div>
+  );
+
+  const receiptContent = isBoxedThermalTemplate ? boxedReceiptContent : standardReceiptContent;
+
   const normalContent = (
     <div className={`pdf-render erp-invoice-preview${pdfMode ? ' erp-pdf-mode' : ''}`}>
-      <section className="invoice-page erp-invoice-page">
+      <section className="invoice-page erp-invoice-page erp-custom-normal-page" style={{ position: 'relative', padding: 0 }}>
+        {INVOICE_DESIGN_ELEMENTS
+          .slice()
+          .sort((a, b) => (receiptElements[a.key]?.z || 0) - (receiptElements[b.key]?.z || 0))
+          .map((item) => renderDesignedReceiptSection(item.key))}
+        <div style={{ display: 'none' }}>
         <div className="erp-top-section">
           <div className="erp-title-row">
             <div className="erp-title-spacer" />
@@ -483,14 +787,15 @@ export function DocumentPreviewModal({
         {returnReference}
         <div className="erp-body-section">
           <div className="erp-items-wrap">
-            <table className="erp-items-table">
+            <table className={`erp-items-table${isPurchaseDocument ? ' erp-items-table-purchase' : ''}`}>
               <colgroup>
                 <col className="erp-col-sn" />
                 <col className="erp-col-desc" />
+                {isPurchaseDocument && <col className="erp-col-variant" />}
                 <col className="erp-col-hsn" />
                 <col className="erp-col-gst" />
                 <col className="erp-col-qty" />
-                <col className="erp-col-uqc" />
+                {!isPurchaseDocument && <col className="erp-col-uqc" />}
                 <col className="erp-col-price" />
                 <col className="erp-col-price-gst" />
                 <col className="erp-col-amount" />
@@ -499,10 +804,11 @@ export function DocumentPreviewModal({
                 <tr>
                   <th>S/N</th>
                   <th>Description Of Goods / Service</th>
+                  {isPurchaseDocument && <th>Brand / Size / Material</th>}
                   <th>HSN/SAC</th>
                   <th>GST</th>
                   <th>Billed<br />Quantity</th>
-                  <th>UQC</th>
+                  {!isPurchaseDocument && <th>UQC</th>}
                   <th>Price</th>
                   <th>Price With<br />GST</th>
                   <th>Amount</th>
@@ -511,8 +817,9 @@ export function DocumentPreviewModal({
               <tbody>
                 {visibleItems.map((item, index) => {
                   const line = lineCalc(item);
-                  const lines = itemDescriptionLines(item);
+                  const lines = itemDescriptionLines(item, descriptionOptions);
                   const unit = String(item.unit || item.uqc || 'NOS').toUpperCase();
+                  const variant = purchaseVariantText(item);
                   const qty = line.qty || 1;
                   const priceWithGst = showGst ? line.total / qty : line.rate;
                   return (
@@ -524,10 +831,11 @@ export function DocumentPreviewModal({
                           <div className="erp-item-subline" key={`${lineText}-${lineIndex}`}>{lineText}</div>
                         ))}
                       </td>
+                      {isPurchaseDocument && <td className="erp-cell-center erp-nowrap">{variant || '-'}</td>}
                       <td className="erp-cell-center erp-nowrap">{item.hsn || item.hsnCode || item.sac || ''}</td>
                       <td className="erp-cell-center erp-nowrap">{showGst ? `${line.gstRate || 0}%` : ''}</td>
                       <td className="erp-cell-center erp-nowrap">{formatQty(line.qty)}</td>
-                      <td className="erp-cell-center erp-nowrap">{unit}</td>
+                      {!isPurchaseDocument && <td className="erp-cell-center erp-nowrap">{unit}</td>}
                       <td className="erp-money-cell">{formatAmount(line.rate)}</td>
                       <td className="erp-money-cell">{formatAmount(priceWithGst)}</td>
                       <td className="erp-money-cell erp-amount-cell">{formatAmount(line.taxable)}</td>
@@ -540,7 +848,8 @@ export function DocumentPreviewModal({
                   <td />
                   <td />
                   <td />
-                  <td />
+                  {isPurchaseDocument && <td />}
+                  {!isPurchaseDocument && <td />}
                   <td />
                   <td />
                   <td className="erp-money-cell erp-taxable-total">{formatAmount(taxableTotal)}</td>
@@ -552,7 +861,8 @@ export function DocumentPreviewModal({
                     <td />
                     <td />
                     <td />
-                    <td />
+                    {isPurchaseDocument && <td />}
+                    {!isPurchaseDocument && <td />}
                     <td />
                     <td />
                     <td className="erp-money-cell erp-amount-cell">{formatAmount(row.amount)}</td>
@@ -604,20 +914,16 @@ export function DocumentPreviewModal({
             <div className="erp-bottom-main">
               {showBankDetails && (
                 <div className="erp-bank-block">
-                  {visibleBankRows.length > 0 && (
-                    <>
-                      <h3>Bank Details:</h3>
-                      <div className="erp-bank-rows">
-                        {visibleBankRows.map(([label, value]) => (
-                          <div className="erp-bank-row" key={label}>
-                            <span>{label}</span>
-                            <b>:</b>
-                            <strong>{value}</strong>
-                          </div>
-                        ))}
+                  <h3>Bank Details:</h3>
+                  <div className="erp-bank-rows">
+                    {visibleBankRows.map(([label, value]) => (
+                      <div className="erp-bank-row" key={label}>
+                        <span>{label}</span>
+                        <b>:</b>
+                        <strong>{value}</strong>
                       </div>
-                    </>
-                  )}
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -658,6 +964,7 @@ export function DocumentPreviewModal({
             </div>
           </div>
         </div>
+        </div>
       </section>
     </div>
   );
@@ -665,8 +972,9 @@ export function DocumentPreviewModal({
   const revision = JSON.stringify({ config, customer, docMeta, docExtra, items, charges, totals, terms, notes, supplyType, bizSettings, paymentMethod });
   const content = (
     <InvoicePdfSurface revision={revision} filename={pdfFilename}
-      download={downloadAsPdf} print={printInvoice}
-      onDownloaded={onPdfDownloaded} onPrinted={onPdfPrinted} onReady={onPdfReady}>
+      download={downloadAsPdf} print={printInvoice || autoPrint}
+      onDownloaded={onPdfDownloaded} onPrinted={onPdfPrinted} onReady={onPdfReady}
+      pdfData={pdfData}>
       {isThermal80 ? receiptContent : normalContent}
     </InvoicePdfSurface>
   );

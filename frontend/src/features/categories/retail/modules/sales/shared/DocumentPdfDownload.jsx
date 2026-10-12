@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { api } from '../../../../../../services/api.js';
 import { documentConfigs } from '../documentConfigs.js';
 import { DocumentPreviewModal } from './DocumentPreviewModal.jsx';
 
@@ -61,7 +62,69 @@ function applySavedTotalOverride(calculatedTotals, savedTotals) {
   };
 }
 
+function normalizeProduct(product = {}) {
+  const description = product.description || product.name || product.productName || '';
+  return {
+    ...product,
+    _id: product._id ?? product.id ?? description,
+    id: product.id ?? product._id ?? description,
+    description,
+    code: product.code || product.sku || '',
+  };
+}
+
+function findCatalogProductForItem(products = [], item = {}) {
+  const text = (value) => String(value || '').trim().toLowerCase();
+  const productId = item.productId ? String(item.productId) : '';
+  const code = text(item.productCode || item.code);
+  const description = text(item.description);
+  return products.find((product) => productId && String(product._id || product.id) === productId)
+    || products.find((product) => code && text(product.code) === code)
+    || products.find((product) => description && text(product.description) === description)
+    || null;
+}
+
+function catalogVariantForItem(product = {}, item = {}) {
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  if (!variants.length) return null;
+  const text = (value) => String(value || '').trim().toLowerCase();
+  const size = text(item.size || item.modelName || item.modelNumber);
+  const barcode = text(item.barcode);
+  const rate = Number(item.rate) || 0;
+  return variants.find((variant) => barcode && text(variant.barcode) === barcode && (!size || text(variant.size || variant.modelName) === size))
+    || variants.find((variant) => size && text(variant.size || variant.modelName) === size && (!rate || Number(variant.rate) === rate))
+    || variants.find((variant) => size && text(variant.size || variant.modelName) === size)
+    || null;
+}
+
+function hydrateItemsWithCatalogVariantAttrs(items = [], products = []) {
+  if (!Array.isArray(items) || !items.length || !Array.isArray(products) || !products.length) return items;
+  return items.map((item) => {
+    if (item.itemType === 'Service') return item;
+    const product = findCatalogProductForItem(products, item);
+    if (!product) return item;
+    const variant = catalogVariantForItem(product, item) || {};
+    return {
+      ...item,
+      brand: item.brand || item.other || item.variantBrand || variant.other || variant.brand || product.brand || '',
+      material: item.material || item.fabric || item.variantMaterial || variant.material || variant.fabric || product.material || product.fabric || '',
+      size: item.size || item.modelName || item.modelNumber || variant.size || variant.modelName || '',
+      barcode: item.barcode || variant.barcode || '',
+    };
+  });
+}
+
 export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
+  const docBizSettings = doc.businessSettings || doc.businessSettingsSnapshot || null;
+  const mergeTemplateSettings = (base = {}, current = {}) => ({
+    ...base,
+    ...current,
+    invoicePrintFormat: current?.invoicePrintFormat || base?.invoicePrintFormat || 'normal',
+    invoiceThermalTemplate: current?.invoiceThermalTemplate || current?.invoiceDesignSettings?.thermal80?.template || base?.invoiceThermalTemplate || base?.invoiceDesignSettings?.thermal80?.template || 'standard',
+  });
+  const [effectiveBizSettings, setEffectiveBizSettings] = useState(mergeTemplateSettings(docBizSettings || {}, bizSettings || {}));
+  const [settingsReady, setSettingsReady] = useState(Boolean(docBizSettings || !doc.branch));
+  const [products, setProducts] = useState([]);
   const documentType = doc.documentType || 'invoice';
   const config = documentConfigs[documentType] ?? documentConfigs.invoice;
   const docMeta = {
@@ -82,6 +145,55 @@ export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
     return applySavedTotalOverride(calculated, doc.totals);
   }, [doc, config.showGst]);
 
+  useEffect(() => {
+    let active = true;
+    if (docBizSettings) {
+      setEffectiveBizSettings(mergeTemplateSettings(docBizSettings, bizSettings || {}));
+      setSettingsReady(true);
+      return () => { active = false; };
+    }
+    if (!doc.branch) {
+      setEffectiveBizSettings(mergeTemplateSettings({}, bizSettings || {}));
+      setSettingsReady(true);
+      return () => { active = false; };
+    }
+    setSettingsReady(false);
+    api.getSettings({ branch: doc.branch })
+      .then((settings) => {
+        if (active) {
+          setEffectiveBizSettings(mergeTemplateSettings(settings, bizSettings || {}));
+          setSettingsReady(true);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setEffectiveBizSettings(mergeTemplateSettings({}, bizSettings || {}));
+          setSettingsReady(true);
+        }
+      });
+    return () => { active = false; };
+  }, [docBizSettings, doc.branch, bizSettings]);
+
+  useEffect(() => {
+    let active = true;
+    api.invListProducts()
+      .then((res) => {
+        const rows = Array.isArray(res) ? res : res?.data;
+        if (active) setProducts(Array.isArray(rows) ? rows.map(normalizeProduct) : []);
+      })
+      .catch(() => {
+        if (active) setProducts([]);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const displayItems = useMemo(
+    () => hydrateItemsWithCatalogVariantAttrs(doc.items || [], products),
+    [doc.items, products],
+  );
+
+  if (!settingsReady) return null;
+
   return (
     <div className="pdf-download-stage">
       <DocumentPreviewModal
@@ -90,13 +202,13 @@ export function DocumentPdfDownload({ doc, bizSettings, onDone }) {
         customer={doc.customer || {}}
         docMeta={docMeta}
         docExtra={doc.extra || {}}
-        items={doc.items || []}
+        items={displayItems}
         charges={doc.charges || []}
         totals={totals}
         notes={doc.notes || ''}
         terms={doc.terms || ''}
         supplyType={doc.supplyType || 'intrastate'}
-        bizSettings={bizSettings}
+        bizSettings={effectiveBizSettings}
         shipping={doc.shipping || {}}
         sameShipping={doc.shipping?.sameAsBilling ?? true}
         tds={doc.tds}

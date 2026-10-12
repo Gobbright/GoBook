@@ -2,6 +2,7 @@ import { StockOut } from '../../../models/StockOut.js';
 import { Product } from '../../../models/Product.js';
 import { httpError } from '../../../utils/httpError.js';
 import { productRefCondition, resolveProductRefs } from './itemTypeFilter.js';
+import { Types } from 'mongoose';
 
 function monthRange() {
   const now = new Date();
@@ -35,12 +36,13 @@ export async function getNextStockOutNumber(req, res, next) {
 export async function getStockOutStats(req, res, next) {
   try {
     const userId = req.user.id;
+    const aggregateUserId = Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : userId;
     const { itemType } = req.query;
     const refCond = productRefCondition(await resolveProductRefs(Product, userId, itemType));
     const range = monthRange();
     const [result, pending] = await Promise.all([
       StockOut.aggregate([
-        { $match: { userId, date: range, ...refCond } },
+        { $match: { userId: aggregateUserId, date: range, ...refCond } },
         {
           $group: {
             _id: null,

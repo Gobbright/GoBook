@@ -48,6 +48,7 @@ function escapeCsv(value) {
 const FIELD_BASE_CLASS = 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
 const SELECT_BASE_CLASS = `${FIELD_BASE_CLASS} cursor-pointer`;
 const STATUS_OPTIONS = ['Active', 'Inactive', 'Trial', 'Expired', 'Blocked', 'Deleted', 'Pending', 'Successful', 'Failed', 'Scheduled', 'Ready', 'Draft', 'Enabled', 'Disabled'];
+const preventPasswordPaste = (event) => event.preventDefault();
 
 function isDateField(field) {
   return /date|expiry|expires|createdat|updatedat/i.test(field);
@@ -158,9 +159,10 @@ export function DataTable({ section, onChanged, rowActions }) {
             <input
               type={showPassword ? 'text' : 'password'}
               value={value}
+              placeholder="Enter your password"
+              onPaste={preventPasswordPaste}
               onChange={(event) => updateField(event.target.value)}
               className={`${FIELD_BASE_CLASS} pr-11`}
-              placeholder="Enter new password to update"
               autoComplete="new-password"
             />
             <button
@@ -222,24 +224,28 @@ export function DataTable({ section, onChanged, rowActions }) {
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-      <div className="px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 bg-slate-50 dark:bg-slate-800">
-        <div>
+      <div className="px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-col 2xl:flex-row 2xl:items-center 2xl:justify-between gap-3 bg-slate-50 dark:bg-slate-800">
+        <div className="min-w-0">
           <h3 className="m-0 text-[14px] font-extrabold text-slate-900 dark:text-slate-100">{section.label}</h3>
           <p className="m-0 text-[11px] text-slate-500 dark:text-slate-400 mt-1">{section.count?.toLocaleString?.() || rows.length} total records - Showing {rows.length.toLocaleString()}</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-[minmax(220px,1fr)_140px_auto_auto] gap-2 sm:items-center w-full xl:w-auto">
-          <div className="relative min-w-0">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search table..." className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-8 pr-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" />
+        <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center 2xl:w-auto 2xl:justify-end">
+          <div className="relative min-w-0 lg:w-[320px] xl:w-[360px]">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search table..." className="h-11 w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" />
           </div>
-          <SelectDropdown
-            className="w-40 flex-none"
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={statusValues.map((status) => ({ value: status, label: status === 'all' ? 'All Filter' : status }))}
-          />
-          <button onClick={exportPdf} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center justify-center gap-2"><FileText size={15} /> PDF</button>
-          <button onClick={exportExcel} className="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold inline-flex items-center justify-center gap-2"><FileSpreadsheet size={15} /> Excel</button>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[180px_auto] lg:flex lg:items-center">
+            <SelectDropdown
+              className="w-full sm:w-[180px]"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={statusValues.map((status) => ({ value: status, label: status === 'all' ? 'All Filter' : status }))}
+            />
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <button type="button" onClick={exportPdf} className="inline-flex h-11 min-w-[88px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"><FileText size={15} /> PDF</button>
+              <button type="button" onClick={exportExcel} className="inline-flex h-11 min-w-[96px] items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-900 transition hover:border-emerald-200 hover:bg-emerald-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"><FileSpreadsheet size={15} /> Excel</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -278,11 +284,11 @@ export function DataTable({ section, onChanged, rowActions }) {
 
       {/* Desktop View */}
       <div className="hidden md:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-        <div className="overflow-hidden">
-          <table className="w-full table-fixed">
+        <div className="overflow-x-auto">
+          <table className="min-w-[1280px] w-full table-auto">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
-                {allFields.map((field) => <th key={field} className="px-3 py-3 text-left text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide break-words">{titleize(field)}</th>)}
+                {allFields.map((field) => <th key={field} className="px-3 py-3 text-left text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide whitespace-nowrap">{titleize(field)}</th>)}
                 <th className={`${rowActions ? 'w-48' : 'w-28'} px-3 py-3 text-right text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide`}>Actions</th>
               </tr>
             </thead>
@@ -292,7 +298,7 @@ export function DataTable({ section, onChanged, rowActions }) {
               ) : (
                 rows.map((row, index) => (
                     <tr key={row.id || index} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
-                      {allFields.map((field) => <td key={field} className="px-3 py-3 text-[12px] text-slate-700 dark:text-slate-300 break-words align-top" title={String(row[field] ?? '')}>{field.toLowerCase().includes('date') ? formatDate(row[field]) : formatValue(row[field])}</td>)}
+                      {allFields.map((field) => <td key={field} className="px-3 py-3 text-[12px] text-slate-700 dark:text-slate-300 whitespace-nowrap align-top" title={String(row[field] ?? '')}>{field.toLowerCase().includes('date') ? formatDate(row[field]) : formatValue(row[field])}</td>)}
                       <td className={`${rowActions ? 'w-48' : 'w-28'} px-3 py-3 text-right align-top bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800`}>
                         <button onClick={() => openView(row)} className="p-1.5 text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md border-0 bg-transparent cursor-pointer" title="View"><Eye size={16} /></button>
                         {rowActions?.(row, 'desktop')}

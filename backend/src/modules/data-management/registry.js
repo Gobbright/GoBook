@@ -27,6 +27,7 @@ import { Payroll } from '../../models/Payroll.js';
 import { Product } from '../../models/Product.js';
 import { ProductBrand } from '../../models/ProductBrand.js';
 import { ProductCategory } from '../../models/ProductCategory.js';
+import { ProductSubcategory } from '../../models/ProductSubcategory.js';
 import { SalesRecord } from '../../models/SalesRecord.js';
 import { StockIn } from '../../models/StockIn.js';
 import { StockOut } from '../../models/StockOut.js';
@@ -42,6 +43,7 @@ export const DATA_COLLECTIONS = [
   { key: 'followUps', label: 'Follow Ups', model: FollowUp, ownerField: 'userId', dateFields: ['dueDate', 'createdAt'] },
   { key: 'products', label: 'Products', model: Product, ownerField: 'userId', dateFields: ['createdAt'] },
   { key: 'productCategories', label: 'Product Categories', model: ProductCategory, ownerField: 'userId', dateFields: ['createdAt'] },
+  { key: 'productSubcategories', label: 'Product Subcategories', model: ProductSubcategory, ownerField: 'userId', dateFields: ['createdAt'] },
   { key: 'productBrands', label: 'Product Brands', model: ProductBrand, ownerField: 'userId', dateFields: ['createdAt'] },
   { key: 'warehouses', label: 'Warehouses', model: Warehouse, ownerField: 'userId', dateFields: ['createdAt'] },
   { key: 'stockIn', label: 'Stock In', model: StockIn, ownerField: 'userId', dateFields: ['date', 'createdAt'] },

@@ -49,6 +49,8 @@ export function StockSummaryPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [itemType, setItemType] = useState('Product');
+  const [category, setCategory] = useState('All Categories');
+  const [categories, setCategories] = useState(['All Categories']);
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState(null);
   const [total, setTotal] = useState(0);
@@ -58,10 +60,16 @@ export function StockSummaryPage() {
 
   const LIMIT = 20;
 
+  useEffect(() => {
+    api.invProductCategories()
+      .then((list) => setCategories(['All Categories', ...list.filter((c) => c !== 'All Categories')]))
+      .catch(() => setCategories(['All Categories']));
+  }, []);
+
   function loadSummary() {
     setLoading(true);
     setError('');
-    const params = { page, limit: LIMIT, status, itemType };
+    const params = { page, limit: LIMIT, status, itemType, category };
     if (search) params.search = search;
     api.invStockSummary(params)
       .then((res) => {
@@ -73,14 +81,22 @@ export function StockSummaryPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { loadSummary(); }, [search, status, itemType, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadSummary(); }, [search, status, itemType, category, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchAllForExport = useCallback(async () => {
-    const params = { page: 1, limit: 9999, status, itemType };
+    const params = { page: 1, limit: 9999, status, itemType, category };
     if (search) params.search = search;
     const res = await api.invStockSummary(params);
     return res.data ?? [];
-  }, [search, status, itemType]);
+  }, [search, status, itemType, category]);
+
+  function resetFilters() {
+    setSearch('');
+    setStatus('all');
+    setItemType('Product');
+    setCategory('All Categories');
+    setPage(1);
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
   const exportColumns = [
@@ -114,15 +130,23 @@ export function StockSummaryPage() {
         <StatCard label="Needs Attention" value={((stats?.lowStock ?? 0) + (stats?.outOfStock ?? 0)).toLocaleString('en-IN')} sub={`${stats?.lowStock ?? 0} low, ${stats?.outOfStock ?? 0} out`} color="#dc2626" bg="#fecaca" />
       </div>
 
-      <div className="bg-white border border-[#dfe7f1] rounded-xl">
-        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#edf2f7] flex-wrap">
+      <div className="bg-white border border-[#dfe7f1] rounded-xl overflow-hidden">
+        <div className="grid grid-cols-2 gap-2 px-3 py-3 border-b border-[#edf2f7] md:flex md:items-center md:gap-3 md:px-5 md:py-3.5 md:flex-wrap">
           <ItemTypeTabs value={itemType} onChange={(t) => { setItemType(t); setPage(1); }} />
-          <div className="relative flex-1 max-w-xs">
+          <div className="relative col-span-2 row-start-1 md:row-auto md:col-span-1 md:flex-1 md:max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#536173]" fill="none" height="13" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="13"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
-            <input className="border border-[#dbe4ef] rounded-md pl-8 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit]" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            <input className="h-11 md:h-auto border border-[#dbe4ef] rounded-lg md:rounded-md pl-9 pr-3 py-2 text-[13px] w-full outline-none focus:border-blue-500 font-[inherit] bg-white" placeholder="Search stock..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
           <SelectDropdown
-            buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer"
+            className="min-w-0 md:w-44 md:flex-none"
+            buttonClassName="h-11 md:h-auto border border-[#dbe4ef] rounded-lg md:rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer"
+            value={category}
+            onChange={(v) => { setCategory(v); setPage(1); }}
+            options={categories}
+          />
+          <SelectDropdown
+            className="min-w-0 md:w-44 md:flex-none"
+            buttonClassName="h-11 md:h-auto border border-[#dbe4ef] rounded-lg md:rounded-md px-3 py-2 text-[13px] outline-none font-[inherit] text-[#374151] bg-white cursor-pointer"
             value={status}
             onChange={(v) => { setStatus(v); setPage(1); }}
             options={[
@@ -133,6 +157,13 @@ export function StockSummaryPage() {
               { value: 'inactive', label: 'Inactive Products' },
             ]}
           />
+          <button
+            type="button"
+            className="col-span-2 h-10 rounded-lg border border-[#dbe4ef] bg-[#f8fafc] px-3 text-[12px] font-semibold text-[#374151] hover:bg-white font-[inherit] md:col-span-1 md:h-9 md:flex-none"
+            onClick={resetFilters}
+          >
+            Reset Filters
+          </button>
         </div>
 
         {error && <div className="px-5 py-4 text-[13px] text-red-600">{error}</div>}

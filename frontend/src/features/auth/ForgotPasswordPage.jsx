@@ -8,12 +8,58 @@ import {
   INFO_BOX, INFO_TEXT, INPUT, LABEL, SECONDARY_BUTTON, SECONDARY_BUTTON_TEXT, SUBTEXT, SUCCESS_BOX, SUCCESS_TEXT,
 } from './authTheme.jsx';
 
+const SPECIAL_CHAR_REGEX = /[^A-Za-z0-9]/;
+const preventPasswordPaste = (event) => event.preventDefault();
+
+function getPasswordChecks(password = '') {
+  return [
+    { key: 'length', label: '8 characters', passed: password.length >= 8 },
+    { key: 'capital', label: '1 capital letter', passed: /[A-Z]/.test(password) },
+    { key: 'number', label: '1 number', passed: /[0-9]/.test(password) },
+    { key: 'special', label: '1 special character', passed: SPECIAL_CHAR_REGEX.test(password) },
+  ];
+}
+
+function isStrongPassword(password = '') {
+  return getPasswordChecks(password).every((item) => item.passed);
+}
+
+function PasswordRequirementPopover({ password, show }) {
+  if (!show) return null;
+  const checks = getPasswordChecks(password);
+  const passedCount = checks.filter((item) => item.passed).length;
+  const strong = passedCount === checks.length;
+
+  return (
+    <div className="absolute bottom-full left-0 z-30 mb-2 w-full max-w-[310px] rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className={`text-[10.5px] font-extrabold uppercase tracking-wide ${strong ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
+          {strong ? 'Strong password' : 'Required password'}
+        </span>
+        <span className={`text-[10.5px] font-bold ${strong ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>{passedCount}/4</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+        {checks.map((item) => (
+          <span key={item.key} className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${item.passed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
+            <span className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] ${item.passed ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}`}>
+              {item.passed ? 'OK' : ''}
+            </span>
+            {item.label}
+          </span>
+        ))}
+      </div>
+      <span className="absolute left-6 top-full h-3 w-3 -translate-y-1.5 rotate-45 border-b border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" />
+    </div>
+  );
+}
+
 export function ForgotPasswordPage() {
   const [email,           setEmail]           = useState('');
   const [otp,             setOtp]             = useState('');
   const [password,        setPassword]        = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword,    setShowPassword]    = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [step,            setStep]            = useState('email');
   const [message,         setMessage]         = useState('');
   const [error,           setError]           = useState('');
@@ -37,7 +83,7 @@ export function ForgotPasswordPage() {
     e.preventDefault();
     setError(''); setMessage('');
     if (!/^\d{6}$/.test(otp.trim()))  { setError('Enter the 6-digit OTP sent to your email'); return; }
-    if (password.length < 8)           { setError('Password must be at least 8 characters'); return; }
+    if (!isStrongPassword(password))   { setError('Password must have 8 characters, 1 capital letter, 1 number, and 1 special character'); return; }
     if (password !== confirmPassword)  { setError('Passwords do not match'); return; }
     setSubmitting(true);
     try {
@@ -118,9 +164,13 @@ export function ForgotPasswordPage() {
           <div>
             <label htmlFor="new-password" className={LABEL}>New Password</label>
             <div className="relative">
+              <PasswordRequirementPopover password={password} show={passwordFocused} />
               <Lock size={15} className={ICON} />
               <input id="new-password" type={showPassword ? 'text' : 'password'} required
-                     placeholder="Minimum 8 characters" value={password}
+                     placeholder="Enter your password" value={password}
+                     onPaste={preventPasswordPaste}
+                     onFocus={() => setPasswordFocused(true)}
+                     onBlur={() => setPasswordFocused(false)}
                      onChange={(e) => setPassword(e.target.value)} className={`${INPUT} pr-11`} />
               <button type="button" onClick={() => setShowPassword((s) => !s)}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
@@ -136,7 +186,8 @@ export function ForgotPasswordPage() {
             <div className="relative">
               <Lock size={15} className={ICON} />
               <input id="confirm-new-password" type={showPassword ? 'text' : 'password'} required
-                     placeholder="Re-enter password" value={confirmPassword}
+                     value={confirmPassword}
+                     onPaste={preventPasswordPaste}
                      onChange={(e) => setConfirmPassword(e.target.value)} className={INPUT} />
             </div>
           </div>

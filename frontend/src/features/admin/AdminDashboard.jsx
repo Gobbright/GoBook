@@ -106,6 +106,7 @@ export function AdminDashboard() {
     return {
       ...section,
       label: 'All Users',
+      readOnly: true,
       fields: ['name', 'email', 'phone', 'businessName', 'category', 'subscriptionPlan', 'subscriptionAmount', 'status', 'createdAt'],
     };
   }, [dashboard]);
@@ -121,7 +122,7 @@ export function AdminDashboard() {
   return (
     <AdminLayout>
       <div className="min-h-screen text-slate-900 dark:text-slate-100">
-<div className="p-3 md:p-6 lg:p-7 space-y-4 md:space-y-6 max-w-7xl mx-auto">
+<div className="p-3 md:p-6 lg:p-7 space-y-4 md:space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             <DashboardMetric label="Total Users" value={panel.totalUsers ?? 0} icon={UsersRound} />
             <DashboardMetric label="Active Users" value={panel.activeUsers ?? 0} icon={UserCheck} tone="green" />
@@ -158,3 +159,4 @@ export function AdminDashboard() {
     </AdminLayout>
   );
 }
+

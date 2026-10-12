@@ -7,6 +7,7 @@ import {
   importJournalEntries,
   updateJournalEntry,
 } from '../../../../../services/accountingService.js';
+import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
 import { SelectDropdown } from '../../../../../components/forms/SelectDropdown.jsx';
 import { formatCurrency } from '../../../../../utils/formatCurrency.js';
@@ -152,12 +153,14 @@ export function JournalEntryPage() {
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">Create and manage journal entries</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 border border-[#dbe4ef] rounded-md px-3 py-2 bg-white text-[13px]">
-            <svg fill="none" height="13" stroke="#536173" strokeWidth="2" viewBox="0 0 24 24" width="13"><rect height="18" rx="2" ry="2" width="18" x="3" y="4" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg>
-            <input className="outline-none font-[inherit] text-[13px] w-28 border-0" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-            <span className="text-[#536173]">–</span>
-            <input className="outline-none font-[inherit] text-[13px] w-28 border-0" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
+          <DateRangeFilter
+            className="w-full sm:w-auto"
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={setDateFrom}
+            onToChange={setDateTo}
+            onClear={() => { setDateFrom(''); setDateTo(''); }}
+          />
           <SelectDropdown className="w-32 flex-none" value={filterStatus} onChange={setFilterStatus} options={['All', 'Posted', 'Draft']} />
           <ExportButtons title="Journal Entries" filename="journal-entries" rows={filtered} columns={exportColumns} />
           <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImportFile} />
@@ -207,48 +210,56 @@ export function JournalEntryPage() {
 
       {/* ── New Entry Form ── */}
       {showForm && (
-        <form className="bg-white border border-[#dfe7f1] rounded-xl p-5 mb-5" onSubmit={handleSubmit}>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit Journal Entry' : 'New Journal Entry'}</h3>
-            <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>x</button>
+        <>
+        <button type="button" className="fixed inset-0 z-40 cursor-default border-0 bg-black/45" aria-label="Close journal entry form" onClick={resetForm} />
+        <form className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[#dfe7f1] bg-white shadow-2xl md:inset-x-4 md:bottom-auto md:top-1/2 md:max-w-3xl md:-translate-y-1/2 md:rounded-2xl" onSubmit={handleSubmit}>
+          <div className="sticky top-0 z-10 flex justify-between items-center border-b border-[#edf2f7] bg-white px-4 py-3 md:px-5 md:py-4">
+            <div>
+              <h3 className="m-0 text-[16px] font-bold text-[#111827]">{editingId ? 'Edit Journal Entry' : 'Add Journal Entry'}</h3>
+              <p className="m-0 mt-0.5 text-[12px] font-medium text-[#64748b]">Enter debit and credit details with proper posting status.</p>
+            </div>
+            <button className="h-9 w-9 inline-flex items-center justify-center rounded-md text-[#536173] hover:text-[#111827] hover:bg-gray-100 bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>x</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-4">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Entry No.</label>
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="JE/26-27/001" required value={form.entryNo} onChange={(e) => updateForm('entryNo', e.target.value)} />
+              <input className="h-11 border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="JE/26-27/001" required value={form.entryNo} onChange={(e) => updateForm('entryNo', e.target.value)} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Date</label>
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" required type="date" value={form.date} onChange={(e) => updateForm('date', e.target.value)} />
+              <input className="h-11 border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" required type="date" value={form.date} onChange={(e) => updateForm('date', e.target.value)} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Status</label>
-              <SelectDropdown value={form.status} onChange={(v) => updateForm('status', v)} options={['Posted', 'Draft']} />
+              <SelectDropdown buttonClassName="h-11" value={form.status} onChange={(v) => updateForm('status', v)} options={['Posted', 'Draft']} />
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-4">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Particulars</label>
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="To Cash A/c" required value={form.particulars} onChange={(e) => updateForm('particulars', e.target.value)} />
+              <input className="h-11 border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="To Cash A/c" required value={form.particulars} onChange={(e) => updateForm('particulars', e.target.value)} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Debit</label>
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" type="number" value={form.debit} onChange={(e) => updateForm('debit', e.target.value)} />
+              <input className="h-11 border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" type="number" value={form.debit} onChange={(e) => updateForm('debit', e.target.value)} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[#536173] font-medium">Credit</label>
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" type="number" value={form.credit} onChange={(e) => updateForm('credit', e.target.value)} />
+              <input className="h-11 border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] text-right outline-none focus:border-blue-500 font-[inherit]" min="0" type="number" value={form.credit} onChange={(e) => updateForm('credit', e.target.value)} />
             </div>
           </div>
           {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{formError}</p>}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <span className="text-[13px] text-[#536173]">Debit and credit should match before posting.</span>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
-              <button className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="submit">{editingId ? 'Update Entry' : 'Post Entry'}</button>
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <button className="h-10 px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
+              <button className="h-10 px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="submit">{editingId ? 'Update Entry' : 'Post Entry'}</button>
             </div>
           </div>
+          </div>
         </form>
+        </>
       )}
 
       {/* ── Table ── */}

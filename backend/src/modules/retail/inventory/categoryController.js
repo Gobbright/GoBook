@@ -1,5 +1,6 @@
 import { Product } from '../../../models/Product.js';
 import { ProductCategory } from '../../../models/ProductCategory.js';
+import { ProductSubcategory } from '../../../models/ProductSubcategory.js';
 import { httpError } from '../../../utils/httpError.js';
 
 function normalizeCategoryBody(body = {}) {
@@ -66,7 +67,20 @@ export async function getCategory(req, res, next) {
 // POST /api/inventory/categories
 export async function createCategory(req, res, next) {
   try {
-    const cat = await ProductCategory.create({ ...normalizeCategoryBody(req.body), userId: req.user.id });
+    const payload = normalizeCategoryBody(req.body);
+    const cat = await ProductCategory.create({ ...payload, userId: req.user.id });
+
+    if (Array.isArray(payload.subCategories) && payload.subCategories.length > 0) {
+      for (const subName of payload.subCategories) {
+        if (!subName) continue;
+        await ProductSubcategory.findOneAndUpdate(
+          { userId: req.user.id, name: subName },
+          { $setOnInsert: { userId: req.user.id, name: subName, categoryId: cat._id, categoryName: cat.name, status: 'Active' } },
+          { upsert: true }
+        ).catch(() => {});
+      }
+    }
+
     res.status(201).json(cat);
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, `Category "${req.body.name}" already exists`));
@@ -90,6 +104,21 @@ export async function updateCategory(req, res, next) {
     // Keep tagged products in sync when a category is renamed, so the link doesn't silently break.
     if (payload.name && payload.name !== existing.name) {
       await Product.updateMany({ userId: req.user.id, category: existing.name }, { $set: { category: payload.name } });
+      await ProductSubcategory.updateMany(
+        { userId: req.user.id, $or: [{ categoryId: existing._id }, { categoryName: existing.name }] },
+        { $set: { categoryName: payload.name, categoryId: existing._id } }
+      );
+    }
+
+    if (Array.isArray(payload.subCategories)) {
+      for (const subName of payload.subCategories) {
+        if (!subName) continue;
+        await ProductSubcategory.findOneAndUpdate(
+          { userId: req.user.id, name: subName },
+          { $set: { categoryId: existing._id, categoryName: payload.name || existing.name }, $setOnInsert: { status: 'Active' } },
+          { upsert: true }
+        ).catch(() => {});
+      }
     }
 
     res.json(cat);
@@ -104,6 +133,12 @@ export async function deleteCategory(req, res, next) {
   try {
     const cat = await ProductCategory.findOneAndDelete({ _id: req.params.id, userId: req.user.id }).lean();
     if (!cat) return next(httpError(404, 'Category not found'));
+
+    await ProductSubcategory.updateMany(
+      { userId: req.user.id, $or: [{ categoryId: cat._id }, { categoryName: cat.name }] },
+      { $set: { categoryId: null, categoryName: '' } }
+    );
+
     res.json({ message: 'Category deleted' });
   } catch (err) {
     next(err);

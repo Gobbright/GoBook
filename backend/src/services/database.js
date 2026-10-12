@@ -1,3 +1,4 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
 
 import { env } from '../config/env.js';
@@ -178,6 +179,20 @@ export async function connectDatabase() {
   if (connectionPromise) return connectionPromise;
 
   connectionPromise = (async () => {
+    if (env.dnsServers && env.dnsServers.length > 0) {
+      try {
+        dns.setServers(env.dnsServers);
+      } catch (err) {
+        console.warn('Could not set custom DNS servers:', err.message);
+      }
+    } else if (env.mongodbUri && env.mongodbUri.startsWith('mongodb+srv://')) {
+      try {
+        dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+      } catch (err) {
+        // Continue with default resolver if unable to override
+      }
+    }
+
     await mongoose.connect(env.mongodbUri, {
       dbName: env.mongodbDbName,
       serverSelectionTimeoutMS: 8000,

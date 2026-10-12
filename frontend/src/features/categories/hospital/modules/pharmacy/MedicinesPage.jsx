@@ -17,8 +17,61 @@ const DEFAULT_CATEGORIES = ['Tablet', 'Syrup', 'Injection', 'Ointment', 'Drops',
 
 const EMPTY_FORM = { description: '', code: '', hsn: '', category: '', brand: '', unit: 'Strip', rate: '', gstRate: 12, stock: 0, minStockLevel: 0, barcode: '', status: 'Active' };
 
-function genBarcode() {
-  return Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
+function currentBarcodePeriod(date = new Date()) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  return `${month}${year}`;
+}
+
+function ean13CheckDigit(first12Digits) {
+  const sum = String(first12Digits)
+    .slice(0, 12)
+    .split('')
+    .reduce((total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
+  return String((10 - (sum % 10)) % 10);
+}
+
+function hashToDigits(text, length) {
+  let hash = 5381;
+  const str = String(text || '');
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+  }
+  let digits = String(hash);
+  while (digits.length < length) {
+    hash = ((hash << 5) + hash + 1) >>> 0;
+    digits += String(hash);
+  }
+  return digits.slice(0, length);
+}
+
+function productBarcodeIdentity(value = {}) {
+  return [
+    value.code,
+    value.description,
+    value.category,
+    value.hsn,
+    value.unit,
+  ]
+    .map((part) => String(part ?? '').trim().toLowerCase())
+    .filter(Boolean)
+    .join('|');
+}
+
+function variantBarcodeIdentity(value = {}) {
+  return [
+    value.brand,
+  ]
+    .map((part) => String(part ?? '').trim().toLowerCase())
+    .filter(Boolean)
+    .join('|');
+}
+
+function genBarcode(value = {}) {
+  const productIdentity = productBarcodeIdentity(value);
+  const variantIdentity = variantBarcodeIdentity(value) || 'base';
+  const first12Digits = `${hashToDigits(`${productIdentity}|prefix`, 4)}${currentBarcodePeriod()}${hashToDigits(`${productIdentity}|series`, 2)}${hashToDigits(`${variantIdentity}|variant`, 2)}`;
+  return `${first12Digits}${ean13CheckDigit(first12Digits)}`;
 }
 
 function formatINR(v) { return '₹ ' + Number(v).toLocaleString('en-IN'); }
@@ -47,7 +100,7 @@ const UploadIcon = () => (
 
 function MedicineModal({ mode, initial, nextCode, initialBarcode = '', categories, onSave, onClose }) {
   const [form, setForm] = useState(() => {
-    if (mode === 'add') return { ...EMPTY_FORM, code: nextCode ?? '', barcode: initialBarcode || genBarcode() };
+    if (mode === 'add') return { ...EMPTY_FORM, code: nextCode ?? '', barcode: initialBarcode || '' };
     return initial ?? EMPTY_FORM;
   });
   const [saving, setSaving] = useState(false);
@@ -85,6 +138,7 @@ function MedicineModal({ mode, initial, nextCode, initialBarcode = '', categorie
       const payload = {
         ...form,
         code: form.code?.trim() || nextCode || '',
+        barcode: String(form.barcode || genBarcode(form)).trim(),
         rate: Number(form.rate),
         stock: Number(form.stock),
         minStockLevel: Number(form.minStockLevel),
@@ -150,7 +204,7 @@ function MedicineModal({ mode, initial, nextCode, initialBarcode = '', categorie
               <div className="flex gap-1.5">
                 <input className={INPUT} value={form.barcode} onChange={(e) => set('barcode', e.target.value)} placeholder="Auto-generated" />
                 {mode === 'add' && (
-                  <button type="button" title="Regenerate" onClick={() => set('barcode', genBarcode())} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[16px] leading-none">↺</button>
+                  <button type="button" title="Regenerate" onClick={() => set('barcode', genBarcode(form))} className="px-2 border border-[#dbe4ef] rounded-md text-[#536173] hover:bg-gray-50 bg-white cursor-pointer text-[16px] leading-none">↺</button>
                 )}
               </div>
             </div>

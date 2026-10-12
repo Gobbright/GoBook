@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
-  ArrowRight, BarChart3, Bot, CheckCircle2, ChevronDown, ChevronRight,
+  ArrowLeft, ArrowRight, BarChart3, Bot, CheckCircle2, ChevronDown, ChevronRight,
   Edit3, FileText, Gauge, Layers3, Mail, MoreVertical, Plus,
   Search, Send, ShieldOff, Trash2, UserX, Users, XCircle,
 } from 'lucide-react';
 
 import { apiClient } from '../../../../../services/apiClient.js';
+import { renderGoogleSignInButton } from '../../../../../services/googleAuth.js';
 
 const EMPTY = {
   name: '',
@@ -27,7 +30,7 @@ const EMPTY = {
   utmTracking: true,
 };
 const EMPTY_LIST = { name: '', contacts: '' };
-const TABS = ['Dashboard', 'Campaigns', 'Templates', 'Contacts', 'Segments', 'Automations', 'Sequences', 'Analytics', 'Suppression List'];
+const TABS = ['Dashboard', 'Campaigns', 'Templates', 'Contacts', 'Segments', 'Automations', 'Sequences', 'Analytics', 'Suppression List', 'Settings', 'History'];
 const CAMPAIGN_TYPES = ['Promotional', 'Newsletter', 'Product', 'Event', 'Lead Nurturing', 'Customer Retention'];
 const CAMPAIGN_STATUSES = ['All', 'Draft', 'Scheduled', 'Sending', 'Sent', 'Failed', 'Paused'];
 const DATE_FILTERS = ['All Dates', 'Today', 'Last 7 days', 'Last 30 days', 'Custom Range'];
@@ -51,7 +54,18 @@ const TEMPLATE_VARIABLES = {
   Invoice: ['Invoice Number', 'Invoice Date', 'Total', 'Due Date'],
   Product: ['Product Name', 'Price', 'Discount', 'SKU'],
 };
-const TEMPLATE_LIBRARY = [];
+const TEMPLATE_LIBRARY = [
+  { id: 'gobook-welcome-customer', name: 'Welcome Customer', category: 'Welcome', type: 'Marketing', status: 'Active', createdBy: 'GoBook Templates', description: 'Give every new customer a warm introduction to your store, support team and next steps.', tags: ['Welcome', 'Customer'], used: 24, lastUsed: '2026-09-14', system: true, version: 1, subject: 'Welcome to {{company.name}}', previewText: 'We are delighted to have you with us.' },
+  { id: 'gobook-weekend-offer', name: 'Weekend Special Offer', category: 'Offers & Discounts', type: 'Marketing', status: 'Active', createdBy: 'GoBook Templates', description: 'Promote a limited-time weekend offer with a clear discount and shop-now call to action.', tags: ['Offer', 'Discount', 'Promotion'], used: 18, lastUsed: '2026-09-13', system: true, version: 1, subject: 'A special weekend offer just for you', previewText: 'Save more on your favourites this weekend.' },
+  { id: 'gobook-product-launch', name: 'New Product Launch', category: 'Product Launch', type: 'Marketing', status: 'Active', createdBy: 'GoBook Templates', description: 'Introduce a new product with key benefits, launch details and a compelling product CTA.', tags: ['Product', 'Launch'], used: 12, lastUsed: '2026-09-11', system: true, version: 1, subject: 'Meet our newest arrival', previewText: 'Discover what is new at {{company.name}}.' },
+  { id: 'gobook-monthly-newsletter', name: 'Monthly Newsletter', category: 'Newsletter', type: 'Marketing', status: 'Active', createdBy: 'GoBook Templates', description: 'Share business updates, product highlights and useful content in a clean monthly digest.', tags: ['Newsletter', 'Updates'], used: 30, lastUsed: '2026-09-10', system: true, version: 1, subject: 'Your monthly update from {{company.name}}', previewText: 'News, highlights and more for you.' },
+  { id: 'gobook-festival-greetings', name: 'Festival Greetings', category: 'Festival', type: 'Marketing', status: 'Active', createdBy: 'GoBook Templates', description: 'Send thoughtful festival greetings along with a seasonal message or exclusive offer.', tags: ['Festival', 'Seasonal'], used: 9, lastUsed: '2026-09-08', system: true, version: 1, subject: 'Warm festival wishes from {{company.name}}', previewText: 'Celebrate the season with something special.' },
+  { id: 'gobook-review-request', name: 'Review Request', category: 'Review Request', type: 'Marketing', status: 'Active', createdBy: 'GoBook Templates', description: 'Ask recent customers to share their experience and help build trust in your business.', tags: ['Review', 'Feedback'], used: 16, lastUsed: '2026-09-09', system: true, version: 1, subject: 'How was your experience with us?', previewText: 'Your feedback means a lot to our team.' },
+  { id: 'gobook-lead-followup', name: 'Lead Follow-up', category: 'Lead Follow-up', type: 'Marketing', status: 'Active', createdBy: 'GoBook Templates', description: 'Reconnect with a prospective customer and guide them toward the next sales conversation.', tags: ['Lead', 'Follow-up', 'Sales'], used: 21, lastUsed: '2026-09-12', system: true, version: 1, subject: 'Can we help you make a decision?', previewText: 'We are here to answer your questions.' },
+  { id: 'gobook-order-confirmation', name: 'Order Confirmation', category: 'Order Confirmation', type: 'Transactional', status: 'Active', createdBy: 'GoBook Templates', description: 'Confirm an order with customer, order and delivery details in a reassuring format.', tags: ['Order', 'Confirmation'], used: 42, lastUsed: '2026-09-15', system: true, version: 1, subject: 'Your order {{order.number}} is confirmed', previewText: 'Thanks for your order. Here is what happens next.' },
+  { id: 'gobook-invoice', name: 'Invoice Generated', category: 'Invoice', type: 'Transactional', status: 'Active', createdBy: 'GoBook Templates', description: 'Notify a customer that an invoice is ready, including invoice number, total and due date.', tags: ['Invoice', 'Billing'], used: 36, lastUsed: '2026-09-15', system: true, version: 1, subject: 'Invoice {{invoice.number}} from {{company.name}}', previewText: 'Your invoice is ready to view and pay.' },
+  { id: 'gobook-payment-reminder', name: 'Payment Reminder', category: 'Payment Reminder', type: 'Transactional', status: 'Active', createdBy: 'GoBook Templates', description: 'Send a polite payment reminder with invoice due date and outstanding amount details.', tags: ['Payment', 'Reminder', 'Invoice'], used: 15, lastUsed: '2026-09-07', system: true, version: 1, subject: 'Reminder: payment for invoice {{invoice.number}}', previewText: 'A quick reminder about your upcoming payment.' },
+];
 const CONTACT_TYPES = ['All Types', 'Customer', 'Lead', 'Prospect', 'Subscriber', 'Supplier', 'Other'];
 const CONTACT_STATUSES = ['All Status', 'Subscribed', 'Unsubscribed', 'Pending', 'Bounced', 'Suppressed', 'Not Specified'];
 const CONTACT_SOURCES = ['All Sources', 'GoBook Customers', 'GoBook CRM', 'Website Contact Form', 'Lead Form', 'CSV Import', 'Manual Entry', 'API Integration', 'Landing Page'];
@@ -178,7 +192,7 @@ function isWithinSimpleDate(value, filter) {
 }
 
 function actionItemsForStatus(status) {
-  if (status === 'Draft') return ['Edit', 'Duplicate', 'Send Test', 'Delete'];
+  if (status === 'Draft') return ['Edit', 'Send Now', 'Send Test', 'Duplicate', 'Delete'];
   if (status === 'Scheduled') return ['View', 'Edit', 'Reschedule', 'Pause', 'Duplicate', 'Cancel'];
   if (status === 'Sent') return ['View Report', 'Duplicate', 'View Campaign', 'Export Report'];
   if (status === 'Paused') return ['Resume', 'Edit', 'Duplicate', 'Archive', 'Delete'];
@@ -233,6 +247,7 @@ function MiniChart({ totals }) {
 }
 
 export function EmailMarketingPage() {
+  const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState([]);
   const [stats, setStats] = useState({ totalSent: 0, totalOpened: 0, totalClicked: 0, totalBounced: 0 });
   const [search, setSearch] = useState('');
@@ -251,6 +266,7 @@ export function EmailMarketingPage() {
   const [summaryFilter, setSummaryFilter] = useState('All');
   const [selectedCampaignIds, setSelectedCampaignIds] = useState([]);
   const [actionMenuId, setActionMenuId] = useState(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState(null);
   const [templates, setTemplates] = useState(TEMPLATE_LIBRARY);
   const [templateSearch, setTemplateSearch] = useState('');
   const [templateFilters, setTemplateFilters] = useState({ category: 'All', type: 'All Types', status: 'All Status', createdBy: 'All Creators' });
@@ -301,6 +317,25 @@ export function EmailMarketingPage() {
   const [selectedSuppression, setSelectedSuppression] = useState(null);
   const [showSuppressionForm, setShowSuppressionForm] = useState(false);
   const [suppressionForm, setSuppressionForm] = useState(EMPTY_SUPPRESSION);
+  const [emailConnection, setEmailConnection] = useState({ configured: false, email: '', verifiedAt: null });
+  const [showEmailSetup, setShowEmailSetup] = useState(true);
+  const [emailSetupForm, setEmailSetupForm] = useState({ email: '', appPassword: '' });
+  const [googleProfile, setGoogleProfile] = useState(null);
+  const [historyFilter, setHistoryFilter] = useState('All');
+  const [savingEmailSetup, setSavingEmailSetup] = useState(false);
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [showCampaignTest, setShowCampaignTest] = useState(false);
+  const [testRecipient, setTestRecipient] = useState('');
+  const [sendingCampaignTest, setSendingCampaignTest] = useState(false);
+  const googleButtonRef = useRef(null);
+
+  function leaveEmailSetup() {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/dashboard');
+  }
 
   async function load() {
     try {
@@ -312,7 +347,94 @@ export function EmailMarketingPage() {
     }
   }
 
+  async function loadEmailSettings() {
+    try {
+      const data = await apiClient('/more-modules/email-settings');
+      setEmailConnection(data);
+      setEmailSetupForm((current) => ({ ...current, email: data.email || current.email }));
+      setShowEmailSetup(true);
+    } catch (err) {
+      setNotice(err.message || 'Unable to load email settings.');
+    }
+  }
+
   useEffect(() => { load(); }, []);
+  useEffect(() => { loadEmailSettings(); }, []);
+
+  useEffect(() => {
+    if (!showEmailSetup || !googleButtonRef.current) return undefined;
+    let cancelled = false;
+    renderGoogleSignInButton(googleButtonRef.current, (credential) => {
+      const tokenPart = credential.split('.')[1];
+      const profile = JSON.parse(atob(tokenPart.replace(/-/g, '+').replace(/_/g, '/')));
+      if (!cancelled && profile.email) {
+        setGoogleProfile({ name: profile.name || profile.given_name || 'Google account', email: profile.email });
+        setEmailSetupForm((current) => ({ ...current, email: profile.email }));
+      }
+    }, (err) => !cancelled && setNotice(err.message || 'Google sign-in could not be opened.'), { width: 220, logoAlignment: 'center', shape: 'pill' }).catch((err) => {
+      if (!cancelled) setNotice(err.message || 'Google sign-in is not configured. Enter your Gmail address instead.');
+    });
+    return () => { cancelled = true; };
+  }, [showEmailSetup, googleProfile]);
+
+  async function saveEmailSetup(event) {
+    event.preventDefault();
+    setSavingEmailSetup(true);
+    try {
+      const data = await apiClient('/more-modules/email-settings', { method: 'PUT', body: JSON.stringify(emailSetupForm) });
+      setEmailConnection(data);
+      setEmailSetupForm((current) => ({ ...current, appPassword: '' }));
+      setNotice(data.message || 'Gmail connected and verified.');
+    } catch (err) {
+      setNotice(err.message || 'Gmail verification failed.');
+    } finally {
+      setSavingEmailSetup(false);
+    }
+  }
+
+  async function sendTestEmail() {
+    if (!emailConnection.configured) {
+      setNotice('Gmail is not verified. Connect Gmail before sending a test email.');
+      setShowEmailSetup(true);
+      return;
+    }
+    setSendingTestEmail(true);
+    try {
+      const data = await apiClient('/more-modules/email-settings/test', { method: 'POST', body: JSON.stringify({ to: emailConnection.email }) });
+      setNotice(data.message || 'Test email sent.');
+    } catch (err) {
+      setNotice(err.message || 'Test email failed.');
+    } finally {
+      setSendingTestEmail(false);
+    }
+  }
+
+  function openCampaignTest() {
+    if (!emailConnection.configured) {
+      setNotice('Verify Gmail before sending a campaign test email.');
+      setShowEmailSetup(true);
+      return;
+    }
+    setTestRecipient(emailConnection.email || '');
+    setShowCampaignTest(true);
+  }
+
+  async function sendCampaignTest(event) {
+    event.preventDefault();
+    setSendingCampaignTest(true);
+    try {
+      const data = await apiClient('/more-modules/email-campaigns/test', {
+        method: 'POST',
+        body: JSON.stringify({ to: testRecipient, subject: form.subject, body: form.body }),
+      });
+      setShowCampaignTest(false);
+      setNotice(data.message || 'Campaign test email sent.');
+    } catch (err) {
+      setNotice(err.message || 'Campaign test email failed.');
+    } finally {
+      setSendingCampaignTest(false);
+    }
+  }
 
   const filtered = campaigns.filter((c) => {
     const q = search.trim().toLowerCase();
@@ -492,14 +614,14 @@ export function EmailMarketingPage() {
   }
 
   function openNewCampaign() {
-    setForm(EMPTY);
+    setForm({ ...EMPTY, fromEmail: emailConnection.email || EMPTY.fromEmail });
     setEditingId(null);
     setWizardStep(0);
     setShowForm(true);
   }
 
   function openTemplateCampaign() {
-    setForm({ ...EMPTY, subject: 'Your update from GoBook', body: 'Hi {{customer_name}},\n\n' });
+    setForm({ ...EMPTY, fromEmail: emailConnection.email || EMPTY.fromEmail, subject: 'Your update from GoBook', body: 'Hi {{customer_name}},\n\n' });
     setEditingId(null);
     setWizardStep(0);
     setShowForm(true);
@@ -508,6 +630,20 @@ export function EmailMarketingPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     const submitMode = e.nativeEvent?.submitter?.dataset?.submitMode;
+    if (submitMode !== 'draft' && !emailConnection.configured) {
+      setShowEmailSetup(true);
+      setNotice('Connect and verify a Gmail app password before scheduling or sending email.');
+      return;
+    }
+    if (submitMode !== 'draft' && form.sendMode === 'Schedule' && !form.scheduledAt) {
+      setNotice('Choose a date and time before scheduling this campaign.');
+      return;
+    }
+    if (submitMode !== 'draft' && !form.recipientsText.split(/[\n,]/).map((email) => email.trim()).filter(Boolean).length) {
+      setNotice('Enter at least one To email address before scheduling or sending this campaign.');
+      setWizardStep(2);
+      return;
+    }
     const scheduledAt = submitMode === 'draft' ? null : (form.sendMode === 'Schedule' ? form.scheduledAt || null : null);
     const payload = { ...form, scheduledAt };
     let saved;
@@ -519,6 +655,10 @@ export function EmailMarketingPage() {
       saved = await apiClient('/more-modules/email-campaigns', { method: 'POST', body: JSON.stringify(payload) });
       setCampaigns((current) => [saved, ...current.filter((row) => row._id !== saved._id)]);
       setNotice('Campaign created.');
+    }
+    if (submitMode !== 'draft' && form.sendMode === 'Send Now') {
+      const result = await apiClient(`/more-modules/email-campaigns/${saved._id}/send`, { method: 'POST' });
+      setNotice(result.message || 'Campaign sent.');
     }
     setActiveTab('Campaigns');
     await load();
@@ -558,6 +698,11 @@ export function EmailMarketingPage() {
   }
 
   async function handleSendNow(c) {
+    if (!emailConnection.configured) {
+      setShowEmailSetup(true);
+      setNotice('Connect and verify Gmail before sending a campaign.');
+      return;
+    }
     if (!window.confirm(`Send "${c.name}" to ${(c.recipients ?? []).length} recipient(s) now?`)) return;
     setSendingId(c._id);
     try {
@@ -573,12 +718,17 @@ export function EmailMarketingPage() {
 
   function handleCampaignAction(action, campaign) {
     setActionMenuId(null);
+    setActionMenuPosition(null);
     if (action === 'Edit' || action === 'Reschedule') {
       handleEdit(campaign);
       return;
     }
     if (action === 'Delete' || action === 'Cancel') {
       handleDelete(campaign._id);
+      return;
+    }
+    if (action === 'Send Now') {
+      handleSendNow(campaign);
       return;
     }
     if (action === 'Duplicate') {
@@ -597,10 +747,36 @@ export function EmailMarketingPage() {
       return;
     }
     if (action === 'Send Test') {
-      setNotice('Test send workflow will use the campaign content and your verified sender settings.');
+      setForm((current) => ({ ...current, subject: campaign.subject ?? '', body: campaign.body ?? '' }));
+      if (!emailConnection.configured) {
+        setNotice('Verify Gmail before sending a campaign test email.');
+        setShowEmailSetup(true);
+      } else {
+        setTestRecipient(emailConnection.email || '');
+        setShowCampaignTest(true);
+      }
       return;
     }
     setNotice(`${action} is ready for the next campaign tracking integration.`);
+  }
+
+  function toggleCampaignActionMenu(event, campaign) {
+    if (actionMenuId === campaign._id) {
+      setActionMenuId(null);
+      setActionMenuPosition(null);
+      return;
+    }
+
+    const trigger = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 176;
+    const menuHeight = actionItemsForStatus(campaign.status).length * 36 + 8;
+    const opensUpward = trigger.bottom + menuHeight + 4 > window.innerHeight;
+
+    setActionMenuPosition({
+      top: opensUpward ? Math.max(8, trigger.top - menuHeight - 4) : trigger.bottom + 4,
+      left: Math.max(8, Math.min(window.innerWidth - menuWidth - 8, trigger.right - menuWidth)),
+    });
+    setActionMenuId(campaign._id);
   }
 
   function toggleCampaignSelection(id) {
@@ -1167,13 +1343,18 @@ export function EmailMarketingPage() {
             </>
           ) : (
             <>
-              <button type="button" onClick={() => setActionMenuId(actionMenuId === row._id ? null : row._id)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[#536173] hover:bg-blue-50 hover:text-blue-700"><MoreVertical size={15} /></button>
-              {actionMenuId === row._id && (
-                <div className="absolute right-0 top-9 z-20 w-44 rounded-md border border-[#dbe4ef] bg-white py-1 text-left shadow-xl">
+              <button type="button" aria-haspopup="menu" aria-expanded={actionMenuId === row._id} onClick={(event) => toggleCampaignActionMenu(event, row)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[#536173] hover:bg-blue-50 hover:text-blue-700"><MoreVertical size={15} /></button>
+              {actionMenuId === row._id && actionMenuPosition && createPortal(
+                <div
+                  role="menu"
+                  className="fixed z-[100] w-44 rounded-md border border-[#dbe4ef] bg-white py-1 text-left shadow-xl"
+                  style={actionMenuPosition}
+                >
                   {actionItemsForStatus(row.status).map((action) => (
-                    <button key={action} type="button" onClick={() => handleCampaignAction(action, row)} className={`block w-full border-0 bg-white px-3 py-2 text-left text-[12px] font-bold hover:bg-blue-50 ${['Delete', 'Cancel', 'Archive'].includes(action) ? 'text-red-600' : 'text-[#0f2f5f]'}`}>{action}</button>
+                    <button key={action} role="menuitem" type="button" onClick={() => handleCampaignAction(action, row)} className={`block w-full border-0 bg-white px-3 py-2 text-left text-[12px] font-bold hover:bg-blue-50 ${["Delete", "Cancel", "Archive"].includes(action) ? "text-red-600" : "text-[#0f2f5f]"}`}>{action}</button>
                   ))}
-                </div>
+                </div>,
+                document.body,
               )}
             </>
           )}
@@ -1751,6 +1932,39 @@ export function EmailMarketingPage() {
             <div className="rounded-lg border border-[#edf2f7] p-4"><h3 className="m-0 mb-3 text-[13px] font-black text-[#071936]">Automatic Rules</h3>{['Suppress after hard bounce', 'Suppress after spam complaint', 'Suppress after 3 soft bounces', 'Exclude transactional emails from marketing suppression'].map((rule) => <label key={rule} className="mb-2 block text-[12px] font-bold text-[#0f2f5f]"><input type="checkbox" className="mr-2 accent-blue-600" defaultChecked />{rule}</label>)}</div>
             <div className="rounded-lg border border-[#edf2f7] p-4"><h3 className="m-0 mb-3 text-[13px] font-black text-[#071936]">Audit Log</h3>{suppressionRows.slice(0, 4).map((row) => <div key={`${row.id}-audit`} className="border-b border-[#edf2f7] py-2 text-[12px]"><strong>{row.suppressionType}</strong><span className="block text-[#536173]">{row.email} - Added by {row.addedBy} on {fmtDate(row.addedDate)}</span></div>)}</div>
           </div>
+        </Card>
+      );
+    }
+
+    if (activeTab === 'Settings') {
+      return (
+        <Card className="mb-4 p-4 md:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="m-0 text-[16px] font-black text-[#071936]">Sending settings</h2>
+              <p className="m-0 mt-1 text-[12px] text-[#536173]">Campaign emails are sent from your verified Gmail account using a Google app password.</p>
+            </div>
+            <button type="button" onClick={() => setShowEmailSetup(true)} className="w-full rounded-md border-0 bg-blue-600 px-4 py-2 text-[13px] font-bold text-white hover:bg-blue-700 sm:w-auto">{emailConnection.configured ? 'Change connection' : 'Connect Gmail'}</button>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className={`rounded-lg border p-4 ${emailConnection.configured ? 'border-emerald-100 bg-emerald-50' : 'border-red-200 bg-red-50'}`}><span className="text-[11px] font-bold uppercase tracking-wide text-[#536173]">Status</span><strong className={`mt-2 block text-[15px] ${emailConnection.configured ? 'text-emerald-700' : 'text-red-700'}`}>{emailConnection.configured ? 'Verified and ready' : 'Verification required'}</strong></div>
+            <div className="rounded-lg border border-[#edf2f7] bg-[#fbfdff] p-4"><span className="text-[11px] font-bold uppercase tracking-wide text-[#536173]">Gmail account</span><strong className="mt-2 block break-all text-[15px] text-[#071936]">{emailConnection.email || '?'}</strong></div>
+            <div className="rounded-lg border border-[#edf2f7] bg-[#fbfdff] p-4"><span className="text-[11px] font-bold uppercase tracking-wide text-[#536173]">Last verified</span><strong className="mt-2 block text-[15px] text-[#071936]">{fmtDateTime(emailConnection.verifiedAt)}</strong></div>
+          </div>
+          <button type="button" disabled={!emailConnection.configured || sendingTestEmail} onClick={sendTestEmail} className="mt-4 w-full rounded-md border border-blue-200 bg-white px-4 py-2.5 text-[13px] font-bold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 sm:w-auto">{sendingTestEmail ? 'Sending test email?' : 'Send test email to verified Gmail'}</button>
+          <div className="mt-5 rounded-md border border-blue-100 bg-blue-50 p-3 text-[12px] leading-5 text-blue-900">For Gmail, enable 2-Step Verification first and create a 16-character App Password. Your password is never displayed after verification.</div>
+        </Card>
+      );
+    }
+
+    if (activeTab === 'History') {
+      const rows = campaigns.flatMap((campaign) => (campaign.recipients || []).map((recipient) => ({ campaign, recipient })));
+      const visibleRows = historyFilter === 'All' ? rows : rows.filter(({ recipient }) => recipient.status === historyFilter);
+      return (
+        <Card className="mb-4 overflow-hidden">
+          <div className="flex flex-col gap-2 border-b border-[#edf2f7] p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="m-0 text-[16px] font-black text-[#071936]">Delivery history</h2><p className="m-0 mt-1 text-[12px] text-[#536173]">A per-recipient record of every campaign send attempt.</p></div><strong className="text-[12px] text-[#536173]">{number(rows.length)} records</strong></div>
+          <div className="flex flex-wrap gap-2 border-b border-[#edf2f7] px-4 py-3">{['All', 'Sent', 'Failed', 'Pending'].map((filter) => <button key={filter} type="button" onClick={() => setHistoryFilter(filter)} className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${historyFilter === filter ? filter === 'Sent' ? 'bg-emerald-600 text-white' : filter === 'Failed' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white' : 'border border-[#dbe4ef] bg-white text-[#536173]'}`}>{filter} ({number(filter === 'All' ? rows.length : rows.filter(({ recipient }) => recipient.status === filter).length)})</button>)}</div>
+          <div className="overflow-x-auto"><table className="min-w-[720px] w-full border-collapse text-left text-[12px]"><thead><tr className="border-b border-[#edf2f7] text-[#536173]"><th className="px-4 py-3">Campaign</th><th>Recipient</th><th>Status</th><th>Sent at</th><th className="px-4">Details</th></tr></thead><tbody>{visibleRows.length ? visibleRows.map(({ campaign, recipient }) => <tr key={`${campaign._id}-${recipient.email}`} className="border-b border-[#edf2f7] last:border-b-0"><td className="px-4 py-3 font-bold text-[#071936]">{campaign.name}</td><td>{recipient.email}</td><td><span className={`rounded-full px-2 py-1 text-[11px] font-bold ${recipient.status === 'Sent' ? 'bg-emerald-50 text-emerald-700' : recipient.status === 'Failed' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{recipient.status}</span></td><td>{fmtDateTime(recipient.sentAt)}</td><td className="px-4 text-[#536173]">{recipient.error || '?'}</td></tr>) : <tr><td colSpan={5} className="px-4 py-10 text-center text-[#536173]">No {historyFilter === 'All' ? 'delivery records' : historyFilter.toLowerCase() + ' emails'} found.</td></tr>}</tbody></table></div>
         </Card>
       );
     }
@@ -2487,6 +2701,40 @@ export function EmailMarketingPage() {
         </div>
       )}
 
+      {showEmailSetup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-3 sm:p-5">
+          <form className="my-auto w-full max-w-md rounded-xl border border-[#dfe7f1] bg-white p-5 shadow-2xl sm:p-6" onSubmit={saveEmailSetup}>
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div><h3 className="m-0 text-[19px] font-black text-[#071936]">Verify Email Marketing</h3><p className="m-0 mt-1 text-[12px] leading-5 text-[#536173]">Email Marketing opens only after your Gmail connection is verified.</p></div>
+              <button type="button" onClick={leaveEmailSetup} className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#dbe4ef] bg-white px-3 py-2 text-[12px] font-bold text-[#536173] hover:bg-slate-50 hover:text-[#071936]" aria-label="Go back from email marketing setup"><ArrowLeft size={15} />Back</button>
+            </div>
+            {emailConnection.configured ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center"><span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-600 text-[22px] font-black text-white">?</span><strong className="mt-3 block text-[17px] text-emerald-800">Done ? Gmail verified</strong><span className="mt-1 block break-all text-[12px] text-emerald-700">{emailConnection.email}</span><button type="button" onClick={() => { setActiveTab('Dashboard'); setShowEmailSetup(false); }} className="mt-4 w-full rounded-md border-0 bg-emerald-600 px-4 py-2.5 text-[13px] font-bold text-white hover:bg-emerald-700">Continue to Email Marketing</button></div> : <>
+              {googleProfile ? <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-4"><span className="text-[11px] font-bold uppercase tracking-wide text-blue-600">Selected Google account</span><strong className="mt-2 block text-[15px] text-[#071936]">{googleProfile.name}</strong><span className="mt-1 block break-all text-[12px] text-[#536173]">{googleProfile.email}</span><button type="button" onClick={() => setGoogleProfile(null)} className="mt-3 text-[12px] font-bold text-blue-700 hover:underline">Use another Google account</button></div> : <>
+                <label className="mb-3 block text-[12px] font-bold text-[#536173]">Gmail address<input required type="email" value={emailSetupForm.email} onChange={(event) => setEmailSetupForm((current) => ({ ...current, email: event.target.value }))} placeholder="you@gmail.com" className="mt-1.5 w-full rounded-md border border-[#dbe4ef] px-3 py-2.5 text-[14px] outline-none focus:border-blue-500" /></label>
+              </>}
+              <label className="block text-[12px] font-bold text-[#536173]">Google App Password<input required type="password" autoComplete="new-password" placeholder="Enter your password" value={emailSetupForm.appPassword} onPaste={(event) => event.preventDefault()} onChange={(event) => setEmailSetupForm((current) => ({ ...current, appPassword: event.target.value }))} className="mt-1.5 w-full rounded-md border border-[#dbe4ef] px-3 py-2.5 text-[14px] outline-none focus:border-blue-500" /></label>
+              <p className="m-0 mt-3 text-[11px] leading-5 text-[#536173]">This is not your usual Google password. Create an App Password in your Google Account after enabling 2-Step Verification.</p>
+              <button disabled={savingEmailSetup} type="submit" className="mt-5 w-full rounded-md border-0 bg-blue-600 px-4 py-2.5 text-[13px] font-bold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60">{savingEmailSetup ? 'Verifying Gmail?' : 'Verify & continue'}</button>
+              {!googleProfile && <>
+                <div className="relative my-4 text-center text-[11px] font-bold uppercase tracking-wide text-[#9aa8bb]"><span className="relative z-10 bg-white px-3">or sign in with Google</span><span className="absolute left-0 right-0 top-1/2 -z-0 border-t border-[#edf2f7]" /></div>
+                <div ref={googleButtonRef} className="email-google-signin mx-auto min-h-10 w-[220px] max-w-full" />
+              </>}
+            </>}
+          </form>
+        </div>
+      )}
+
+      {showCampaignTest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-4">
+          <form onSubmit={sendCampaignTest} className="w-full max-w-md rounded-xl border border-[#dfe7f1] bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3"><div><h3 className="m-0 text-[17px] font-black text-[#071936]">Send campaign test</h3><p className="m-0 mt-1 text-[12px] leading-5 text-[#536173]">Enter one email address. Only this test recipient receives the draft; your full campaign audience is not sent.</p></div><button type="button" onClick={() => setShowCampaignTest(false)} className="border-0 bg-transparent text-[#536173] hover:text-[#071936]" aria-label="Close test email"><XCircle size={20} /></button></div>
+            <label className="block text-[12px] font-bold text-[#536173]">Test recipient email<input required autoFocus type="email" value={testRecipient} onChange={(event) => setTestRecipient(event.target.value)} placeholder="customer@example.com" className="mt-1.5 w-full rounded-md border border-[#dbe4ef] px-3 py-2.5 text-[14px] outline-none focus:border-blue-500" /></label>
+            <div className="mt-4 rounded-md border border-blue-100 bg-blue-50 p-3 text-[12px] text-blue-900"><strong className="block">From: {emailConnection.email}</strong><span className="mt-1 block">Subject: {form.subject || 'GoBook campaign test'}</span></div>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setShowCampaignTest(false)} className="rounded-md border border-[#dbe4ef] bg-white px-4 py-2.5 text-[13px] font-bold text-[#536173] hover:bg-slate-50">Cancel</button><button disabled={sendingCampaignTest} type="submit" className="rounded-md border-0 bg-blue-600 px-4 py-2.5 text-[13px] font-bold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60">{sendingCampaignTest ? 'Sending test?' : 'Send real test email'}</button></div>
+          </form>
+        </div>
+      )}
+
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <form className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-xl border border-[#dfe7f1] bg-white p-5 shadow-2xl" onSubmit={handleSubmit}>
@@ -2550,10 +2798,11 @@ export function EmailMarketingPage() {
 
             {wizardStep === 2 && (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <input className="rounded-md border border-[#dbe4ef] px-3 py-2 text-[13px] outline-none focus:border-blue-500" placeholder="From Name" value={form.fromName} onChange={(e) => updateForm('fromName', e.target.value)} />
-                <input className="rounded-md border border-[#dbe4ef] px-3 py-2 text-[13px] outline-none focus:border-blue-500" placeholder="From Email" value={form.fromEmail} onChange={(e) => updateForm('fromEmail', e.target.value)} />
-                <input className="rounded-md border border-[#dbe4ef] px-3 py-2 text-[13px] outline-none focus:border-blue-500" placeholder="Subject" value={form.subject} onChange={(e) => updateForm('subject', e.target.value)} />
-                <input className="rounded-md border border-[#dbe4ef] px-3 py-2 text-[13px] outline-none focus:border-blue-500" placeholder="Preview Text" value={form.previewText} onChange={(e) => updateForm('previewText', e.target.value)} />
+                <label className="text-[12px] font-bold text-[#536173]">From name<input className="mt-1 w-full rounded-md border border-[#dbe4ef] px-3 py-2 text-[13px] font-normal outline-none focus:border-blue-500" placeholder="Business name" value={form.fromName} onChange={(e) => updateForm('fromName', e.target.value)} /></label>
+                <label className="text-[12px] font-bold text-[#536173]">From email <span className="font-normal text-emerald-700">(verified)</span><input className="mt-1 w-full rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] font-normal text-emerald-800 outline-none" value={emailConnection.email || form.fromEmail} readOnly title="Campaigns send from the verified Gmail account" /></label>
+                <label className="md:col-span-2 text-[12px] font-bold text-[#536173]">To email(s) <span className="font-normal text-blue-700">(editable)</span><textarea className="mt-1 min-h-20 w-full rounded-md border border-[#dbe4ef] px-3 py-2 text-[13px] font-normal outline-none focus:border-blue-500" placeholder="customer@example.com, another@example.com ? use a comma or new line for multiple emails" value={form.recipientsText} onChange={(e) => updateForm('recipientsText', e.target.value)} /></label>
+                <label className="text-[12px] font-bold text-[#536173]">Subject<input className="mt-1 w-full rounded-md border border-[#dbe4ef] px-3 py-2 text-[13px] font-normal outline-none focus:border-blue-500" placeholder="Email subject" value={form.subject} onChange={(e) => updateForm('subject', e.target.value)} /></label>
+                <label className="text-[12px] font-bold text-[#536173]">Preview text<input className="mt-1 w-full rounded-md border border-[#dbe4ef] px-3 py-2 text-[13px] font-normal outline-none focus:border-blue-500" placeholder="Email preview text" value={form.previewText} onChange={(e) => updateForm('previewText', e.target.value)} /></label>
                 <div className="md:col-span-2 flex flex-wrap gap-2">
                   <button type="button" onClick={() => setForm((current) => ({ ...current, subject: current.subject || 'Your update from GoBook', body: current.body || 'Hi {{customer_name}},\\n\\n' }))} className="rounded-md border border-[#dbe4ef] bg-white px-4 py-2 text-[13px] font-bold text-blue-700 hover:bg-blue-50">Choose Template</button>
                   <button type="button" className="rounded-md border border-[#dbe4ef] bg-white px-4 py-2 text-[13px] font-bold text-blue-700 hover:bg-blue-50">Open Email Builder</button>
@@ -2607,7 +2856,7 @@ export function EmailMarketingPage() {
             <div className="mt-5 flex flex-wrap justify-between gap-2">
               <button type="button" onClick={() => setWizardStep((step) => Math.max(0, step - 1))} disabled={wizardStep === 0} className="rounded-md border border-[#dbe4ef] bg-white px-4 py-2 text-[13px] font-bold text-[#536173] hover:bg-slate-50 disabled:opacity-40">Back</button>
               <div className="flex flex-wrap justify-end gap-2">
-                <button type="button" onClick={() => setNotice('Test email preview is ready for SMTP integration.')} className="rounded-md border border-[#dbe4ef] bg-white px-4 py-2 text-[13px] font-bold text-blue-700 hover:bg-blue-50">Send Test</button>
+                <button type="button" onClick={openCampaignTest} className="rounded-md border border-[#dbe4ef] bg-white px-4 py-2 text-[13px] font-bold text-blue-700 hover:bg-blue-50">Send Test</button>
                 {wizardStep < WIZARD_STEPS.length - 1 ? (
                   <button type="button" onClick={() => setWizardStep((step) => Math.min(WIZARD_STEPS.length - 1, step + 1))} className="rounded-md border-0 bg-blue-600 px-4 py-2 text-[13px] font-bold text-white hover:bg-blue-700">Next</button>
                 ) : (

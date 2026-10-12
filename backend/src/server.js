@@ -9,7 +9,6 @@ import { connectDatabase, getDatabaseStatus } from './services/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { apiRouter } from './routes/index.js';
-import { closeInvoicePdfBrowser } from './services/invoicePdf.js';
 import { metaApiRouter, metaPublicRouter } from './modules/meta/routes.js';
 import { startScheduledJobs } from './jobs/scheduler.js';
 import { ensureDefaultSubscriptionPlans } from './services/subscriptionPlans.js';
@@ -26,7 +25,7 @@ process.on('unhandledRejection', (reason) => {
 
 const app = express();
 
-// Trust Hostinger's nginx reverse proxy.
+// Trust the first reverse proxy, for example AWS ALB, nginx, or Hostinger.
 app.set('trust proxy', 1);
 app.disable('etag');
 
@@ -66,7 +65,7 @@ app.use('/api/meta', metaApiRouter);
 app.use(express.json({
   limit: '10mb',
   verify: (req, _res, buffer) => {
-    if (req.originalUrl === '/api/subscriptions/razorpay/webhook') req.rawBody = Buffer.from(buffer);
+    if (req.originalUrl === '/api/subscriptions/razorpay/webhook' || req.originalUrl === '/api/razorpay/webhook') req.rawBody = Buffer.from(buffer);
   },
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -92,13 +91,14 @@ app.use('/api', apiRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-const server = app.listen(env.port, () => {
-  console.log(`GoBook API running on port ${env.port} [${env.nodeEnv}]`);
+const PORT = env.port;
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`GoBook API running on port ${PORT} [${env.nodeEnv}]`);
 });
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${env.port} already in use.`);
+    console.error(`Port ${PORT} already in use.`);
   } else {
     console.error('Server error:', err.message);
   }
@@ -118,11 +118,10 @@ async function connectDatabaseWithRetry() {
   }
 }
 
-// Start HTTP first so Hostinger can reach /health while MongoDB DNS/network is warming up.
+// Start HTTP first so the health check can reach /health while MongoDB is warming up.
 connectDatabaseWithRetry();
 
 async function shutdown() {
-  await closeInvoicePdfBrowser().catch(() => {});
   server.close(() => process.exit(0));
 }
 process.on('SIGTERM', shutdown);

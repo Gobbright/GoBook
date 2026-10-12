@@ -167,6 +167,23 @@ export function buildSmtpOverride(source, fallbackName) {
   };
 }
 
+// Checks SMTP credentials without transmitting an email. The email-marketing
+// setup flow uses this to validate a Google app password before any campaign
+// is allowed to send.
+export async function verifySmtp({ host, port = 587, secure = false, user, pass }) {
+  const mailTimeout = Math.max(Number(process.env.SMTP_TIMEOUT_MS) || 20000, 5000);
+  const transporter = nodemailer.createTransport({
+    host,
+    port: Number(port) || 587,
+    secure: !!secure,
+    auth: { user, pass },
+    connectionTimeout: mailTimeout,
+    greetingTimeout: mailTimeout,
+    socketTimeout: mailTimeout * 2,
+  });
+  await transporter.verify();
+}
+
 export async function sendMail({ to, subject, html, attachments = [], smtp }) {
   const mailTimeout = Math.max(Number(process.env.SMTP_TIMEOUT_MS) || 20000, 5000);
   const transporter = smtp

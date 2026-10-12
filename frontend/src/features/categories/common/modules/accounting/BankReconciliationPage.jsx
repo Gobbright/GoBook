@@ -8,7 +8,7 @@ import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 
 const TH = 'text-left text-xs font-semibold uppercase tracking-wide text-[#536173] px-4 py-3 border-b border-[#edf2f7]';
 const TD = 'px-4 py-3 border-b border-[#f3f4f6] text-[13px]';
-const FIELD = 'border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none focus:border-blue-500';
+const FIELD = 'h-11 min-w-0 border border-[#dbe4ef] rounded-lg px-3 py-2 text-[13px] bg-white font-[inherit] outline-none focus:border-blue-500 md:h-auto md:rounded-md';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const monthStart = () => {
@@ -101,12 +101,12 @@ export function BankReconciliationPage() {
       </div>
 
       <div className="bg-white border border-[#dfe7f1] rounded-xl p-4 my-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <SelectDropdown buttonClassName={FIELD} value={bank} onChange={setBank} options={banks} />
-          <input className={FIELD} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <input className={FIELD} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          <SelectDropdown buttonClassName={FIELD} value={status} onChange={setStatus} options={['All', 'Cleared', 'Uncleared']} />
-          <span className="text-[13px] text-[#536173]">
+        <div className="grid grid-cols-2 items-center gap-2 md:flex md:flex-wrap md:gap-3">
+          <SelectDropdown className="col-span-2 min-w-0 md:col-span-1" buttonClassName={FIELD} value={bank} onChange={setBank} options={banks} />
+          <input className={`${FIELD} w-full md:w-auto`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input className={`${FIELD} w-full md:w-auto`} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <SelectDropdown className="col-span-2 min-w-0 md:col-span-1" buttonClassName={FIELD} value={status} onChange={setStatus} options={['All', 'Cleared', 'Uncleared']} />
+          <span className="col-span-2 text-[13px] text-[#536173] md:col-span-1">
             {bankDetails.accountNo || '-'} · {bankDetails.ifsc || '-'} · {bankDetails.accountType || '-'}
           </span>
         </div>
@@ -153,7 +153,7 @@ export function BankReconciliationPage() {
                   </td>
                   <td className={`${TD} text-[#536173]`}>{row.date}</td>
                   <td className={TD}>
-                    <input className={`${FIELD} w-36`} type="date" disabled={!row.reconciled} value={row.bankDate || ''} onChange={(e) => updateField(row, 'bankDate', e.target.value)} />
+                    <input className={`${FIELD} w-44`} type="date" disabled={!row.reconciled} value={row.bankDate || ''} onChange={(e) => updateField(row, 'bankDate', e.target.value)} />
                   </td>
                   <td className={`${TD} font-medium text-[#374151]`}>{row.particulars}</td>
                   <td className={`${TD} font-mono text-xs`}>{row.vchNo}</td>

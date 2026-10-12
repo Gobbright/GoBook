@@ -16,6 +16,8 @@ import { AdminUserDetailsPage } from '../features/admin/pages/AdminUserDetailsPa
 import { AdminSubscriptionPage } from '../features/admin/pages/AdminSubscriptionPage.jsx';
 import { AdminRecordPage } from '../features/admin/pages/AdminRecordPage.jsx';
 import { CategoryBusinessPage } from '../features/admin/pages/CategoryBusinessPage.jsx';
+import { AdminPaymentControlPage } from '../features/admin/pages/AdminPaymentControlPage.jsx';
+import { PaymentMethodVerificationPage } from '../features/auth/PaymentMethodVerificationPage.jsx';
 import { CategoryHospitalPage } from '../features/admin/pages/CategoryHospitalPage.jsx';
 import { CategoryHotelPage } from '../features/admin/pages/CategoryHotelPage.jsx';
 import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage.jsx';
@@ -26,6 +28,7 @@ import { DataDeletionPage } from '../features/meta/DataDeletionPage.jsx';
 import { LoginPage } from '../features/auth/LoginPage.jsx';
 import { RegisterPage } from '../features/auth/RegisterPage.jsx';
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage.jsx';
+import { PublicStorePage } from '../features/store/PublicStorePage.jsx';
 import { PlatformAdminPage } from '../features/platform-admin/PlatformAdminPage.jsx';
 import { EmployeeLoginRoute, EmployeePortalRoutes } from '../features/employee-management/EmployeePortalRoutes.jsx';
 import EmployeeAdminDashboard from '../features/employee-management/pages/admin/Dashboard.jsx';
@@ -36,7 +39,6 @@ import EmployeeDocuments from '../features/employee-management/pages/admin/emplo
 import TodayAttendance from '../features/employee-management/pages/admin/attendance/TodayAttendance.jsx';
 import LeaveRequests from '../features/employee-management/pages/admin/leave/LeaveRequests.jsx';
 import Salary from '../features/employee-management/pages/admin/payroll/Salary.jsx';
-import AllNotices from '../features/employee-management/pages/admin/notices/AllNotices.jsx';
 import AdminMonthlyAttendance from '../features/employee-management/pages/admin/attendance/MonthlyAttendance.jsx';
 import CorrectionRequests from '../features/employee-management/pages/admin/attendance/CorrectionRequests.jsx';
 import AttendanceReports from '../features/employee-management/pages/admin/attendance/AttendanceReports.jsx';
@@ -48,7 +50,6 @@ import AdminPayslips from '../features/employee-management/pages/admin/payroll/P
 import PayrollProcessing from '../features/employee-management/pages/admin/payroll/PayrollProcessing.jsx';
 import PayrollDeductions from '../features/employee-management/pages/admin/payroll/Deductions.jsx';
 import PayrollReports from '../features/employee-management/pages/admin/payroll/PayrollReports.jsx';
-import AddNotice from '../features/employee-management/pages/admin/notices/AddNotice.jsx';
 import HolidayList from '../features/employee-management/pages/admin/holidays/HolidayList.jsx';
 import AddHoliday from '../features/employee-management/pages/admin/holidays/AddHoliday.jsx';
 import { DashboardPage } from '../pages/DashboardPage.jsx';
@@ -77,7 +78,7 @@ import { getLastRoute } from './routeStorage.js';
 
 // Rendered inside <BrowserRouter>, so useLocation() re-runs this on clean URL navigation,
 // keeping category-specific route branches fresh without needing a full page reload.
-function AppRoutes() {
+export function FullAppRoutes() {
   useLocation();
   const currentUser = useCurrentUser();
 
@@ -97,6 +98,8 @@ function AppRoutes() {
       <Route path="/terms" element={<LegalPage type="terms" />} />
       <Route path="/privacy" element={<LegalPage type="privacy" />} />
       <Route path="/privacy-policy" element={<LegalPage type="privacy" />} />
+      <Route path="/store/:slug" element={<PublicStorePage />} />
+      <Route path="/store/:slug/product/:productId" element={<PublicStorePage />} />
       <Route path="/data-deletion" element={<DataDeletionPage />} />
       <Route path="/data-deletion-status/:confirmationCode" element={<DataDeletionPage status />} />
       <Route path="/employee-login" element={<EmployeeLoginRoute />} />
@@ -111,6 +114,7 @@ function AppRoutes() {
       <Route path="/admin/users/trial" element={adminRoute(<AdminUserListPage type="trial" />)} />
       <Route path="/admin/users/expired" element={adminRoute(<AdminUserListPage type="expired" />)} />
       <Route path="/admin/users/blocked" element={adminRoute(<AdminUserListPage type="blocked" />)} />
+      <Route path="/payment-method-verification" element={<ProtectedRoute><PaymentMethodVerificationPage /></ProtectedRoute>} />
       <Route path="/admin/users/deleted" element={adminRoute(<AdminUserListPage type="deleted" />)} />
       <Route path="/admin/user-details" element={adminRedirect('/admin/user-details/business')} />
       <Route path="/admin/user-details/business" element={adminRoute(<AdminUserDetailsPage type="business" />)} />
@@ -153,6 +157,7 @@ function AppRoutes() {
       <Route path="/admin/settings/grace-period" element={adminRoute(<AdminRecordPage kind="gracePeriod" />)} />
       <Route path="/admin/settings/auto-block-after-expiry" element={adminRoute(<AdminRecordPage kind="autoBlockAfterExpiry" />)} />
       <Route path="/admin/settings/payment-settings" element={adminRoute(<AdminRecordPage kind="paymentSettings" />)} />
+      <Route path="/admin/payment-control" element={adminRoute(<AdminPaymentControlPage />)} />
       <Route path="/admin/customers" element={adminRoute(<AdminSectionPage group="customers" />)} />
       <Route path="/admin/accounting" element={adminRoute(<AdminSectionPage group="accounting" />)} />
       <Route path="/admin/hr" element={adminRoute(<AdminSectionPage group="hr" />)} />
@@ -170,7 +175,7 @@ function AppRoutes() {
       <Route path="/platform-admin" element={<ProtectedRoute><PlatformAdminPage /></ProtectedRoute>} />
 
       <Route element={<ProtectedShell />}>
-        <Route index element={<Navigate to={getLastRoute()} replace />} />
+        <Route index element={<Navigate to="/login" replace />} />
         <Route path="/dashboard" element={category === 'finance' ? <Navigate to="/finance/dashboard" replace /> : category === 'hotel' ? <HotelDashboardPage /> : <DashboardPage />} />
 
         <Route path="/employee-management/dashboard" element={employeeManagementPage(<EmployeeAdminDashboard />)} />
@@ -181,7 +186,6 @@ function AppRoutes() {
         <Route path="/employee-management/attendance" element={employeeManagementPage(<TodayAttendance />)} />
         <Route path="/employee-management/leave" element={employeeManagementPage(<LeaveRequests />)} />
         <Route path="/employee-management/payroll" element={employeeManagementPage(<Salary />)} />
-        <Route path="/employee-management/notices" element={employeeManagementPage(<AllNotices />)} />
         <Route path="/employee-management/reports" element={<Navigate to="/employee-management/dashboard" replace />} />
         <Route path="/employee-management/settings" element={<Navigate to="/employee-management/dashboard" replace />} />
         <Route path="/employee-management/attendance/monthly" element={employeeManagementPage(<AdminMonthlyAttendance />)} />
@@ -195,7 +199,6 @@ function AppRoutes() {
         <Route path="/employee-management/payroll/payslips" element={employeeManagementPage(<AdminPayslips />)} />
         <Route path="/employee-management/payroll/deductions" element={employeeManagementPage(<PayrollDeductions />)} />
         <Route path="/employee-management/payroll/reports" element={employeeManagementPage(<PayrollReports />)} />
-        <Route path="/employee-management/notices/add" element={employeeManagementPage(<AddNotice />)} />
         <Route path="/employee-management/holidays" element={employeeManagementPage(<HolidayList />)} />
         <Route path="/employee-management/holidays/add" element={employeeManagementPage(<AddHoliday />)} />
 
@@ -275,7 +278,7 @@ export function AppRouter() {
     <BrowserRouter>
       <GlobalErrorReporter />
       <LegacyHashRedirect />
-      <AppRoutes />
+      <FullAppRoutes />
     </BrowserRouter>
   );
 }

@@ -74,6 +74,7 @@ export function CustomersPage() {
   const [formError, setFormError] = useState('');
   const [importResult, setImportResult] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [selectedImportFile, setSelectedImportFile] = useState(null);
   const fileInputRef = useRef(null);
 
   function loadCustomers() {
@@ -160,18 +161,30 @@ export function CustomersPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    setSelectedImportFile(file);
+    setImportResult(null);
+  }
+
+  async function confirmImportFile() {
+    if (!selectedImportFile) return;
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', selectedImportFile);
     setImporting(true);
     try {
       const result = await importCustomers(formData);
       await loadCustomers();
       setImportResult(result);
+      setSelectedImportFile(null);
     } catch (err) {
       setImportResult({ error: err.message || 'Import failed' });
     } finally {
       setImporting(false);
     }
+  }
+
+  function cancelImportFile() {
+    if (importing) return;
+    setSelectedImportFile(null);
   }
 
   function handleEdit(row) {
@@ -207,7 +220,7 @@ export function CustomersPage() {
           <p className="m-0 text-[13px] text-[#536173] mt-0.5">Manage your all customers in one place</p>
         </div>
         <div className="flex items-center gap-2">
-          <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleImportFile} />
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
           <button type="button" disabled={importing} onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#374151] bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit] disabled:opacity-60">
             <svg fill="none" height="14" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" width="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
             {importing ? 'Importing...' : 'Import Excel'}
@@ -220,9 +233,9 @@ export function CustomersPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/35 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="customer-modal-title">
+        <div className="customer-form-overlay fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/35 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="customer-modal-title">
           <button type="button" aria-label="Close add customer" className="absolute inset-0 cursor-default border-0 bg-transparent" onClick={resetForm} />
-          <form className="relative w-full max-w-[760px] rounded-lg border border-[#cfdced] bg-white p-5 shadow-2xl" onSubmit={handleSubmit}>
+          <form className="customer-form-modal relative w-full max-w-[760px] rounded-lg border border-[#cfdced] bg-white p-5 shadow-2xl" onSubmit={handleSubmit}>
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h3 id="customer-modal-title" className="m-0 text-[20px] font-bold text-[#111827]">{editingId ? 'Edit Customer' : 'Add Customer'}</h3>
@@ -233,7 +246,7 @@ export function CustomersPage() {
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Customer / Company Name *</label>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Customer Name *</label>
                 <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none font-[inherit] focus:border-blue-500" placeholder="Customer name" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
               </div>
               <div>
@@ -295,6 +308,37 @@ export function CustomersPage() {
             <button className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="submit">{editingId ? 'Update Customer' : 'Save Customer'}</button>
           </div>
         </form>
+      )}
+
+      {selectedImportFile && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/35 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="customer-import-title">
+          <button type="button" aria-label="Cancel import" className="absolute inset-0 cursor-default border-0 bg-transparent" onClick={cancelImportFile} />
+          <div className="relative w-full max-w-[440px] rounded-lg border border-[#cfdced] bg-white p-5 shadow-2xl">
+            <h3 id="customer-import-title" className="m-0 text-[18px] font-bold text-[#111827]">Import customers?</h3>
+            <p className="m-0 mt-2 text-[13px] leading-6 text-[#536173]">
+              Selected file: <span className="font-semibold text-[#111827]">{selectedImportFile.name}</span>
+            </p>
+            <p className="m-0 mt-1 text-[12.5px] leading-5 text-[#64748b]">Existing customers with the same GSTIN, phone, email, or name will be updated.</p>
+            <div className="mt-5 flex justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={importing}
+                onClick={cancelImportFile}
+                className="min-w-[82px] rounded-md border border-[#dbe4ef] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#1f2937] cursor-pointer hover:bg-gray-50 disabled:opacity-60 font-[inherit]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={confirmImportFile}
+                className="min-w-[112px] rounded-md border-0 bg-blue-600 px-4 py-2.5 text-[13px] font-semibold text-white cursor-pointer hover:bg-blue-700 disabled:opacity-60 font-[inherit]"
+              >
+                {importing ? 'Importing...' : 'Yes, Import'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {importResult && (

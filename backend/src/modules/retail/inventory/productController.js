@@ -4,6 +4,7 @@ import multer from 'multer';
 import { Product } from '../../../models/Product.js';
 import { ProductBrand } from '../../../models/ProductBrand.js';
 import { ProductCategory } from '../../../models/ProductCategory.js';
+import { ProductSubcategory } from '../../../models/ProductSubcategory.js';
 import { StockIn } from '../../../models/StockIn.js';
 import { StockOut } from '../../../models/StockOut.js';
 import { httpError } from '../../../utils/httpError.js';
@@ -363,9 +364,10 @@ function normalizeProductPayload(body = {}) {
   if ('ean' in body) payload.ean = cleanText(body.ean);
   if ('manufacturerPartNumber' in body) payload.manufacturerPartNumber = cleanText(body.manufacturerPartNumber);
   if ('barcode' in body) payload.barcode = String(body.barcode ?? '').trim();
+  if ('barcodePrintCount' in body) payload.barcodePrintCount = parseNumber(body.barcodePrintCount);
   if ('status' in body) payload.status = String(body.status ?? '').trim() || 'Active';
 
-  if ('rate' in body) payload.rate = Number(body.rate);
+  if ('rate' in body) payload.rate = parseNumber(body.rate);
   if ('purchasePrice' in body) payload.purchasePrice = parseNumber(body.purchasePrice);
   if ('landingCost' in body) payload.landingCost = parseNumber(body.landingCost);
   if ('mrp' in body) payload.mrp = parseNumber(body.mrp);
@@ -459,7 +461,7 @@ function normalizeProductPayload(body = {}) {
       .map((v) => {
         const size = String(v?.size ?? '').trim();
         const modelName = String(v?.modelName ?? v?.model ?? '').trim();
-        return {
+        const variantPayload = {
           size,
           modelName,
           modelCode: cleanText(v?.modelCode),
@@ -483,6 +485,10 @@ function normalizeProductPayload(body = {}) {
           stock: Number(v?.stock),
           minStockLevel: Number(v?.minStockLevel) || 0,
         };
+        if (Object.prototype.hasOwnProperty.call(v || {}, 'barcodePrintCount')) {
+          variantPayload.barcodePrintCount = parseNumber(v?.barcodePrintCount);
+        }
+        return variantPayload;
       })
       .filter((v) => v.size || v.modelName || v.modelCode || v.colour || v.type || v.material || v.pattern || v.quality || v.ageGroup || v.other || v.barcode);
 
@@ -628,6 +634,21 @@ function stripStockFromUpdatePayload(payload) {
   return payload;
 }
 
+async function ensureProductBrandsFromPayload(userId, payload = {}) {
+  const names = new Set([
+    cleanText(payload.brand),
+    ...(Array.isArray(payload.variants)
+      ? payload.variants.flatMap((variant) => [cleanText(variant?.other), cleanText(variant?.brand)])
+      : []),
+  ].filter(Boolean));
+
+  await Promise.all([...names].map((name) => ProductBrand.updateOne(
+    { userId, name },
+    { $setOnInsert: { userId, name, status: 'Active' } },
+    { upsert: true },
+  )));
+}
+
 async function generateNextProductCode(userId, itemType = 'Product') {
   const products = await Product.find({ userId }, { code: 1 }).lean();
   const existingCodes = new Set(products.map((p) => String(p.code ?? '').trim().toUpperCase()));
@@ -757,19 +778,9 @@ export async function listProducts(req, res, next) {
 export async function getCategories(req, res, next) {
   try {
     const userId = req.user.id;
-    // Source from the Categories master list first, so a category added
-    // there shows up immediately — not only after a product uses it — then
-    // fold in any legacy free-text categories already on products that
-    // never got added to the master list, so nothing disappears.
-    const [defined, usedOnProducts] = await Promise.all([
-      ProductCategory.find({ userId, status: 'Active' }, { name: 1 }).lean(),
-      Product.distinct('category', { userId }),
-    ]);
-    const names = new Set(defined.map((c) => c.name));
-    for (const name of usedOnProducts) {
-      if (name) names.add(name);
-    }
-    res.json([...names].sort());
+    const defined = await ProductCategory.find({ userId, status: 'Active' }, { name: 1 }).lean();
+    const names = defined.map((c) => c.name).filter(Boolean);
+    res.json([...new Set(names)].sort());
   } catch (err) {
     next(err);
   }
@@ -779,18 +790,18 @@ export async function getCategories(req, res, next) {
 export async function getSubCategories(req, res, next) {
   try {
     const userId = req.user.id;
-    const [defined, usedOnProducts] = await Promise.all([
+    const [definedInCategories, definedInSubcategories] = await Promise.all([
       ProductCategory.find({ userId, status: 'Active' }, { subCategories: 1 }).lean(),
-      Product.distinct('subCategory', { userId }),
+      ProductSubcategory.find({ userId, status: 'Active' }, { name: 1 }).lean(),
     ]);
     const names = new Set();
-    for (const category of defined) {
+    for (const category of definedInCategories) {
       for (const name of category.subCategories || []) {
         if (name) names.add(name);
       }
     }
-    for (const name of usedOnProducts) {
-      if (name) names.add(name);
+    for (const sub of definedInSubcategories) {
+      if (sub?.name) names.add(sub.name);
     }
     res.json([...names].filter(Boolean).sort());
   } catch (err) {
@@ -802,15 +813,25 @@ export async function getSubCategories(req, res, next) {
 export async function getBrands(req, res, next) {
   try {
     const userId = req.user.id;
-    const [defined, usedOnProducts] = await Promise.all([
+    const [defined, productBrands, variantOtherBrands, variantBrands] = await Promise.all([
       ProductBrand.find({ userId, status: 'Active' }, { name: 1 }).lean(),
       Product.distinct('brand', { userId }),
+      Product.distinct('variants.other', { userId }),
+      Product.distinct('variants.brand', { userId }),
     ]);
-    const names = new Set(defined.map((brand) => brand.name));
-    for (const name of usedOnProducts) {
-      if (name) names.add(name);
-    }
-    res.json([...names].filter(Boolean).sort());
+    const names = [
+      ...defined.map((brand) => brand.name),
+      ...productBrands,
+      ...variantOtherBrands,
+      ...variantBrands,
+    ].map(cleanText).filter(Boolean);
+    const uniqueNames = [...new Set(names)].sort();
+    await Promise.all(uniqueNames.map((name) => ProductBrand.updateOne(
+      { userId, name },
+      { $setOnInsert: { userId, name, status: 'Active' } },
+      { upsert: true },
+    )));
+    res.json(uniqueNames);
   } catch (err) {
     next(err);
   }
@@ -819,8 +840,11 @@ export async function getBrands(req, res, next) {
 // GET /api/inventory/products/sizes
 export async function getSizes(req, res, next) {
   try {
-    const sizes = await Product.distinct('size', { userId: req.user.id });
-    res.json(sizes.filter(Boolean).sort());
+    const [sizes, variantSizes] = await Promise.all([
+      Product.distinct('size', { userId: req.user.id }),
+      Product.distinct('variants.size', { userId: req.user.id }),
+    ]);
+    res.json([...new Set([...sizes, ...variantSizes].filter(Boolean))].sort());
   } catch (err) {
     next(err);
   }
@@ -829,8 +853,12 @@ export async function getSizes(req, res, next) {
 // GET /api/inventory/products/fabrics
 export async function getFabrics(req, res, next) {
   try {
-    const fabrics = await Product.distinct('fabric', { userId: req.user.id });
-    res.json(fabrics.filter(Boolean).sort());
+    const [fabrics, materials, variantMaterials] = await Promise.all([
+      Product.distinct('fabric', { userId: req.user.id }),
+      Product.distinct('material', { userId: req.user.id }),
+      Product.distinct('variants.material', { userId: req.user.id }),
+    ]);
+    res.json([...new Set([...fabrics, ...materials, ...variantMaterials].filter(Boolean))].sort());
   } catch (err) {
     next(err);
   }
@@ -1225,6 +1253,8 @@ export async function createProduct(req, res, next) {
       createProductStockMovement(userId, product, product.stock, 'Initial Stock').catch(() => {});
     }
 
+    await ensureProductBrandsFromPayload(userId, product);
+
     res.status(201).json(product);
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, `Product code "${req.body.code}" already exists`));
@@ -1243,6 +1273,14 @@ export async function updateProduct(req, res, next) {
     const validationError = validateProductPayload(payload, { partial: true });
     if (validationError) return next(httpError(400, validationError));
     stripStockFromUpdatePayload(payload);
+    if (Array.isArray(payload.variants)) {
+      payload.variants = payload.variants.map((variant, index) => ({
+        ...variant,
+        barcodePrintCount: Number.isFinite(Number(variant.barcodePrintCount))
+          ? Number(variant.barcodePrintCount)
+          : Number(old.variants?.[index]?.barcodePrintCount) || 0,
+      }));
+    }
     const branch = Object.prototype.hasOwnProperty.call(req.body, 'branch')
       ? await branchForNewRecord(req, req.body.branch)
       : old.branch || await branchForNewRecord(req);
@@ -1259,9 +1297,58 @@ export async function updateProduct(req, res, next) {
     ).lean();
     if (!product) return next(httpError(404, 'Product not found'));
 
+    await ensureProductBrandsFromPayload(userId, product);
+
     res.json(product);
   } catch (err) {
     if (err.code === 11000) return next(httpError(409, `Product code "${req.body.code}" already exists`));
+    next(err);
+  }
+}
+
+// POST /api/inventory/products/:id/barcode-print
+export async function recordBarcodePrint(req, res, next) {
+  try {
+    const count = Math.max(1, Math.floor(Number(req.body?.count) || 1));
+    const variantIndex = Number(req.body?.variantIndex);
+    const product = await Product.findOne(await branchScopedQuery(req, { model: Product, ownerField: 'userId' }, { _id: req.params.id }));
+    if (!product) return next(httpError(404, 'Product not found'));
+
+    if (Number.isInteger(variantIndex) && variantIndex >= 0) {
+      if (!product.variants?.[variantIndex]) return next(httpError(404, 'Product variant not found'));
+      product.variants[variantIndex].barcodePrintCount = (Number(product.variants[variantIndex].barcodePrintCount) || 0) + count;
+    } else {
+      product.barcodePrintCount = (Number(product.barcodePrintCount) || 0) + count;
+    }
+
+    await product.save();
+    res.json(product.toObject());
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/inventory/products/barcode-print/reset
+export async function resetBarcodePrintCounts(req, res, next) {
+  try {
+    const filter = await branchScopedQuery(req, { model: Product, ownerField: 'userId' });
+    if (req.body?.itemType === 'Service') {
+      filter.itemType = 'Service';
+    } else {
+      filter.itemType = { $ne: 'Service' };
+    }
+
+    const products = await Product.find(filter);
+    for (const product of products) {
+      product.barcodePrintCount = 0;
+      for (const variant of product.variants || []) {
+        variant.barcodePrintCount = 0;
+      }
+      await product.save();
+    }
+
+    res.json({ message: 'Printed counts reset', updated: products.length });
+  } catch (err) {
     next(err);
   }
 }

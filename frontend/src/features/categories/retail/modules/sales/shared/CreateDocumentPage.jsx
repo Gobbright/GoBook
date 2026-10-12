@@ -2,6 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import {
+  Document as PdfDocument,
+  Page as PdfPage,
+  Rect as PdfRect,
+  StyleSheet as PdfStyleSheet,
+  Svg as PdfSvg,
+  Text as PdfText,
+  View as PdfView,
+  pdf,
+} from '@react-pdf/renderer';
+import {
   ArrowLeft, ArrowRightLeft, Barcode, Camera, Calendar, CheckCircle2, ChevronDown, Download, Eye, FileCheck, FileMinus,
   FilePlus, FileText, ClipboardList, Lock, Mail, Menu, Package,
   Pencil, Phone, Pill, Plus, Printer, Receipt, RefreshCw, Route, Save, Search, Send,
@@ -39,12 +49,173 @@ function WhatsAppIcon({ size = 15 }) {
   );
 }
 
+const PURCHASE_LABEL_CODE39_PATTERNS = {
+  0: 'nnnwwnwnn', 1: 'wnnwnnnnw', 2: 'nnwwnnnnw', 3: 'wnwwnnnnn', 4: 'nnnwwnnnw',
+  5: 'wnnwwnnnn', 6: 'nnwwwnnnn', 7: 'nnnwnnwnw', 8: 'wnnwnnwnn', 9: 'nnwwnnwnn',
+  A: 'wnnnnwnnw', B: 'nnwnnwnnw', C: 'wnwnnwnnn', D: 'nnnnwwnnw', E: 'wnnnwwnnn',
+  F: 'nnwnwwnnn', G: 'nnnnnwwnw', H: 'wnnnnwwnn', I: 'nnwnnwwnn', J: 'nnnnwwwnn',
+  K: 'wnnnnnnww', L: 'nnwnnnnww', M: 'wnwnnnnwn', N: 'nnnnwnnww', O: 'wnnnwnnwn',
+  P: 'nnwnwnnwn', Q: 'nnnnnnwww', R: 'wnnnnnwwn', S: 'nnwnnnwwn', T: 'nnnnwnwwn',
+  U: 'wwnnnnnnw', V: 'nwwnnnnnw', W: 'wwwnnnnnn', X: 'nwnnwnnnw', Y: 'wwnnwnnnn',
+  Z: 'nwwnwnnnn', '-': 'nwnnnnwnw', '.': 'wwnnnnwnn', ' ': 'nwwnnnwnn', '$': 'nwnwnwnnn',
+  '/': 'nwnwnnnwn', '+': 'nwnnnwnwn', '%': 'nnnwnwnwn', '*': 'nwnnwnwnn',
+};
+
+const MM_TO_PT = 72 / 25.4;
+const mm = (value) => value * MM_TO_PT;
+const BARCODE_LABEL_PAGE_SIZE = [mm(80), mm(24)];
+
+function normalizePurchaseLabelBarcode(value) {
+  const raw = String(value || '').trim().toUpperCase();
+  return raw.replace(/[^0-9A-Z ./$+%-]/g, '-').slice(0, 32) || 'NO-CODE';
+}
+
+function code39BarRects(value, height = 34) {
+  const encoded = `*${normalizePurchaseLabelBarcode(value)}*`;
+  const bars = [];
+  let x = 10;
+  const narrow = 1;
+  const wide = 2.15;
+
+  encoded.split('').forEach((char, charIndex) => {
+    const pattern = PURCHASE_LABEL_CODE39_PATTERNS[char] || PURCHASE_LABEL_CODE39_PATTERNS['-'];
+    pattern.split('').forEach((part, index) => {
+      const width = part === 'w' ? wide : narrow;
+      if (index % 2 === 0) bars.push({ key: `${charIndex}-${index}`, x, y: 0, width, height });
+      x += width;
+    });
+    x += narrow;
+  });
+  return { bars, width: x + 10, height };
+}
+
+function PurchaseLabelBarcode({ value, height = 34 }) {
+  const { bars, width } = code39BarRects(value, height);
+  return (
+    <svg width="260" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: 'block', shapeRendering: 'crispEdges' }}>
+      {bars.map((bar) => <rect key={bar.key} x={bar.x} y={bar.y} width={bar.width} height={bar.height} fill="#111827" />)}
+    </svg>
+  );
+}
+
+function PurchaseLabelPdfBarcode({ value }) {
+  const height = 32;
+  const { bars, width } = code39BarRects(value, height);
+  return (
+    <PdfSvg width={mm(31)} height={mm(8)} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      {bars.map((bar) => (
+        <PdfRect key={bar.key} x={bar.x} y={bar.y} width={bar.width} height={bar.height} fill="#111827" />
+      ))}
+    </PdfSvg>
+  );
+}
+
+const purchaseBarcodePdfStyles = PdfStyleSheet.create({
+  page: {
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    paddingTop: mm(2),
+    paddingRight: mm(2),
+    paddingBottom: mm(2),
+    paddingLeft: mm(2),
+  },
+  label: {
+    width: mm(35),
+    height: mm(18.5),
+    borderWidth: 0.75,
+    borderColor: '#cbd5e1',
+    borderRadius: 0,
+    padding: mm(1.2),
+    color: '#111827',
+    fontFamily: 'Helvetica',
+    overflow: 'hidden',
+  },
+  labelGap: {
+    marginRight: mm(3),
+  },
+  top: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    minHeight: mm(4.8),
+  },
+  titleWrap: {
+    flexGrow: 1,
+    flexShrink: 1,
+    paddingRight: mm(1),
+  },
+  name: {
+    fontSize: 6.4,
+    fontWeight: 700,
+    lineHeight: 1.05,
+  },
+  meta: {
+    marginTop: mm(0.2),
+    color: '#475569',
+    fontSize: 4.8,
+    lineHeight: 1.05,
+  },
+  price: {
+    flexShrink: 0,
+    fontSize: 6.4,
+    fontWeight: 700,
+    lineHeight: 1,
+  },
+  barcode: {
+    alignItems: 'center',
+    marginTop: mm(0.8),
+  },
+  code: {
+    marginTop: mm(0.4),
+    color: '#475569',
+    width: '70%',
+    alignSelf: 'center',
+    fontSize: 6.5,
+    letterSpacing: 0.35,
+    lineHeight: 1,
+    textAlign: 'center',
+  },
+});
+
+function PurchaseBarcodePdfDocument({ rows = [] }) {
+  return (
+    <PdfDocument title="Purchase Barcode Labels">
+      {chunkPurchaseBarcodePages(rows).map((pageRows, pageIndex) => (
+        <PdfPage key={`barcode-pdf-page-${pageIndex}`} size={BARCODE_LABEL_PAGE_SIZE} style={purchaseBarcodePdfStyles.page}>
+          {pageRows.map((row, rowIndex) => {
+            const barcodeVal = row.barcode || '';
+            const price = purchaseLabelPrice(row);
+            return (
+              <PdfView key={row.printKey || `${pageIndex}-${rowIndex}`} style={[purchaseBarcodePdfStyles.label, rowIndex === 0 && pageRows.length > 1 ? purchaseBarcodePdfStyles.labelGap : null]}>
+                <PdfView style={purchaseBarcodePdfStyles.top}>
+                  <PdfView style={purchaseBarcodePdfStyles.titleWrap}>
+                    <PdfText style={purchaseBarcodePdfStyles.name}>{row.description || '-'}</PdfText>
+                    <PdfText style={purchaseBarcodePdfStyles.meta}>{purchaseLabelVariantText(row)}</PdfText>
+                  </PdfView>
+                  {price ? <PdfText style={purchaseBarcodePdfStyles.price}>{price}</PdfText> : null}
+                </PdfView>
+                <PdfView style={purchaseBarcodePdfStyles.barcode}>
+                  <PurchaseLabelPdfBarcode value={barcodeVal} />
+                  <PdfText style={purchaseBarcodePdfStyles.code}>{normalizePurchaseLabelBarcode(barcodeVal)}</PdfText>
+                </PdfView>
+              </PdfView>
+            );
+          })}
+        </PdfPage>
+      ))}
+    </PdfDocument>
+  );
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const UNITS = ['Nos', 'Pcs', 'Kg', 'Gm', 'Mt', 'Sq.ft', 'Ltr', 'Box', 'Bag', 'Set', 'Pair', 'Hrs', 'Days'];
 const GST_RATES = [0, 5, 12, 18, 28];
 const BUSINESS_STATE = 'Tamil Nadu';
 const ELECTRONICS_RETAIL_SUBCATEGORY = 'electronics-technology';
+const FASHION_RETAIL_SUBCATEGORY = 'fashion-lifestyle';
+const SIZE_PRESETS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+const FASHION_MATERIALS = ['Cotton', 'Denim', 'Linen', 'Polyester', 'Silk', 'Wool', 'Leather', 'Rayon'];
 const SALES_ITEM_FILTER_OPTIONS = [
   { value: 'Product', label: 'Product' },
   { value: 'Service', label: 'Service' },
@@ -103,6 +274,22 @@ function partyKindFromLabel(label = '') {
   return 'Customer';
 }
 
+function normalizedRetailSubcategory(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function isFashionRetailSubcategory(value = '') {
+  const normalized = normalizedRetailSubcategory(value);
+  return normalized === FASHION_RETAIL_SUBCATEGORY
+    || normalized === 'fashion-and-lifestyle'
+    || normalized === 'fashion-and-style';
+}
+
 function cleanPartyNameLabel(label = '') {
   return label.replace(/\*/g, '').trim();
 }
@@ -118,6 +305,20 @@ function lineItemDescription(item = {}) {
     || item.productCode
     || item.code
     || '';
+}
+
+function normalizeInvoiceLineItem(item = {}, index = 0) {
+  const variant = item.variant || item.productVariant || {};
+  return {
+    id: item.id ?? index + 1,
+    itemType: item.itemType === 'Service' ? 'Service' : 'Product',
+    ...item,
+    description: lineItemDescription(item),
+    size: item.size || item.modelName || item.modelNumber || variant.size || variant.modelName || '',
+    brand: item.brand || item.other || item.variantBrand || variant.other || variant.brand || '',
+    material: item.material || item.fabric || item.variantMaterial || variant.material || variant.fabric || '',
+    barcode: item.barcode || variant.barcode || '',
+  };
 }
 
 function getInitialLinkedPurchaseOrderId() {
@@ -251,6 +452,139 @@ function addDaysInput(dateInput, days) {
   return formatDateInput(d);
 }
 
+function currentBarcodePeriod(date = new Date()) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  return `${month}${year}`;
+}
+
+function ean13CheckDigit(first12Digits) {
+  const sum = String(first12Digits)
+    .slice(0, 12)
+    .split('')
+    .reduce((total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3), 0);
+  return String((10 - (sum % 10)) % 10);
+}
+
+function hashToDigits(text, length = 4) {
+  let hash = 5381;
+  const str = String(text || '');
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+  }
+  let digits = String(hash);
+  while (digits.length < length) {
+    hash = ((hash << 5) + hash + 1) >>> 0;
+    digits += String(hash);
+  }
+  return digits.slice(0, length);
+}
+
+function productBarcodeIdentity(value = {}) {
+  return [
+    value.code,
+    value.productCode,
+    value.description,
+    value.productName,
+    value.name,
+    value.category,
+    value.subCategory,
+    value.itemGroup,
+    value.productType,
+    value.hsn,
+    value.unit,
+  ]
+    .map((part) => String(part ?? '').trim().toLowerCase())
+    .filter(Boolean)
+    .join('|');
+}
+
+function variantBarcodeIdentity(value = {}) {
+  return [
+    value.brand,
+    value.other,
+    value.variantBrand,
+    value.size,
+    value.modelName,
+    value.modelCode,
+    value.modelNumber,
+    value.material,
+    value.fabric,
+    value.variantMaterial,
+    value.colour,
+    value.color,
+    value.pattern,
+    value.type,
+    value.quality,
+    value.ageGroup,
+    value.gender,
+    value.collection,
+    value.processor,
+    value.ram,
+    value.storage,
+    value.display,
+    value.graphics,
+    value.operatingSystem,
+  ]
+    .map((part) => String(part ?? '').trim().toLowerCase())
+    .filter(Boolean)
+    .join('|');
+}
+
+function generatePurchaseBarcode(value = {}) {
+  const productIdentity = productBarcodeIdentity(value);
+  const variantIdentity = variantBarcodeIdentity(value) || 'base';
+  const first12Digits = `${hashToDigits(`${productIdentity}|prefix`, 4)}${currentBarcodePeriod()}${hashToDigits(`${productIdentity}|series`, 2)}${hashToDigits(`${variantIdentity}|variant`, 2)}`;
+  return `${first12Digits}${ean13CheckDigit(first12Digits)}`;
+}
+
+function withPurchaseBarcodes(items = []) {
+  return (Array.isArray(items) ? items : []).map((item) => {
+    if (item.itemType === 'Service' || item.barcode) return item;
+    return { ...item, barcode: generatePurchaseBarcode(item) };
+  });
+}
+
+function purchaseLabelVariantText(item = {}) {
+  return [
+    item.brand || item.other || item.variantBrand,
+    item.size || item.modelName,
+    item.colour || item.color,
+    item.type,
+    item.pattern,
+    item.productCode || item.code,
+  ]
+    .map((part) => String(part ?? '').trim())
+    .filter(Boolean)
+    .join(' / ') || `SKU: ${item.productCode || item.code || '-'}`;
+}
+
+function purchaseLabelPrice(item = {}) {
+  const price = Number(item.rate || item.mrp || item.purchasePrice || 0);
+  return Number.isFinite(price) && price > 0 ? `Rs. ${price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+}
+
+function purchaseBarcodePrintRows(items = []) {
+  return (Array.isArray(items) ? items : [])
+    .filter((item) => item.itemType !== 'Service' && item.barcode)
+    .flatMap((item, itemIndex) => {
+      const qty = Math.max(1, Math.floor(Number(item.qty) || 1));
+      return Array.from({ length: qty }, (_, copyIndex) => ({
+        ...item,
+        printKey: `${item.id || item.productCode || item.description || itemIndex}-${copyIndex}`,
+        description: lineItemDescription(item),
+      }));
+    });
+}
+
+function chunkPurchaseBarcodePages(rows = [], perPage = 2) {
+  const pages = [];
+  for (let index = 0; index < rows.length; index += perPage) {
+    pages.push(rows.slice(index, index + perPage));
+  }
+  return pages;
+}
+
 function electronicsNote(product = {}) {
   if (product.itemGroup !== 'Electronics') return '';
   const lines = [];
@@ -291,6 +625,7 @@ function bundleNote(product = {}) {
 }
 
 function normalizeProduct(product = {}) {
+  product = product || {};
   const description = product.description || product.name || product.productName || '';
   const savedProductDescription = product.productDescription
     || product.itemDescription
@@ -318,6 +653,9 @@ function normalizeProduct(product = {}) {
     unit: product.unit || 'Nos',
     rate: Number(product.rate ?? product.sellingPrice ?? product.price ?? 0),
     gstRate: Number(product.gstRate ?? product.taxRate ?? product.gstPercentage ?? product.gst ?? product.taxPercent ?? 18),
+    size: product.size || product.modelName || '',
+    brand: product.brand || '',
+    material: product.material || product.fabric || '',
     modelNumber: product.modelNumber || '',
     warrantyPeriod: product.warrantyPeriod || '',
     warrantyType: product.warrantyType || '',
@@ -384,15 +722,79 @@ function variantModelLabel(variant = {}) {
 }
 
 function variantDropdownOption(variant = {}) {
-  const label = variantModelLabel(variant) || variantShortLabel(variant);
+  const main = String(variant.size || variant.modelName || variant.modelCode || variant.barcode || '').trim() || 'Variant';
+  const detail = uniqueTextParts([
+    variant.other,
+    variant.material,
+    variant.colour || variant.color,
+    variant.type,
+    variant.pattern,
+    variant.ram,
+    variant.storage,
+  ].filter((part) => String(part || '').trim().toLowerCase() !== main.toLowerCase())).join(' · ');
+  const label = detail ? `${main} - ${detail}` : main;
+  const meta = uniqueTextParts([
+    Number(variant.stock) > 0 ? `${Number(variant.stock)} stk` : '',
+    Number(variant.rate) > 0 ? `₹${Number(variant.rate)}` : '',
+  ]).join(' · ');
   return {
     value: variantDisplayName(variant),
     label,
+    labelNode: (
+      <span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-semibold text-[#0f172a]">{main}</span>
+          {detail && <span className="block truncate text-[11px] font-medium text-[#64748b]">{detail}</span>}
+        </span>
+        {meta && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{meta}</span>}
+      </span>
+    ),
   };
 }
 
 function hasProductVariants(product = {}) {
+  product = product || {};
   return Array.isArray(product.variants) && product.variants.some((variant) => variantDisplayName(variant));
+}
+
+function singleProductVariant(product = {}) {
+  product = product || {};
+  const variants = Array.isArray(product.variants)
+    ? product.variants.filter((variant) => variantDisplayName(variant))
+    : [];
+  return variants.length === 1 ? variants[0] : null;
+}
+
+function productBillingSize(product = {}) {
+  product = product || {};
+  if (product.__selectedVariantName) return product.__selectedVariantName;
+  const singleVariant = singleProductVariant(product);
+  if (singleVariant) return singleVariant.size || singleVariant.modelName || variantDisplayName(singleVariant);
+  if (hasProductVariants(product)) return '';
+  return product.size || product.modelName || '';
+}
+
+function productBillingBrand(product = {}) {
+  product = product || {};
+  const singleVariant = singleProductVariant(product);
+  if (singleVariant) return singleVariant.other || product.brand || '';
+  if (product.__selectedVariantName || !hasProductVariants(product)) return product.brand || '';
+  return '';
+}
+
+function productBillingMaterial(product = {}) {
+  product = product || {};
+  const singleVariant = singleProductVariant(product);
+  if (singleVariant) return singleVariant.material || product.material || product.fabric || '';
+  if (product.__selectedVariantName || !hasProductVariants(product)) return product.material || product.fabric || '';
+  return '';
+}
+
+function productBillingRate(product = {}) {
+  product = product || {};
+  const singleVariant = singleProductVariant(product);
+  if (!product.__selectedVariantName && singleVariant && Number(singleVariant.rate) > 0) return Number(singleVariant.rate);
+  return Number(product.rate) || 0;
 }
 
 function bestProductMatch(matches = []) {
@@ -411,6 +813,8 @@ function productWithSelectedVariant(product = {}, variant = {}) {
     barcode: variant.barcode || product.barcode || '',
     code: variant.modelCode || product.code || product.sku || '',
     modelNumber: variant.modelCode || product.modelNumber || '',
+    brand: variant.other || product.brand || '',
+    material: variant.material || product.material || product.fabric || '',
     rate: Number(variant.rate) > 0 ? Number(variant.rate) : product.rate,
   };
 }
@@ -442,6 +846,25 @@ function findVariantByValue(variants = [], value = '') {
       variant.quality,
       variant.other,
     ]).some((part) => part.toLowerCase() === normalizedNeedle));
+}
+
+function variantAttrOptions(variants = [], field) {
+  return uniqueTextParts(variants.map((variant) => {
+    if (field === 'brand') return variant.other;
+    if (field === 'material') return variant.material;
+    return variant[field];
+  }));
+}
+
+function findVariantByFashionAttrs(variants = [], attrs = {}) {
+  const size = String(attrs.size || '').trim().toLowerCase();
+  const brand = String(attrs.brand || '').trim().toLowerCase();
+  const material = String(attrs.material || '').trim().toLowerCase();
+  return variants.find((variant) => (
+    (!size || String(variant.size || variant.modelName || '').trim().toLowerCase() === size)
+    && (!brand || String(variant.other || '').trim().toLowerCase() === brand)
+    && (!material || String(variant.material || '').trim().toLowerCase() === material)
+  )) || null;
 }
 
 function stockTextClass(stock, minStockLevel) {
@@ -495,6 +918,63 @@ function enrichItemsWithProductDescriptions(items = [], products = []) {
     if (String(item.itemDescription || '').trim()) return item;
     const product = findCatalogProductForItem(products, item);
     return product?.productDescription ? { ...item, itemDescription: product.productDescription } : item;
+  });
+}
+
+function catalogVariantForItem(product = {}, item = {}) {
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  if (!variants.length) return null;
+  const text = (value) => String(value || '').trim().toLowerCase();
+  const size = text(item.size || item.modelName || item.modelNumber);
+  const barcode = text(item.barcode);
+  const rate = Number(item.rate) || 0;
+  return variants.find((variant) => barcode && text(variant.barcode) === barcode && (!size || text(variant.size || variant.modelName) === size))
+    || variants.find((variant) => size && text(variant.size || variant.modelName) === size && (!rate || Number(variant.rate) === rate))
+    || variants.find((variant) => size && text(variant.size || variant.modelName) === size)
+    || null;
+}
+
+function hydrateItemsWithCatalogVariantAttrs(items = [], products = []) {
+  if (!Array.isArray(items) || !items.length || !Array.isArray(products) || !products.length) return items;
+  return items.map((item) => {
+    if (item.itemType === 'Service') return item;
+    if (item.brand && item.material) return item;
+    const product = findCatalogProductForItem(products, item);
+    if (!product) return item;
+    const variant = catalogVariantForItem(product, item) || {};
+    const nextBrand = item.brand || item.other || item.variantBrand || variant.other || variant.brand || product.brand || '';
+    const nextMaterial = item.material || item.fabric || item.variantMaterial || variant.material || variant.fabric || product.material || product.fabric || '';
+    const nextSize = item.size || item.modelName || item.modelNumber || variant.size || variant.modelName || '';
+    const nextBarcode = item.barcode || variant.barcode || '';
+    if (nextBrand === item.brand && nextMaterial === item.material && nextSize === item.size && nextBarcode === item.barcode) return item;
+    return {
+      ...item,
+      brand: nextBrand,
+      material: nextMaterial,
+      size: nextSize,
+      barcode: nextBarcode,
+    };
+  });
+}
+
+function normalizePurchaseFashionItemsForSave(items = [], products = []) {
+  if (!Array.isArray(items)) return [];
+  return hydrateItemsWithCatalogVariantAttrs(items, products).map((item) => {
+    if (item.itemType === 'Service') return item;
+    const variant = item.variant || item.productVariant || {};
+    const brand = item.brand || item.other || item.variantBrand || variant.other || variant.brand || '';
+    const material = item.material || item.fabric || item.variantMaterial || variant.material || variant.fabric || '';
+    const size = item.size || item.modelName || item.modelNumber || variant.size || variant.modelName || '';
+    const barcode = item.barcode || variant.barcode || '';
+    return {
+      ...item,
+      brand,
+      material,
+      size,
+      barcode,
+      other: item.other || brand,
+      fabric: item.fabric || material,
+    };
   });
 }
 
@@ -572,12 +1052,11 @@ function isLikelyBarcodeScan(value = '') {
   return text.length >= 4 && !/\s/.test(text);
 }
 
-// Sales documents keep the existing unknown-barcode flow. Purchase Entry
-// handles unknown products as draft rows and creates them when saved.
+// Sales documents send unknown barcodes to product creation in the current tab.
+// Purchase Entry handles unknown products as draft rows and creates them when saved.
 function openAddProductForBarcode(barcode) {
   const url = `/products?newBarcode=${encodeURIComponent(barcode)}`;
-  const opened = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!opened) window.location.assign(url);
+  window.location.assign(url);
 }
 
 const CAMERA_BARCODE_FORMATS = [
@@ -635,32 +1114,36 @@ function MobileBarcodeScanner({ open, onClose, onDetected, status, unknownCode, 
       }
 
       try {
-        if (!window.BarcodeDetector) {
-          const video = videoRef.current;
-          if (!video) return;
+        const video = videoRef.current;
+        if (!video) return;
+        const handleDetected = (rawValue) => {
+          const value = String(rawValue || '').trim();
+          const now = Date.now();
+          const repeatedTooSoon = lastScanRef.current.value === value && now - lastScanRef.current.at < 1300;
+          if (value && !repeatedTooSoon) {
+            lastScanRef.current = { value, at: now };
+            onDetectedRef.current(value);
+          }
+        };
+        const constraints = {
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            focusMode: { ideal: 'continuous' },
+          },
+          audio: false,
+        };
+
+        try {
           const reader = new BrowserMultiFormatReader(createZxingHints(), {
-            delayBetweenScanAttempts: 120,
+            delayBetweenScanAttempts: 100,
             delayBetweenScanSuccess: 700,
           });
           const controls = await reader.decodeFromConstraints(
-            {
-              video: {
-                facingMode: { ideal: 'environment' },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-              },
-              audio: false,
-            },
+            constraints,
             video,
-            (result) => {
-              const value = String(result?.getText?.() || '').trim();
-              const now = Date.now();
-              const repeatedTooSoon = lastScanRef.current.value === value && now - lastScanRef.current.at < 1300;
-              if (value && !repeatedTooSoon) {
-                lastScanRef.current = { value, at: now };
-                onDetectedRef.current(value);
-              }
-            },
+            (result) => handleDetected(result?.getText?.()),
           );
           if (cancelled) {
             controls.stop();
@@ -669,6 +1152,8 @@ function MobileBarcodeScanner({ open, onClose, onDetected, status, unknownCode, 
           zxingControlsRef.current = controls;
           setCameraReady(true);
           return;
+        } catch (zxingErr) {
+          if (!window.BarcodeDetector) throw zxingErr;
         }
 
         const supportedFormats = await window.BarcodeDetector.getSupportedFormats?.();
@@ -677,14 +1162,7 @@ function MobileBarcodeScanner({ open, onClose, onDetected, status, unknownCode, 
           ? preferredFormats.filter((format) => supportedFormats.includes(format))
           : preferredFormats;
         const detector = new window.BarcodeDetector(formats.length ? { formats } : undefined);
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
@@ -692,7 +1170,6 @@ function MobileBarcodeScanner({ open, onClose, onDetected, status, unknownCode, 
         }
 
         streamRef.current = stream;
-        const video = videoRef.current;
         if (!video) return;
         video.srcObject = stream;
         await video.play();
@@ -705,15 +1182,9 @@ function MobileBarcodeScanner({ open, onClose, onDetected, status, unknownCode, 
             detectingRef.current = true;
             try {
               const codes = await detector.detect(currentVideo);
-              const value = String(codes?.[0]?.rawValue || '').trim();
-              const now = Date.now();
-              const repeatedTooSoon = lastScanRef.current.value === value && now - lastScanRef.current.at < 1300;
-              if (value && !repeatedTooSoon) {
-                lastScanRef.current = { value, at: now };
-                onDetectedRef.current(value);
-              }
+              handleDetected(codes?.[0]?.rawValue);
             } catch {
-              setCameraError('Unable to read from camera. Try better light or a clearer barcode.');
+              // Keep scanning; native BarcodeDetector can miss frames while autofocus settles.
             } finally {
               detectingRef.current = false;
             }
@@ -858,6 +1329,7 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   const [paymentSplits, setPaymentSplits] = useState([]);
   const paymentSplitTotal = paymentSplits.reduce((sum, split) => sum + (Number(split.amount) || 0), 0);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
+  const [showPaymentMethodPopup, setShowPaymentMethodPopup] = useState(false);
 
   const [customer, setCustomer] = useState(() => emptyCustomer());
 
@@ -876,7 +1348,7 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
     validTill: '', expectedDelivery: '', deliveryAddress: '',
     originalInvoiceNo: '', originalInvoiceDate: '', reason: '',
     costCenter: '',
-    linkedPurchaseOrderId: '', linkedPurchaseOrderNo: '', vendorInvoiceNo: '', purchaseOrderTotal: '',
+    linkedPurchaseOrderId: '', linkedPurchaseOrderNo: '', vendorInvoiceNo: '', vendorInvoiceAmount: '', purchaseOrderTotal: '',
     vehicleNumber: '', driverName: '', transporter: '',
     transporterId: '', distanceKm: '', ewbSupplyType: 'outward',
     irnNumber: '', ackNumber: '', ackDate: '',
@@ -884,6 +1356,8 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
 
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [masterProductBrands, setMasterProductBrands] = useState([]);
+  const [fashionSizeRows, setFashionSizeRows] = useState([]);
   const [inlineProductModal, setInlineProductModal] = useState(null);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [salesReturnInvoices, setSalesReturnInvoices] = useState([]);
@@ -895,16 +1369,24 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   const billPrintFormat = docExtra.invoicePrintFormat || bizSettings.invoicePrintFormat || 'normal';
   const bizState = bizSettings.state || BUSINESS_STATE;
   const previewBizSettings = useMemo(
-    () => ({ ...bizSettings, invoicePrintFormat: billPrintFormat || 'normal' }),
+    () => ({
+      ...bizSettings,
+      invoicePrintFormat: billPrintFormat || 'normal',
+    }),
     [bizSettings, billPrintFormat],
   );
   const isElectronicsRetail = bizSettings.retailSubcategory === ELECTRONICS_RETAIL_SUBCATEGORY;
+  const isFashionRetail = isFashionRetailSubcategory(bizSettings.retailSubcategory);
+  const isPurchaseDocument = ['purchase-entry', 'purchase-order'].includes(documentType);
+  const isPurchaseFashionDocument = isPurchaseDocument && isFashionRetail;
   const canCreateDevicesInline = isElectronicsRetail && ['purchase-entry', 'purchase-order'].includes(documentType);
+  const canOpenProductCreationFromQuickEntry = canCreateDevicesInline && !['purchase-entry', 'purchase-order'].includes(documentType);
   const nextItemId = useRef(1001);
   const nextChargeId = useRef(2000);
   const [invoiceLoading, setInvoiceLoading] = useState(Boolean(invoiceId));
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [inventoryConfirmOptions, setInventoryConfirmOptions] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [bulkGstRate, setBulkGstRate] = useState('');
 
@@ -952,16 +1434,87 @@ export function CreateDocumentPage({ documentType = 'invoice', invoiceId }) {
   const [salesItemFilter, setSalesItemFilter]   = useState('Product');
   const [mobileScreen, setMobileScreen] = useState('invoice');
   const [mobileProductQuery, setMobileProductQuery] = useState('');
+  const mobileProductInputRef = useRef(null);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [barcodeScanStatus, setBarcodeScanStatus] = useState('');
   const [unknownBarcode, setUnknownBarcode] = useState('');
+  const [purchaseBarcodePrintJob, setPurchaseBarcodePrintJob] = useState(null);
+  const purchaseBarcodePrintRowsToPrint = useMemo(
+    () => purchaseBarcodePrintJob?.rows || [],
+    [purchaseBarcodePrintJob],
+  );
 
   useEffect(() => {
     function handleMobileAddItem() { setMobileScreen('items'); }
     window.addEventListener(MOBILE_ADD_ITEM_EVENT, handleMobileAddItem);
     return () => window.removeEventListener(MOBILE_ADD_ITEM_EVENT, handleMobileAddItem);
   }, []);
+
+  useEffect(() => {
+    if (!purchaseBarcodePrintRowsToPrint.length) return undefined;
+    let cancelled = false;
+    let objectUrl = '';
+    let printFrame = null;
+
+    const finishPrint = () => {
+      if (cancelled) return;
+      setPurchaseBarcodePrintJob(null);
+    };
+    const waitForPrintClose = () => {
+      window.setTimeout(() => {
+        window.addEventListener('focus', finishPrint, { once: true });
+        window.addEventListener('afterprint', finishPrint, { once: true });
+        printFrame?.contentWindow?.addEventListener?.('afterprint', finishPrint, { once: true });
+      }, 500);
+    };
+
+    pdf(<PurchaseBarcodePdfDocument rows={purchaseBarcodePrintRowsToPrint} />)
+      .toBlob()
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        printFrame = document.createElement('iframe');
+        printFrame.title = 'Purchase barcode labels';
+        printFrame.style.position = 'fixed';
+        printFrame.style.left = '-12000px';
+        printFrame.style.top = '0';
+        printFrame.style.width = '1px';
+        printFrame.style.height = '1px';
+        printFrame.style.border = '0';
+        printFrame.onload = () => {
+          if (cancelled) return;
+          window.setTimeout(() => {
+            if (cancelled) return;
+            waitForPrintClose();
+            try {
+              printFrame.contentWindow.focus();
+              printFrame.contentWindow.print();
+            } catch {
+              window.open(objectUrl, '_blank', 'noopener,noreferrer');
+            }
+          }, 350);
+        };
+        printFrame.src = objectUrl;
+        document.body.appendChild(printFrame);
+      })
+      .catch((err) => {
+        alert(err.message || 'Unable to prepare barcode labels. Save without barcode printing or try again.');
+        setPurchaseBarcodePrintJob(null);
+      });
+
+    return () => {
+      cancelled = true;
+      if (printFrame?.parentNode) printFrame.parentNode.removeChild(printFrame);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [purchaseBarcodePrintRowsToPrint, purchaseBarcodePrintJob, documentType]);
   const [quickItem, setQuickItem] = useState({ itemType: 'Product', productType: 'Standard', itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, discountType: 'percent', gstRate: '' });
+  const [quickPickerSelections, setQuickPickerSelections] = useState({ brand: [], size: [], material: [] });
+  const [quickVariantDraft, setQuickVariantDraft] = useState(null);
+  const [brandPicker, setBrandPicker] = useState(null);
+  const [manualProductBrands, setManualProductBrands] = useState([]);
+  const brandPickerRef = useRef(null);
+  const brandPickerSearchRef = useRef(null);
   const [showPhoneDrop, setShowPhoneDrop]       = useState(false);
   const [showAddCustomer, setShowAddCustomer]   = useState(false);
   const [newCustomerForm, setNewCustomerForm]   = useState(() => emptyCustomer());
@@ -1015,10 +1568,10 @@ const [customFields, setCustomFields]         = useState([]);
       modelNumber: normalized?.modelNumber || '',
       warrantyPeriod: normalized?.warrantyPeriod || '',
       hsn: quickItem.hsn || normalized?.hsn || '',
-      size: quickItem.size || normalized?.__selectedVariantName || '',
+      size: quickItem.size || productBillingSize(normalized) || '',
       qty: Number(quickItem.qty) || 1,
       unit: quickItem.unit || normalized?.unit || 'Nos',
-      rate: Number(quickItem.rate || normalized?.rate) || 0,
+      rate: Number(quickItem.rate || productBillingRate(normalized)) || 0,
       discount: Number(quickItem.discount) || 0,
       discountType: 'percent',
       gstRate: Number(quickItem.gstRate ?? normalized?.gstRate ?? 0),
@@ -1027,11 +1580,11 @@ const [customFields, setCustomFields]         = useState([]);
   }, [productSearch, products, quickItem, salesItemFilter]);
 
   const effectiveItems = useMemo(
-    () => (pendingQuickItem ? [...items, pendingQuickItem] : items),
-    [items, pendingQuickItem],
+    () => hydrateItemsWithCatalogVariantAttrs(items, products),
+    [items, products],
   );
 
-  function validate() {
+  function validate(itemsToValidate = effectiveItems) {
     const errs = {};
     if (documentType === 'supplier-return') {
       if (!docExtra.originalPurchaseId) errs.originalInvoiceNo = 'Select the original purchase entry';
@@ -1053,14 +1606,14 @@ const [customFields, setCustomFields]         = useState([]);
     if (!docMeta.date)
       errs.invoiceDate = `${config.dateLabel} is required`;
     const hasValidItem = documentType === 'purchase-entry'
-      ? effectiveItems.some((it) => it.description && Number(it.qty) > 0 && Number(it.rate) > 0)
-      : effectiveItems.some((it) => it.description && Number(it.qty) > 0);
+      ? itemsToValidate.some((it) => it.description && Number(it.qty) > 0 && Number(it.rate) > 0)
+      : itemsToValidate.some((it) => it.description && Number(it.qty) > 0);
     if (!hasValidItem) {
       errs.items = documentType === 'purchase-entry'
         ? 'Add at least one item with a name, qty > 0, and rate > 0'
         : 'Add at least one item with a description and qty > 0';
     }
-    effectiveItems.forEach((it, idx) => {
+    itemsToValidate.forEach((it, idx) => {
       if (it.description && !(Number(it.qty) > 0)) errs[`item_qty_${idx}`] = 'Required';
       if (it.description) {
         const matchedProduct = findCatalogProductForItem(products, it);
@@ -1080,6 +1633,8 @@ const [customFields, setCustomFields]         = useState([]);
 
     if (documentType === 'purchase-entry' && !docExtra.vendorInvoiceNo.trim())
       errs.vendorInvoiceNo = 'Vendor invoice number is required for purchase entry';
+    if (documentType === 'purchase-entry' && docExtra.vendorInvoiceAmount !== '' && (!Number.isFinite(Number(docExtra.vendorInvoiceAmount)) || Number(docExtra.vendorInvoiceAmount) < 0))
+      errs.vendorInvoiceAmount = 'Vendor invoice amount must be 0 or more';
 
     // ── Credit Note ──────────────────────────────────────────────────────────
     if (documentType === 'credit-note') {
@@ -1118,9 +1673,9 @@ const [customFields, setCustomFields]         = useState([]);
 
   // ── Totals ──────────────────────────────────────────────────────────────────
 
-  const totals = useMemo(() => {
+  function calculateTotalsForItems(sourceItems = effectiveItems) {
     const acc = { subtotal: 0, discount: 0, taxable: 0, totalGst: 0, grandTotal: 0, gstByRate: {} };
-    effectiveItems.forEach((item) => {
+    sourceItems.forEach((item) => {
       const line = calcLine(item);
       acc.subtotal   += line.gross;
       acc.discount   += line.discountAmt;
@@ -1179,7 +1734,13 @@ const [customFields, setCustomFields]         = useState([]);
       manualTotal: manualTotalOverride ? manualTotalValue : null,
       balanceDue,
     };
-  }, [effectiveItems, charges, addDiscount, tds, tcs, advanceAmt, paymentSplitTotal, config.showGst, documentType, manualQuotationTotal]);
+  }
+
+  const totals = useMemo(() => calculateTotalsForItems(effectiveItems), [effectiveItems, charges, addDiscount, tds, tcs, advanceAmt, paymentSplitTotal, config.showGst, documentType, manualQuotationTotal]);
+  const oldCreditBalance = Math.max(0, Number(docExtra.oldBalance) || 0);
+  const receivedNow = Math.max(0, Number(paymentSplitTotal || advanceAmt) || 0);
+  const currentInvoiceBalance = Math.max(0, (Number(totals.finalTotal) || 0) - receivedNow);
+  const customerBalanceAfterInvoice = Math.round((oldCreditBalance + currentInvoiceBalance) * 100) / 100;
 
   const purchaseEntryMatch = useMemo(() => {
     if (documentType !== 'purchase-entry') return null;
@@ -1193,6 +1754,21 @@ const [customFields, setCustomFields]         = useState([]);
       matched: poTotal > 0 && Math.abs(difference) < 1,
     };
   }, [docExtra.purchaseOrderTotal, documentType, totals.finalTotal]);
+
+  const vendorInvoiceAmountMatch = useMemo(() => {
+    if (documentType !== 'purchase-entry') return null;
+    if (docExtra.vendorInvoiceAmount === '' || docExtra.vendorInvoiceAmount == null) return null;
+    const vendorAmount = Number(docExtra.vendorInvoiceAmount);
+    if (!Number.isFinite(vendorAmount) || vendorAmount < 0) return null;
+    const entryAmount = totals.finalTotal || 0;
+    const difference = entryAmount - vendorAmount;
+    return {
+      vendorAmount,
+      entryAmount,
+      difference,
+      matched: Math.abs(difference) < 0.01,
+    };
+  }, [docExtra.vendorInvoiceAmount, documentType, totals.finalTotal]);
 
   // Re-evaluate GST type whenever the business state loads from settings
   useEffect(() => {
@@ -1374,6 +1950,54 @@ const [customFields, setCustomFields]         = useState([]);
     }
   }
 
+  async function ensurePurchaseVendorMaster(customerData) {
+    if (partyKind !== 'Vendor') return null;
+    const normalized = normalizeCustomer(customerData);
+    const name = String(normalized.name || customerQuery || '').trim();
+    if (!name) return normalized;
+
+    const keyFor = (party) => String(party.gstin || party.phone || party.name || '').trim().toLowerCase();
+    const lookupKey = keyFor({ ...normalized, name });
+    const localMatch = customers.find((party) => keyFor(party) === lookupKey);
+    if (localMatch?._id || localMatch?.id) return normalizeCustomer(localMatch);
+
+    try {
+      const payload = customerPayload({ ...normalized, name });
+      const saved = normalizeCustomer(await api.createVendor(payload));
+      setCustomers((prev) => mergeParties([saved], prev));
+      return saved;
+    } catch (err) {
+      if (!/already exists|duplicate|409/i.test(err.message || '')) {
+        console.warn('Unable to create vendor master from purchase entry', err);
+      }
+      return { ...normalized, name };
+    }
+  }
+
+  async function ensurePurchaseBrandMasters(saveItems = []) {
+    const brandNames = uniqueTextParts(saveItems.flatMap((item) => [item.brand, item.other, item.variantBrand]));
+    if (!brandNames.length) return;
+    await Promise.allSettled(brandNames.map(async (name) => {
+      try {
+        await api.invCreateBrand({ name, status: 'Active' });
+      } catch (err) {
+        if (!/already exists|duplicate|409/i.test(err.message || '')) throw err;
+      }
+    }));
+    setManualProductBrands((prev) => uniqueTextParts([...prev, ...brandNames]));
+  }
+
+  async function ensurePurchaseMasters(saveItems = [], customerData = getEffectiveCustomer()) {
+    if (documentType !== 'purchase-entry') return customerData;
+    const [vendorResult] = await Promise.allSettled([
+      ensurePurchaseVendorMaster(customerData),
+      ensurePurchaseBrandMasters(saveItems),
+    ]);
+    return vendorResult.status === 'fulfilled' && vendorResult.value
+      ? vendorResult.value
+      : customerData;
+  }
+
   function updateMeta(field, value)  {
     setDocMeta((p) => {
       const next = { ...p, [field]: value };
@@ -1391,6 +2015,22 @@ const [customFields, setCustomFields]         = useState([]);
   }
   function updateExtra(field, value) { setDocExtra((p) => ({ ...p, [field]: value })); }
   function updatePayment(field, value){ setPaymentData((p) => ({ ...p, [field]: value })); }
+  function updateSinglePayment(field, value) {
+    updatePayment(field, value);
+    if (field === 'amount') {
+      setAdvanceAmt(value);
+      if (selectedPayment && selectedPayment !== 'credit') {
+        setPaymentSplits([{ id: selectedPayment, amount: value, reference: paymentData.utrNumber || paymentData.chequeNo || '' }]);
+      }
+    }
+    if (['utrNumber', 'chequeNo'].includes(field) && selectedPayment && selectedPayment !== 'credit') {
+      setPaymentSplits((prev) => {
+        const amount = paymentData.amount || String(Math.max(0, totals.finalTotal));
+        const next = prev.filter((split) => split.id !== selectedPayment);
+        return [{ id: selectedPayment, amount, reference: value }, ...next].filter((split) => split.id !== 'credit');
+      });
+    }
+  }
 
   function applyPurchaseOrder(poId) {
     const po = purchaseOrders.find((order) => (order._id || order.id) === poId);
@@ -1414,6 +2054,7 @@ const [customFields, setCustomFields]         = useState([]);
     }));
     setSupplyType(po.supplyType || supplyType);
     setItems((Array.isArray(po.items) ? po.items : []).map((item, index) => {
+      const normalizedLine = normalizeInvoiceLineItem(item, index);
       const productId = item.productId ?? item.product?._id ?? item.product?.id ?? null;
       const matchedProduct = productId
         ? products.find((product) => String(product._id || product.id) === String(productId))
@@ -1423,9 +2064,13 @@ const [customFields, setCustomFields]         = useState([]);
         itemType: item.itemType === 'Service' || matchedProduct?.itemType === 'Service' ? 'Service' : 'Product',
         productId,
         productCode: item.productCode || item.code || matchedProduct?.code || '',
-        description: lineItemDescription(item) || matchedProduct?.description || '',
+        description: normalizedLine.description || matchedProduct?.description || '',
         itemDescription: item.itemDescription ?? item.lineDescription ?? item.details ?? item.note ?? item.remark ?? '',
         hsn: item.hsn || matchedProduct?.hsn || '',
+        size: normalizedLine.size,
+        brand: normalizedLine.brand,
+        material: normalizedLine.material,
+        barcode: normalizedLine.barcode,
         qty: Number(item.qty) || 1,
         unit: item.unit || matchedProduct?.unit || 'Nos',
         rate: Number(item.rate ?? matchedProduct?.rate) || 0,
@@ -1468,23 +2113,28 @@ const [customFields, setCustomFields]         = useState([]);
   function applySalesReturnInvoice(invoice) {
     if (!invoice) return;
     const sourceItems = Array.isArray(invoice.items) ? invoice.items : [];
-    const mappedItems = sourceItems.map((item, index) => ({
+    const mappedItems = sourceItems.map((item, index) => {
+      const normalizedLine = normalizeInvoiceLineItem(item, index);
+      return ({
       id: index + 1,
       productId: item.productId ?? item.product?._id ?? item.product?.id ?? null,
       productCode: item.productCode || item.code || '',
-      barcode: item.barcode || '',
+      barcode: normalizedLine.barcode,
       itemType: item.itemType === 'Service' ? 'Service' : 'Product',
-      description: lineItemDescription(item),
+      description: normalizedLine.description,
       itemDescription: item.itemDescription ?? item.lineDescription ?? item.details ?? item.note ?? item.remark ?? '',
       hsn: item.hsn || '',
-      size: item.size || item.modelName || '',
+      size: normalizedLine.size,
+      brand: normalizedLine.brand,
+      material: normalizedLine.material,
       qty: Number(item.qty) || 1,
       unit: item.unit || 'Nos',
       rate: Number(item.rate) || 0,
       discount: Number(item.discount) || 0,
       discountType: 'percent',
       gstRate: item.gstRate === '' || item.gstRate == null ? '' : Number(item.gstRate) || 0,
-    }));
+    });
+    });
 
     setCustomer(normalizeCustomer(invoice.customer || {}));
     setSupplyType(invoice.supplyType || supplyType);
@@ -1516,8 +2166,286 @@ const [customFields, setCustomFields]         = useState([]);
       if (item.id !== itemId) return item;
       const next = { ...item, size: value };
       if (selected && Number(selected.rate) > 0) next.rate = Number(selected.rate);
+      if (selected) {
+        next.size = selected.size || selected.modelName || value;
+        next.brand = selected.other || item.brand || '';
+        next.material = selected.material || item.material || '';
+        next.barcode = selected.barcode || item.barcode || '';
+      }
       return next;
     }));
+  }
+
+  function updateItemFashionVariant(itemId, product, field, value) {
+    const variants = product?.variants || [];
+    setItems((prev) => prev.map((item) => {
+      if (item.id !== itemId) return item;
+      const next = { ...item, [field]: value };
+      const selected = findVariantByFashionAttrs(variants, {
+        size: field === 'size' ? value : next.size,
+        brand: field === 'brand' ? value : next.brand,
+        material: field === 'material' ? value : next.material,
+      });
+      if (selected) {
+        next.size = selected.size || selected.modelName || next.size || '';
+        next.brand = selected.other || next.brand || '';
+        next.material = selected.material || next.material || '';
+        next.barcode = selected.barcode || next.barcode || '';
+        if (Number(selected.rate) > 0) next.rate = Number(selected.rate);
+      }
+      return next;
+    }));
+  }
+
+  function openBrandPicker({ mode, itemId = null, product = null, options = [], value = '' }) {
+    const mergedOptions = textDropdownOptions([
+      value,
+      ...(Array.isArray(options) ? options : []),
+      product?.brand,
+      ...inlineProductBrands,
+    ]);
+    const selected = value ? [value] : [];
+    const highlighted = Math.max(0, mergedOptions.findIndex((option) => String(option).trim().toLowerCase() === String(value).trim().toLowerCase()));
+    setBrandPicker({ type: 'brand', mode, itemId, product, options: mergedOptions, value, selected, highlighted, query: '' });
+  }
+
+  function openSizePicker({ mode, itemId = null, product = null, options = [], value = '' }) {
+    const mergedOptions = textDropdownOptions([
+      value,
+      ...(Array.isArray(options) ? options : []),
+      ...allFashionSizeOptions,
+    ]);
+    const selected = value ? [value] : [];
+    const highlighted = Math.max(0, mergedOptions.findIndex((option) => String(option).trim().toLowerCase() === String(value).trim().toLowerCase()));
+    setBrandPicker({ type: 'size', mode, itemId, product, options: mergedOptions, value, selected, highlighted, query: '' });
+  }
+
+  function openMaterialPicker({ mode, itemId = null, product = null, options = [], value = '' }) {
+    const mergedOptions = textDropdownOptions([
+      value,
+      ...(Array.isArray(options) ? options : []),
+      product?.material,
+      product?.fabric,
+      ...(product?.variants || []).map((variant) => variant.material),
+      ...allFashionMaterialOptions,
+    ]);
+    const selected = value ? [value] : [];
+    const highlighted = Math.max(0, mergedOptions.findIndex((option) => String(option).trim().toLowerCase() === String(value).trim().toLowerCase()));
+    setBrandPicker({ type: 'material', mode, itemId, product, options: mergedOptions, value, selected, highlighted, query: '' });
+  }
+
+  function pickerTypeLabel(type) {
+    if (type === 'size') return 'size';
+    if (type === 'material') return 'material';
+    return 'brand';
+  }
+
+  function toggleBrandPickerValue(value, refocusSearch = false) {
+    setBrandPicker((prev) => {
+      if (!prev) return prev;
+      const exists = prev.selected.some((item) => String(item).trim().toLowerCase() === String(value).trim().toLowerCase());
+      return {
+        ...prev,
+        selected: exists ? prev.selected.filter((item) => String(item).trim().toLowerCase() !== String(value).trim().toLowerCase()) : [...prev.selected, value],
+        query: '',
+        highlighted: 0,
+      };
+    });
+    if (refocusSearch) {
+      window.setTimeout(() => {
+        brandPickerSearchRef.current?.focus();
+        brandPickerSearchRef.current?.select?.();
+      }, 0);
+    }
+  }
+
+  function moveBrandPickerHighlight(delta) {
+    setBrandPicker((prev) => {
+      const filteredOptions = brandPickerFilteredOptions(prev);
+      if (!filteredOptions.length) return prev;
+      const current = Number.isFinite(prev.highlighted) ? prev.highlighted : 0;
+      const highlighted = Math.min(filteredOptions.length - 1, Math.max(0, current + delta));
+      return { ...prev, highlighted };
+    });
+  }
+
+  function brandPickerFilteredOptions(picker = brandPicker) {
+    if (!picker) return [];
+    const query = String(picker.query || '').trim().toLowerCase();
+    if (!query) return picker.options || [];
+    return (picker.options || []).filter((option) => String(option || '').toLowerCase().includes(query));
+  }
+
+  function brandPickerManualValue(picker = brandPicker) {
+    if (!picker) return '';
+    const query = String(picker.query || '').trim();
+    if (!query) return '';
+    const exists = (picker.options || []).some((option) => String(option || '').trim().toLowerCase() === query.toLowerCase());
+    const selected = (picker.selected || []).some((option) => String(option || '').trim().toLowerCase() === query.toLowerCase());
+    return exists || selected ? '' : query;
+  }
+
+  function handleBrandPickerKeyDown(event) {
+    if (!brandPicker) return;
+    const target = event.target;
+    const tagName = target?.tagName;
+    const isSearchInput = target?.dataset?.brandPickerSearch === 'true';
+    const shouldUseNativeControl = tagName === 'BUTTON'
+      || target?.type === 'checkbox'
+      || (tagName === 'INPUT' && !isSearchInput)
+      || tagName === 'SELECT'
+      || tagName === 'TEXTAREA';
+    if (shouldUseNativeControl) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      event.stopPropagation();
+      moveBrandPickerHighlight(1);
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      event.stopPropagation();
+      moveBrandPickerHighlight(-1);
+      return;
+    }
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      const manualValue = brandPickerManualValue();
+      const option = brandPickerFilteredOptions()[brandPicker.highlighted || 0] || manualValue;
+      if (option) toggleBrandPickerValue(option, Boolean(manualValue && option === manualValue));
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setBrandPicker(null);
+    }
+  }
+
+  function focusNextBrandColumn(mode, itemId) {
+    window.setTimeout(() => {
+      if (mode === 'quick') {
+        document.querySelector('[data-fkey="quick-size"]')?.focus();
+        return;
+      }
+      const rowIndex = items.findIndex((item) => item.id === itemId);
+      if (rowIndex >= 0) document.querySelector(`[data-row="${rowIndex}"][data-col="size"]`)?.focus();
+    }, 60);
+  }
+
+  function confirmBrandPicker() {
+    if (!brandPicker) return;
+    const manualValue = brandPickerManualValue();
+    const selected = uniqueTextParts([
+      ...(brandPicker.selected.length ? brandPicker.selected : (brandPicker.value ? [brandPicker.value] : [])),
+      manualValue,
+    ]);
+    if (!selected.length) {
+      setBrandPicker(null);
+      return;
+    }
+    if (brandPicker.type === 'material') {
+      const [firstMaterial, ...extraMaterials] = selected;
+      if (brandPicker.mode === 'quick') {
+        setQuickPickerSelections((prev) => ({ ...prev, material: selected }));
+        updateQuickFashionVariant('material', firstMaterial);
+      } else if (brandPicker.itemId) {
+        updateItemFashionVariant(brandPicker.itemId, brandPicker.product, 'material', firstMaterial);
+        if (extraMaterials.length) {
+          setItems((prev) => {
+            const sourceIndex = prev.findIndex((item) => item.id === brandPicker.itemId);
+            if (sourceIndex < 0) return prev;
+            const source = prev[sourceIndex];
+            const additions = extraMaterials.map((material) => ({
+              ...source,
+              id: nextItemId.current++,
+              material,
+              barcode: '',
+            }));
+            return [
+              ...prev.slice(0, sourceIndex + 1),
+              ...additions,
+              ...prev.slice(sourceIndex + 1),
+            ];
+          });
+        }
+      }
+      setBrandPicker(null);
+      window.setTimeout(() => {
+        if (brandPicker.mode === 'quick') document.querySelector('[data-fkey="quick-hsn"]')?.focus();
+        else {
+          const rowIndex = items.findIndex((item) => item.id === brandPicker.itemId);
+          if (rowIndex >= 0) document.querySelector(`[data-row="${rowIndex}"][data-col="hsn"]`)?.focus();
+        }
+      }, 60);
+      return;
+    }
+    if (brandPicker.type === 'size') {
+      const [firstSize, ...extraSizes] = selected;
+      if (brandPicker.mode === 'quick') {
+        setQuickPickerSelections((prev) => ({ ...prev, size: selected }));
+        updateQuickFashionVariant('size', firstSize);
+      } else if (brandPicker.itemId) {
+        updateItemFashionVariant(brandPicker.itemId, brandPicker.product, 'size', firstSize);
+        if (extraSizes.length) {
+          setItems((prev) => {
+            const sourceIndex = prev.findIndex((item) => item.id === brandPicker.itemId);
+            if (sourceIndex < 0) return prev;
+            const source = prev[sourceIndex];
+            const additions = extraSizes.map((size) => ({
+              ...source,
+              id: nextItemId.current++,
+              size,
+              barcode: '',
+            }));
+            return [
+              ...prev.slice(0, sourceIndex + 1),
+              ...additions,
+              ...prev.slice(sourceIndex + 1),
+            ];
+          });
+        }
+      }
+      setBrandPicker(null);
+      window.setTimeout(() => {
+        if (brandPicker.mode === 'quick') document.querySelector('[data-fkey="quick-material"]')?.focus();
+        else {
+          const rowIndex = items.findIndex((item) => item.id === brandPicker.itemId);
+          if (rowIndex >= 0) document.querySelector(`[data-row="${rowIndex}"][data-col="material"]`)?.focus();
+        }
+      }, 60);
+      return;
+    }
+    const [firstBrand, ...extraBrands] = selected;
+    if (brandPicker.mode === 'quick') {
+      setQuickPickerSelections((prev) => ({ ...prev, brand: selected }));
+      updateQuickFashionVariant('brand', firstBrand);
+    } else if (brandPicker.itemId) {
+      updateItemFashionVariant(brandPicker.itemId, brandPicker.product, 'brand', firstBrand);
+      if (extraBrands.length) {
+        setItems((prev) => {
+          const sourceIndex = prev.findIndex((item) => item.id === brandPicker.itemId);
+          if (sourceIndex < 0) return prev;
+          const source = prev[sourceIndex];
+          const additions = extraBrands.map((brand) => ({
+            ...source,
+            id: nextItemId.current++,
+            brand,
+            size: '',
+            material: source.material || '',
+            barcode: '',
+          }));
+          return [
+            ...prev.slice(0, sourceIndex + 1),
+            ...additions,
+            ...prev.slice(sourceIndex + 1),
+          ];
+        });
+      }
+    }
+    setBrandPicker(null);
+    focusNextBrandColumn(brandPicker.mode, brandPicker.itemId);
   }
 
   function clearItemFields(id) {
@@ -1576,7 +2504,9 @@ const [customFields, setCustomFields]         = useState([]);
     const col = cell.dataset.col;
     if (Number.isNaN(row) || !col) return;
 
-    const columns = ['description', 'itemDescription', 'hsn', 'qty', 'unit', 'rate', 'discount', ...(config.showGst ? ['gstRate'] : [])];
+    const columns = isPurchaseFashionDocument
+      ? ['description', 'brand', 'size', 'material', 'hsn', 'qty', 'unit', 'rate', ...(config.showGst ? ['gstRate'] : [])]
+      : ['description', 'itemDescription', 'hsn', 'size', 'qty', 'unit', 'rate', 'discount', ...(config.showGst ? ['gstRate'] : [])];
     const colIndex = columns.indexOf(col);
     const isDescriptionTextarea = cell.tagName === 'TEXTAREA' && col === 'itemDescription';
 
@@ -1622,9 +2552,11 @@ const [customFields, setCustomFields]         = useState([]);
               modelNumber: normalized.modelNumber || '',
               warrantyPeriod: normalized.warrantyPeriod || '',
               hsn: normalized.hsn,
-              size: normalized.__selectedVariantName || '',
+              size: productBillingSize(normalized),
+              brand: productBillingBrand(normalized),
+              material: productBillingMaterial(normalized),
               unit: normalized.unit,
-              rate: normalized.rate,
+              rate: productBillingRate(normalized),
               gstRate: normalized.gstRate,
             }
           : item,
@@ -1644,7 +2576,7 @@ const [customFields, setCustomFields]         = useState([]);
         || (normalized.code && item.productCode === normalized.code)
         || (normalized.barcode && item.barcode === normalized.barcode)
         || (!normalized.code && !normalized.barcode && item.description === normalized.description))
-      && String(item.size || '') === String(normalized.__selectedVariantName || '')
+      && String(item.size || '') === String(productBillingSize(normalized) || '')
     ));
 
     if (existing) {
@@ -1691,17 +2623,6 @@ const [customFields, setCustomFields]         = useState([]);
       addProductToBill(normalized);
     }
     if (!options.keepOpen) setInlineProductModal(null);
-  }
-
-  function handleQuickProductAddButton() {
-    const query = String(productSearch || '').trim();
-    const filterRows = productsOfType(salesItemFilter);
-    const existing = query ? findProductByExactEntry(filterRows, query) || findProductByScan(filterRows, query) : null;
-    if (existing || !canCreateDevicesInline) {
-      addQuickItem();
-      return;
-    }
-    openInlineDeviceCreator({ barcode: isLikelyBarcodeScan(query) ? query : '' });
   }
 
   function mergeScannedProduct(product) {
@@ -1878,7 +2799,7 @@ const [customFields, setCustomFields]         = useState([]);
       return true;
     }
 
-    if (canCreateDevicesInline && isLikelyBarcodeScan(value)) {
+    if (canOpenProductCreationFromQuickEntry && isLikelyBarcodeScan(value)) {
       openInlineDeviceCreator({ barcode: value, targetItemId: itemId });
       return true;
     }
@@ -1886,18 +2807,23 @@ const [customFields, setCustomFields]         = useState([]);
     return false;
   }
 
+  function isProductCommitKey(event) {
+    if (event.key === 'Enter' || event.key === 'NumpadEnter') return true;
+    return event.key === 'Tab' && window.matchMedia?.('(max-width: 767px)').matches;
+  }
+
   async function addProductFromSearch(rawQuery = productSearch) {
     const query = String(rawQuery || '').trim();
     if (!query) return;
 
     const localScanMatch = isLikelyBarcodeScan(query) ? findProductByScan(products, query) : null;
-    if (canCreateDevicesInline && !localScanMatch && isLikelyBarcodeScan(query)) {
+    if (canOpenProductCreationFromQuickEntry && !localScanMatch && isLikelyBarcodeScan(query)) {
       openInlineDeviceCreator({ barcode: query });
       setProductSearch('');
       return;
     }
 
-    if (documentType !== 'purchase-entry' && !localScanMatch && isLikelyBarcodeScan(query)) {
+    if (!['purchase-entry', 'purchase-order'].includes(documentType) && !localScanMatch && isLikelyBarcodeScan(query)) {
       // Open synchronously (before any await) — mobile browsers silently
       // block window.open() once a promise/await has broken the chain back
       // to the user's tap/keypress.
@@ -1929,9 +2855,33 @@ const [customFields, setCustomFields]         = useState([]);
     const selected = findVariantByValue(product?.variants || [], value);
     setQuickItem((prev) => ({
       ...prev,
-      size: value,
+      size: selected ? (selected.size || selected.modelName || value) : value,
+      brand: selected?.other || prev.brand || '',
+      material: selected?.material || prev.material || '',
+      barcode: selected?.barcode || prev.barcode || '',
       rate: selected && Number(selected.rate) > 0 ? Number(selected.rate) : prev.rate,
     }));
+  }
+
+  function updateQuickFashionVariant(field, value) {
+    const variants = quickMatchedProduct?.variants || [];
+    setQuickItem((prev) => {
+      const next = { ...prev, [field]: value };
+      const selected = findVariantByFashionAttrs(variants, {
+        size: field === 'size' ? value : next.size,
+        brand: field === 'brand' ? value : next.brand,
+        material: field === 'material' ? value : next.material,
+      });
+      if (!selected) return next;
+      return {
+        ...next,
+        size: selected.size || selected.modelName || next.size || '',
+        brand: selected.other || next.brand || '',
+        material: selected.material || next.material || '',
+        barcode: selected.barcode || next.barcode || '',
+        rate: Number(selected.rate) > 0 ? Number(selected.rate) : next.rate,
+      };
+    });
   }
 
   function focusQuickItemField(field) {
@@ -1951,7 +2901,8 @@ const [customFields, setCustomFields]         = useState([]);
   }
 
   function resetQuickItem() {
-    setQuickItem((prev) => ({ itemType: prev.itemType || 'Product', productType: 'Standard', itemDescription: '', hsn: '', size: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, discountType: 'percent', gstRate: '' }));
+    setQuickItem((prev) => ({ itemType: prev.itemType || 'Product', productType: 'Standard', itemDescription: '', hsn: '', size: '', brand: '', material: '', barcode: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, discountType: 'percent', gstRate: '' }));
+    setQuickPickerSelections({ brand: [], size: [], material: [] });
   }
 
   function prefillQuickItemFromProduct(value) {
@@ -1964,9 +2915,12 @@ const [customFields, setCustomFields]         = useState([]);
       productType: normalized.productType || 'Standard',
       itemDescription: prev.itemDescription || normalized.productDescription || '',
       hsn: normalized.hsn || prev.hsn,
-      size: normalized.__selectedVariantName || prev.size || '',
+      size: productBillingSize(normalized) || prev.size || '',
+      brand: productBillingBrand(normalized) || prev.brand || '',
+      material: productBillingMaterial(normalized) || prev.material || '',
+      barcode: normalized.barcode || prev.barcode || '',
       unit: normalized.unit || prev.unit || 'Nos',
-      rate: Number(normalized.rate) || prev.rate || 0,
+      rate: productBillingRate(normalized) || prev.rate || 0,
       gstRate: prev.gstRate ?? '',
     }));
   }
@@ -1992,13 +2946,13 @@ const [customFields, setCustomFields]         = useState([]);
     const filterRows = productsOfType(salesItemFilter);
     const exact = findProductByExactEntry(filterRows, query);
     const localScanMatch = !exact && isLikelyBarcodeScan(query) ? findProductByScan(filterRows, query) : null;
-    if (canCreateDevicesInline && !exact && !localScanMatch && isLikelyBarcodeScan(query)) {
+    if (canOpenProductCreationFromQuickEntry && !exact && !localScanMatch && isLikelyBarcodeScan(query)) {
       openInlineDeviceCreator({ barcode: query });
       setProductSearch('');
       return;
     }
 
-    if (documentType !== 'purchase-entry' && !exact && !localScanMatch && isLikelyBarcodeScan(query)) {
+    if (!['purchase-entry', 'purchase-order'].includes(documentType) && !exact && !localScanMatch && isLikelyBarcodeScan(query)) {
       openAddProductForBarcode(query);
       setProductSearch('');
       return;
@@ -2015,9 +2969,12 @@ const [customFields, setCustomFields]         = useState([]);
         itemType: normalized.itemType || prev.itemType,
         productType: normalized.productType || 'Standard',
         hsn: normalized.hsn || prev.hsn,
-        size: normalized.__selectedVariantName || prev.size || '',
+        size: productBillingSize(normalized) || prev.size || '',
+        brand: productBillingBrand(normalized) || prev.brand || '',
+        material: productBillingMaterial(normalized) || prev.material || '',
+        barcode: normalized.barcode || prev.barcode || '',
         unit: normalized.unit || prev.unit || 'Nos',
-        rate: Number(normalized.rate) || prev.rate || 0,
+        rate: productBillingRate(normalized) || prev.rate || 0,
         gstRate: prev.gstRate ?? '',
       }));
     }
@@ -2035,13 +2992,13 @@ const [customFields, setCustomFields]         = useState([]);
     const filterRows = productsOfType(salesItemFilter);
     const exact = findProductByExactEntry(filterRows, query);
     const localScanMatch = !exact && isLikelyBarcodeScan(query) ? findProductByScan(filterRows, query) : null;
-    if (canCreateDevicesInline && !exact && !localScanMatch && isLikelyBarcodeScan(query)) {
+    if (canOpenProductCreationFromQuickEntry && !exact && !localScanMatch && isLikelyBarcodeScan(query)) {
       openInlineDeviceCreator({ barcode: query });
       setProductSearch('');
       return;
     }
 
-    if (documentType !== 'purchase-entry' && !exact && !localScanMatch && isLikelyBarcodeScan(query)) {
+    if (!['purchase-entry', 'purchase-order'].includes(documentType) && !exact && !localScanMatch && isLikelyBarcodeScan(query)) {
       // Open synchronously (before any await) — mobile browsers silently
       // block window.open() once a promise/await has broken the chain back
       // to the user's tap/keypress, which left the barcode just sitting in
@@ -2053,31 +3010,165 @@ const [customFields, setCustomFields]         = useState([]);
 
     const chosen = exact || localScanMatch || await resolveProductByScan(query, salesItemFilter);
     const normalized = chosen ? normalizeProduct(chosen) : null;
-    const id = nextItemId.current++;
-    setItems((prev) => [...prev, {
-      id,
-      productId: normalized?.id || null,
-      productCode: normalized?.code || '',
-      barcode: normalized?.barcode || '',
-      itemType: normalized?.itemType || (salesItemFilter === 'Service' ? 'Service' : quickItem.itemType || 'Product'),
-      productType: normalized?.productType || quickItem.productType || 'Standard',
-      description: normalized?.description || query,
-      itemDescription: quickItem.itemDescription || normalized?.productDescription || '',
-      modelNumber: normalized?.modelNumber || '',
-      warrantyPeriod: normalized?.warrantyPeriod || '',
-      hsn: quickItem.hsn || normalized?.hsn || '',
-      size: quickItem.size || normalized?.__selectedVariantName || '',
-      qty: Number(quickItem.qty) || 1,
-      unit: quickItem.unit || normalized?.unit || 'Nos',
-      rate: Number(quickItem.rate || normalized?.rate) || 0,
-      discount: Number(quickItem.discount) || 0,
-      discountType: 'percent',
-      gstRate: Number(quickItem.gstRate ?? normalized?.gstRate ?? 0),
-    }]);
+    const selectedBrands = quickPickerSelections.brand.length ? quickPickerSelections.brand : [quickItem.brand || normalized?.brand || ''];
+    const selectedSizes = quickPickerSelections.size.length ? quickPickerSelections.size : [quickItem.size || productBillingSize(normalized) || ''];
+    const selectedMaterials = quickPickerSelections.material.length ? quickPickerSelections.material : [quickItem.material || productBillingMaterial(normalized) || ''];
+    if (isPurchaseFashionDocument && (selectedBrands.length > 1 || selectedSizes.length > 1 || selectedMaterials.length > 1)) {
+      const rowCount = Math.max(selectedBrands.length, selectedSizes.length, selectedMaterials.length);
+      const rows = Array.from({ length: rowCount }, (_, index) => buildQuickPurchaseItem(normalized, {
+        description: normalized?.description || query,
+        brand: selectedBrands[index] ?? selectedBrands[0] ?? quickItem.brand ?? normalized?.brand ?? '',
+        size: selectedSizes[index] ?? selectedSizes[0] ?? quickItem.size ?? productBillingSize(normalized) ?? '',
+        material: selectedMaterials[index] ?? selectedMaterials[0] ?? quickItem.material ?? productBillingMaterial(normalized) ?? '',
+        barcode: quickItem.barcode || normalized?.barcode || '',
+        hsn: quickItem.hsn || normalized?.hsn || '',
+        qty: Number(quickItem.qty) || 1,
+        unit: quickItem.unit || normalized?.unit || 'Nos',
+        rate: Number(quickItem.rate || productBillingRate(normalized)) || 0,
+      }));
+      setItems((prev) => [...prev, ...rows]);
+      setBrandPicker(null);
+      setProductSearch('');
+      resetQuickItem();
+      focusQuickItemField('product');
+      clearError('items');
+      return;
+    }
+    const rows = [buildQuickPurchaseItem(normalized, {
+      brand: selectedBrands[0] || '',
+      size: selectedSizes[0] || '',
+      material: selectedMaterials[0] || '',
+      barcode: quickItem.barcode || normalized?.barcode || '',
+    })];
+    setItems((prev) => [...prev, ...rows]);
     setProductSearch('');
     resetQuickItem();
     focusQuickItemField('product');
     clearError('items');
+  }
+
+  function buildQuickPurchaseItem(normalized, overrides = {}) {
+    return {
+      id: nextItemId.current++,
+      productId: normalized?.id || null,
+      productCode: normalized?.code || '',
+      barcode: overrides.barcode ?? quickItem.barcode ?? normalized?.barcode ?? '',
+      itemType: normalized?.itemType || (salesItemFilter === 'Service' ? 'Service' : quickItem.itemType || 'Product'),
+      productType: normalized?.productType || quickItem.productType || 'Standard',
+      description: overrides.description ?? normalized?.description ?? productSearch,
+      itemDescription: overrides.itemDescription ?? quickItem.itemDescription ?? normalized?.productDescription ?? '',
+      modelNumber: normalized?.modelNumber || '',
+      warrantyPeriod: normalized?.warrantyPeriod || '',
+      hsn: overrides.hsn ?? quickItem.hsn ?? normalized?.hsn ?? '',
+      size: overrides.size ?? quickItem.size ?? productBillingSize(normalized) ?? '',
+      brand: overrides.brand ?? quickItem.brand ?? productBillingBrand(normalized) ?? '',
+      material: overrides.material ?? quickItem.material ?? productBillingMaterial(normalized) ?? '',
+      qty: Number(overrides.qty ?? quickItem.qty) || 1,
+      unit: overrides.unit ?? quickItem.unit ?? normalized?.unit ?? 'Nos',
+      rate: Number(overrides.rate ?? quickItem.rate ?? productBillingRate(normalized)) || 0,
+      discount: Number(quickItem.discount) || 0,
+      discountType: 'percent',
+      gstRate: Number(quickItem.gstRate ?? normalized?.gstRate ?? 0),
+    };
+  }
+
+  function updateQuickVariantDraftRow(rowId, field, value) {
+    setQuickVariantDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        rows: prev.rows.map((row) => (
+          row.id === rowId
+            ? { ...row, [field]: ['qty', 'rate'].includes(field) ? Number(value) : value }
+            : row
+        )),
+      };
+    });
+  }
+
+  function removeQuickVariantDraftRow(rowId) {
+    setQuickVariantDraft((prev) => {
+      if (!prev) return prev;
+      const rows = prev.rows.filter((row) => row.id !== rowId);
+      return rows.length ? { ...prev, rows } : null;
+    });
+  }
+
+  function confirmQuickVariantDraft() {
+    if (!quickVariantDraft?.rows?.length) return;
+    if (quickVariantDraft.reviewMode === 'save') {
+      const reviewedItems = items.map((item) => {
+        const reviewed = quickVariantDraft.rows.find((row) => row.itemId === item.id);
+        if (!reviewed) return item;
+        return {
+          ...item,
+          brand: reviewed.brand || '',
+          size: reviewed.size || '',
+          material: reviewed.material || '',
+          hsn: reviewed.hsn || item.hsn || '',
+          qty: Number(reviewed.qty) || 1,
+          unit: reviewed.unit || 'Nos',
+          rate: Number(reviewed.rate) || 0,
+        };
+      });
+      const draftErrors = validate(reviewedItems);
+      if (Object.keys(draftErrors).length > 0) {
+        setErrors(draftErrors);
+        setQuickVariantDraft(null);
+        setItems(reviewedItems);
+        setTimeout(() => document.querySelector('[data-validation-error]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+        return;
+      }
+      setItems(reviewedItems);
+      const options = quickVariantDraft.saveOptions || {};
+      setQuickVariantDraft(null);
+      handleSave({ ...options, variantReviewConfirmed: true, itemsOverride: reviewedItems });
+      return;
+    }
+    const rows = quickVariantDraft.rows.map((row) => buildQuickPurchaseItem(quickVariantDraft.normalized, {
+      description: row.description || quickVariantDraft.normalized?.description || quickVariantDraft.query,
+      brand: row.brand || '',
+      size: row.size || '',
+      material: row.material || '',
+      barcode: row.barcode || '',
+      hsn: row.hsn || '',
+      qty: Number(row.qty) || 1,
+      unit: row.unit || 'Nos',
+      rate: Number(row.rate) || 0,
+    }));
+    setItems((prev) => [...prev, ...rows]);
+    setQuickVariantDraft(null);
+    setProductSearch('');
+    resetQuickItem();
+    focusQuickItemField('product');
+    clearError('items');
+  }
+
+  function openFinalVariantReview(saveOptions = {}) {
+    const rows = items
+      .filter((item) => item.description)
+      .map((item) => ({
+        id: `final-variant-${item.id}`,
+        itemId: item.id,
+        description: item.description,
+        brand: item.brand || '',
+        size: item.size || '',
+        material: item.material || '',
+        hsn: item.hsn || '',
+        qty: Number(item.qty) || 1,
+        unit: item.unit || 'Nos',
+        rate: Number(item.rate) || 0,
+      }));
+    if (!rows.length) return false;
+    setQuickVariantDraft({
+      reviewMode: 'save',
+      saveOptions,
+      query: '',
+      brandOptions: uniqueTextParts(rows.map((row) => row.brand)),
+      sizeOptions: uniqueTextParts(rows.map((row) => row.size)).filter((size) => isAllowedFashionSize(size, rows.map((row) => row.description))),
+      rows,
+    });
+    return true;
   }
 
   function addCharge(preset) {
@@ -2094,7 +3185,7 @@ const [customFields, setCustomFields]         = useState([]);
 
   function removeCharge(id) { setCharges((prev) => prev.filter((c) => c.id !== id)); }
 
-  function buildPayload(customerOverride) {
+  function buildPayload(customerOverride, itemsOverride = effectiveItems, totalsOverride = totals) {
     const effectiveCustomer = customerOverride || getEffectiveCustomer();
     const activeSplits = paymentSplits.filter((split) => split.id !== 'credit' && Number(split.amount) > 0);
     const splitPaidAmount = activeSplits.reduce((sum, split) => sum + (Number(split.amount) || 0), 0);
@@ -2106,6 +3197,7 @@ const [customFields, setCustomFields]         = useState([]);
     const extra = documentType === 'purchase-entry'
       ? {
         ...docExtra,
+        vendorInvoiceAmount: docExtra.vendorInvoiceAmount === '' ? '' : Number(docExtra.vendorInvoiceAmount) || 0,
         vendorBankName: effectiveCustomer.bankName || docExtra.vendorBankName || '',
         vendorAccountHolderName: effectiveCustomer.accountHolderName || docExtra.vendorAccountHolderName || '',
         vendorAccountNumber: effectiveCustomer.accountNumber || docExtra.vendorAccountNumber || '',
@@ -2121,7 +3213,7 @@ const [customFields, setCustomFields]         = useState([]);
       supplyType: config.showGst && effectiveCustomer.state
         ? (effectiveCustomer.state === bizState ? 'intrastate' : 'interstate')
         : supplyType,
-      items: enrichItemsWithProductDescriptions(effectiveItems, products),
+      items: enrichItemsWithProductDescriptions(itemsOverride, products),
       shipping: { sameAsBilling: sameShipping, ...shipping },
       charges,
       additionalDiscount: addDiscount,
@@ -2138,13 +3230,16 @@ const [customFields, setCustomFields]         = useState([]);
           reference: split.reference || '',
         };
       }),
-      totals,
+      totals: totalsOverride,
       notes,
       internalNotes,
       terms,
       customFields,
       recurring,
-      extra: { ...extra, invoicePrintFormat: billPrintFormat },
+      extra: {
+        ...extra,
+        invoicePrintFormat: billPrintFormat,
+      },
     };
   }
 
@@ -2164,6 +3259,7 @@ const [customFields, setCustomFields]         = useState([]);
     'e-way-bill':       '/billing/e-way-bill',
     'pharmacy-bill':    '/billing/pharmacy-bill',
   };
+  const currentListRoute = LIST_ROUTES[documentType] ?? '/billing/invoice';
 
   const NEW_ROUTES = {
     invoice: '/billing/invoice/new', 'bill-of-supply': '/billing/bill-of-supply/new', quotation: '/billing/quotation/new',
@@ -2193,15 +3289,60 @@ const [customFields, setCustomFields]         = useState([]);
     return api.createInvoice(payload);
   }
 
-  async function handleSave({ openPreview, autoPrint } = {}) {
+  async function handleSave({
+    openPreview,
+    autoPrint,
+    inventoryConfirmed = false,
+    variantReviewConfirmed = false,
+    itemsOverride = null,
+    barcodePrintHandled = false,
+  } = {}) {
     setSaveError('');
-    const validationErrors = validate();
+    const rawSaveItems = itemsOverride || effectiveItems;
+    let saveItems = isPurchaseFashionDocument
+      ? normalizePurchaseFashionItemsForSave(rawSaveItems, products)
+      : rawSaveItems;
+    if (documentType === 'purchase-entry' && isPurchaseFashionDocument) saveItems = withPurchaseBarcodes(saveItems);
+    const saveTotals = itemsOverride ? calculateTotalsForItems(saveItems) : totals;
+    const validationErrors = validate(saveItems);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       setTimeout(() => document.querySelector('[data-validation-error]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
       return;
     }
     setErrors({});
+    if (isPurchaseFashionDocument && !variantReviewConfirmed && documentType !== 'purchase-entry') {
+      if (openFinalVariantReview({ openPreview, autoPrint, inventoryConfirmed })) return;
+    }
+    const vendorAmountMismatch = documentType === 'purchase-entry' && docExtra.vendorInvoiceAmount !== '' && docExtra.vendorInvoiceAmount != null
+      ? (() => {
+          const vendorAmount = Number(docExtra.vendorInvoiceAmount);
+          if (!Number.isFinite(vendorAmount) || vendorAmount < 0) return null;
+          const entryAmount = saveTotals.finalTotal || 0;
+          const difference = entryAmount - vendorAmount;
+          return { vendorAmount, entryAmount, difference, matched: Math.abs(difference) < 0.01 };
+        })()
+      : null;
+    if (!inventoryConfirmed && vendorAmountMismatch && !vendorAmountMismatch.matched) {
+      const shouldSave = window.confirm(
+        `Vendor invoice amount and entry amount are different.\n\nVendor invoice amount: ${formatCurrency(vendorAmountMismatch.vendorAmount)}\nOur entry amount: ${formatCurrency(vendorAmountMismatch.entryAmount)}\nDifference: ${formatCurrency(Math.abs(vendorAmountMismatch.difference))}\n\nDo you want to save like this?`,
+      );
+      if (!shouldSave) return;
+    }
+    if (documentType === 'purchase-entry' && isPurchaseFashionDocument && !inventoryConfirmed) {
+      setInventoryConfirmOptions({ openPreview, autoPrint });
+      return;
+    }
+    if (documentType === 'purchase-entry' && isPurchaseFashionDocument && !barcodePrintHandled) {
+      const labelRows = purchaseBarcodePrintRows(saveItems);
+      if (labelRows.length && window.confirm('Print barcode labels now?\n\nOK = Print labels only and return to entry\nCancel = Save now without barcode printing')) {
+        setPurchaseBarcodePrintJob({
+          layout: 'thermal80',
+          rows: labelRows,
+        });
+        return;
+      }
+    }
     if (openPreview && autoPrint) {
       setAutoPrintPreview(false);
       setPreviewRedirectOnClose(true);
@@ -2209,8 +3350,9 @@ const [customFields, setCustomFields]         = useState([]);
     }
     setSaveLoading(true);
     try {
-      const rememberedCustomer = await rememberCustomerForPhone(getEffectiveCustomer());
-      const payload = buildPayload(rememberedCustomer);
+      const preparedCustomer = await ensurePurchaseMasters(saveItems, getEffectiveCustomer());
+      const rememberedCustomer = await rememberCustomerForPhone(preparedCustomer);
+      const payload = buildPayload(rememberedCustomer, saveItems, saveTotals);
       const savedDoc = await saveDocumentPayload(payload);
       if (savedDoc?._id) setSavedInvoiceId(savedDoc._id);
 
@@ -2255,6 +3397,14 @@ const [customFields, setCustomFields]         = useState([]);
     }
   }
 
+  function handleMobilePaymentSave(event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (saveLoading) return;
+    document.activeElement?.blur?.();
+    handleSave();
+  }
+
   function handlePrintBill() {
     setSaveError('');
     const validationErrors = validate();
@@ -2265,7 +3415,7 @@ const [customFields, setCustomFields]         = useState([]);
     }
 
     setErrors({});
-    setAutoPrintPreview(false);
+    setAutoPrintPreview(true);
     setPreviewRedirectOnClose(false);
     setShowPreview(true);
   }
@@ -2307,13 +3457,14 @@ const [customFields, setCustomFields]         = useState([]);
     const next = id;
     setSelectedPayment(next);
     if (next !== 'credit') {
-      setShowPaymentPopup(true);
       const defaultAmt = String(Math.max(0, totals.finalTotal));
       setPaymentData((p) => ({ ...p, amount: p.amount || defaultAmt }));
       setAdvanceAmt((a) => a || defaultAmt);
-      setPaymentSplits((prev) => prev.length ? prev : [{ id: next, amount: defaultAmt, reference: '' }]);
+      setPaymentSplits([{ id: next, amount: paymentData.amount || defaultAmt, reference: paymentData.utrNumber || paymentData.chequeNo || '' }]);
+      setShowPaymentMethodPopup(true);
     } else {
       setShowPaymentPopup(false);
+      setShowPaymentMethodPopup(true);
       setPaymentData((p) => ({ ...p, amount: '', utrNumber: '', chequeNo: '' }));
       setAdvanceAmt('0');
       setPaymentSplits([]);
@@ -2344,6 +3495,15 @@ const [customFields, setCustomFields]         = useState([]);
     updatePaymentSplit(methodId, 'amount', String(Math.max(0, totals.finalTotal - paidByOthers)));
   }
 
+  function openMultiplePayment() {
+    const defaultAmt = String(Math.max(0, totals.finalTotal));
+    if (!paymentSplits.length && selectedPayment && selectedPayment !== 'credit') {
+      setPaymentSplits([{ id: selectedPayment, amount: paymentData.amount || defaultAmt, reference: paymentData.utrNumber || paymentData.chequeNo || '' }]);
+    }
+    setShowPaymentMethodPopup(false);
+    setShowPaymentPopup(true);
+  }
+
   function currentPaymentMethodLabel(splits = paymentSplits) {
     const splitLabels = (Array.isArray(splits) ? splits : [])
       .filter((split) => split.id !== 'credit' && Number(split.amount) > 0)
@@ -2353,6 +3513,87 @@ const [customFields, setCustomFields]         = useState([]);
     if (uniqueLabels.length > 0) return uniqueLabels.join(' + ');
     return selectedPayment ? (PAYMENT_METHODS.find((m) => m.id === selectedPayment)?.label ?? '') : '';
   }
+
+  const selectedPaymentMethod = PAYMENT_METHODS.find((method) => method.id === selectedPayment);
+  const paymentMethodPopup = showPaymentMethodPopup && selectedPaymentMethod ? (
+    <div
+      className="billing-payment-popup-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) setShowPaymentMethodPopup(false);
+      }}
+    >
+      <div className="billing-payment-popup" role="dialog" aria-modal="true" aria-label={`${selectedPaymentMethod.label} payment`}>
+        <div className="billing-payment-popup-header">
+          <div>
+            <strong>{selectedPaymentMethod.label} Payment</strong>
+            <span>Total {formatCurrency(totals.finalTotal)}</span>
+          </div>
+          <button type="button" onClick={() => setShowPaymentMethodPopup(false)} aria-label="Close payment popup">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="space-y-3 p-4">
+          {selectedPayment !== 'credit' && (
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Amount</span>
+              <input type="number" min="0" className={cx.input} value={paymentData.amount} onChange={(e) => updateSinglePayment('amount', e.target.value)} />
+            </label>
+          )}
+          {selectedPayment === 'upi' && (
+            <>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">UPI ID</span>
+                <input className={cx.input} placeholder="name@upi" value={paymentData.upiId} onChange={(e) => updateSinglePayment('upiId', e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">UPI Ref / UTR</span>
+                <input className={cx.input} placeholder="UPI Ref / UTR" value={paymentData.utrNumber} onChange={(e) => updateSinglePayment('utrNumber', e.target.value)} />
+              </label>
+            </>
+          )}
+          {selectedPayment === 'card' && (
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Card Transaction No.</span>
+              <input className={cx.input} placeholder="Transaction No." value={paymentData.utrNumber} onChange={(e) => updateSinglePayment('utrNumber', e.target.value)} />
+            </label>
+          )}
+          {selectedPayment === 'bank' && (
+            <>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Bank Name</span>
+                <input className={cx.input} placeholder="Bank name" value={paymentData.bankName} onChange={(e) => updateSinglePayment('bankName', e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">UTR / Transaction No.</span>
+                <input className={cx.input} placeholder="UTR / Transaction No." value={paymentData.utrNumber} onChange={(e) => updateSinglePayment('utrNumber', e.target.value)} />
+              </label>
+            </>
+          )}
+          {selectedPayment === 'credit' && (
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Credit Days</span>
+              <input type="number" min="0" className={cx.input} value={paymentData.creditDays} onChange={(e) => updateSinglePayment('creditDays', e.target.value)} />
+            </label>
+          )}
+        </div>
+
+        <div className="billing-payment-popup-footer">
+          <div>
+            <span>{selectedPayment === 'credit' ? 'Credit Days' : 'Received'}</span>
+            <strong>{selectedPayment === 'credit' ? `${paymentData.creditDays || 0} days` : formatCurrency(Number(paymentData.amount) || 0)}</strong>
+          </div>
+          {selectedPayment !== 'credit' && (
+            <div>
+              <span>Total Balance</span>
+              <strong>{formatCurrency(customerBalanceAfterInvoice)}</strong>
+            </div>
+          )}
+          <button type="button" onClick={() => setShowPaymentMethodPopup(false)}>Done</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   const filteredCustomers = customers.filter((c) =>
     !customerQuery ||
@@ -2382,6 +3623,9 @@ const [customFields, setCustomFields]         = useState([]);
   const matchingByPhone = phoneDigits.length >= 3
     ? customers.filter((c) => (c.phone || '').replace(/\D/g, '').includes(phoneDigits))
     : [];
+  const balanceCustomerName = String(customer.name || '').trim();
+  const balanceCustomerPhone = String(customer.phone || '').trim();
+  const balanceCustomerGstin = String(customer.gstin || '').trim();
 
   useEffect(() => {
     if (documentType !== 'invoice') return;
@@ -2423,6 +3667,46 @@ const [customFields, setCustomFields]         = useState([]);
   }, [phoneDigits, documentType]);
 
   useEffect(() => {
+    if (!['invoice', 'bill-of-supply', 'pharmacy-bill'].includes(effectiveDocumentType)) return undefined;
+    if (!balanceCustomerName) {
+      setDocExtra((prev) => ({ ...prev, oldBalance: 0, newBalance: currentInvoiceBalance }));
+      return undefined;
+    }
+
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await api.listOutstanding({ customer: balanceCustomerName, limit: 1000 });
+        if (!active) return;
+        const rows = Array.isArray(result?.data) ? result.data : [];
+        const normalizedPhone = balanceCustomerPhone.replace(/\D/g, '').slice(-10);
+        const oldBalance = rows
+          .filter((row) => String(row.id || row._id || '') !== String(invoiceId || ''))
+          .filter((row) => {
+            if (!normalizedPhone && !balanceCustomerGstin) return true;
+            const rowPhone = String(row.customerPhone || '').replace(/\D/g, '').slice(-10);
+            return (normalizedPhone && rowPhone === normalizedPhone) || !rowPhone;
+          })
+          .reduce((sum, row) => sum + (Number(row.balance) || 0), 0);
+        const roundedOldBalance = Math.round(oldBalance * 100) / 100;
+        const currentBalance = Math.max(0, (Number(totals.finalTotal) || 0) - Math.max(0, Number(paymentSplitTotal || advanceAmt) || 0));
+        setDocExtra((prev) => ({
+          ...prev,
+          oldBalance: roundedOldBalance,
+          newBalance: Math.round((roundedOldBalance + currentBalance) * 100) / 100,
+        }));
+      } catch (err) {
+        console.warn('Unable to load customer old balance', err);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [effectiveDocumentType, balanceCustomerName, balanceCustomerPhone, balanceCustomerGstin, invoiceId, totals.finalTotal, currentInvoiceBalance, paymentSplitTotal, advanceAmt]);
+
+  useEffect(() => {
     let active = true;
 
     async function loadData() {
@@ -2450,7 +3734,7 @@ const [customFields, setCustomFields]         = useState([]);
 
       try {
         const biz = await api.getSettings();
-        if (active) {
+        if (active && !invoiceId) {
           setBizSettings(biz);
         }
       } catch (err) {
@@ -2458,9 +3742,19 @@ const [customFields, setCustomFields]         = useState([]);
       }
 
       try {
-        const [salesData, invData] = await Promise.allSettled([
+        const rows = await api.invProductSizes();
+        if (active) setFashionSizeRows(Array.isArray(rows) ? rows : []);
+      } catch (err) {
+        console.warn('Unable to load product sizes', err);
+        if (active) setFashionSizeRows([]);
+      }
+
+      try {
+        const [salesData, invData, brandData, productBrandData] = await Promise.allSettled([
           api.listProducts(),
           api.invListProducts(),
+          api.invListBrands({ limit: 1000 }),
+          api.invProductBrands(),
         ]);
         const salesRows = salesData.status === 'fulfilled'
           ? (Array.isArray(salesData.value) ? salesData.value : salesData.value?.data)
@@ -2468,6 +3762,16 @@ const [customFields, setCustomFields]         = useState([]);
         const invRows = invData.status === 'fulfilled'
           ? (Array.isArray(invData.value) ? invData.value : invData.value?.data)
           : [];
+        const brandRows = brandData.status === 'fulfilled'
+          ? (Array.isArray(brandData.value) ? brandData.value : brandData.value?.data)
+          : [];
+        const productBrandRows = productBrandData.status === 'fulfilled' ? productBrandData.value : [];
+        if (active) {
+          setMasterProductBrands(uniqueTextParts([
+            ...(Array.isArray(brandRows) ? brandRows : []),
+            ...(Array.isArray(productBrandRows) ? productBrandRows : []),
+          ].map((row) => row?.name ?? row?.label ?? row)));
+        }
         const sales = Array.isArray(salesRows) ? salesRows.map(normalizeProduct).filter((p) => p.description) : [];
         const inv   = Array.isArray(invRows)   ? invRows.map(normalizeProduct).filter((p) => p.description)   : [];
         const merged = [...sales];
@@ -2491,7 +3795,10 @@ const [customFields, setCustomFields]         = useState([]);
         if (active) setProducts(merged);
       } catch (err) {
         console.warn('Unable to load products', err);
-        if (active) setProducts([]);
+        if (active) {
+          setProducts([]);
+          setMasterProductBrands([]);
+        }
       }
 
       if (documentType === 'purchase-entry') {
@@ -2547,7 +3854,7 @@ const [customFields, setCustomFields]         = useState([]);
         paymentTerms: invoice.meta?.paymentTerms || defaultPaymentTerms,
       });
       setSupplyType(invoice.supplyType || 'intrastate');
-      setItems((Array.isArray(invoice.items) ? invoice.items : []).map((item, index) => ({ id: item.id ?? index + 1, itemType: item.itemType === 'Service' ? 'Service' : 'Product', ...item })));
+      setItems((Array.isArray(invoice.items) ? invoice.items : []).map(normalizeInvoiceLineItem));
       setCharges(Array.isArray(invoice.charges) ? invoice.charges : []);
       setAddDiscount(invoice.additionalDiscount ?? { type: 'percent', value: '' });
       setTds(invoice.tds ?? { enabled: false, section: '194C', rate: 2 });
@@ -2575,7 +3882,7 @@ const [customFields, setCustomFields]         = useState([]);
         validTill: '', expectedDelivery: '', deliveryAddress: '',
         originalInvoiceNo: '', originalInvoiceDate: '', reason: '',
         costCenter: '',
-        linkedPurchaseOrderId: '', linkedPurchaseOrderNo: '', vendorInvoiceNo: '', purchaseOrderTotal: '',
+        linkedPurchaseOrderId: '', linkedPurchaseOrderNo: '', vendorInvoiceNo: '', vendorInvoiceAmount: '', purchaseOrderTotal: '',
         vehicleNumber: '', driverName: '', transporter: '',
         transporterId: '', distanceKm: '', ewbSupplyType: 'outward',
         irnNumber: '', ackNumber: '', ackDate: '',
@@ -2595,6 +3902,13 @@ const [customFields, setCustomFields]         = useState([]);
         else if (documentType === 'e-way-bill')       invoice = await api.getEWayBill(invoiceId);
         else                                          invoice = await api.getInvoice(invoiceId);
         hydrateInvoice(invoice);
+        const docBizSettings = invoice.businessSettings || invoice.businessSettingsSnapshot;
+        if (docBizSettings) {
+          setBizSettings(docBizSettings);
+        } else if (invoice.branch) {
+          const branchSettings = await api.getSettings({ branch: invoice.branch });
+          setBizSettings(branchSettings);
+        }
       } catch (err) {
         setLoadError(err.message || 'Unable to load document');
       } finally {
@@ -2666,7 +3980,7 @@ const [customFields, setCustomFields]         = useState([]);
         const scanProducts = products.filter((product) => productMatchesItemFilter(product, salesItemFilter));
         const localScanMatch = isLikelyBarcodeScan(value) ? findProductByScan(scanProducts, value) : null;
         if (!localScanMatch && isLikelyBarcodeScan(value)) {
-          if (documentType === 'purchase-entry') {
+          if (['purchase-entry', 'purchase-order'].includes(documentType)) {
             addQuickItem(value);
           } else {
             // Keep the existing barcode workflow for sales documents.
@@ -2752,7 +4066,7 @@ const [customFields, setCustomFields]         = useState([]);
 
       if (e.altKey && e.key.toLowerCase() === 'v') {
         e.preventDefault();
-        window.location.assign(LIST_ROUTES[documentType] ?? '/billing/invoice');
+        window.location.assign(currentListRoute);
         return;
       }
 
@@ -2770,7 +4084,7 @@ const [customFields, setCustomFields]         = useState([]);
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentListRoute, keyboardMode, saveLoading]);
 
   const displayItems = useMemo(
     () => enrichItemsWithProductDescriptions(effectiveItems, products),
@@ -2782,12 +4096,39 @@ const [customFields, setCustomFields]         = useState([]);
     [products],
   );
   const inlineProductBrands = useMemo(
-    () => [...new Set(products.map((product) => product.brand).filter(Boolean))],
+    () => uniqueTextParts([
+      ...masterProductBrands,
+      ...products.flatMap((product) => [
+        product.brand,
+        ...(product.variants || []).map((variant) => variant.other),
+      ]),
+      ...manualProductBrands,
+    ]),
+    [products, masterProductBrands, manualProductBrands],
+  );
+  const fashionSizeBlocklist = useMemo(
+    () => new Set(products.flatMap((product) => [
+      product.description,
+      product.name,
+      product.productName,
+      product.code,
+      product.sku,
+      product.barcode,
+    ]).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean)),
     [products],
   );
+  function isAllowedFashionSize(value, extraBlocked = []) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return false;
+    if (fashionSizeBlocklist.has(normalized)) return false;
+    return !extraBlocked.some((item) => String(item || '').trim().toLowerCase() === normalized);
+  }
   const inlineProductSizes = useMemo(
-    () => [...new Set(products.map((product) => product.size).filter(Boolean))],
-    [products],
+    () => uniqueTextParts(products.flatMap((product) => [
+        product.size,
+        ...(product.variants || []).map((variant) => variant.size),
+      ])).filter((size) => isAllowedFashionSize(size)),
+    [products, fashionSizeBlocklist],
   );
   const inlineProductColours = useMemo(
     () => [...new Set(products.map((product) => product.colour).filter(Boolean))],
@@ -2823,12 +4164,66 @@ const [customFields, setCustomFields]         = useState([]);
       return haystack.includes(query);
     }).slice(0, 18);
   }, [mobileProductQuery, products, salesItemFilter]);
+
+  function focusMobileProductSearch() {
+    window.setTimeout(() => mobileProductInputRef.current?.focus(), 60);
+  }
+
+  function addMobileProduct(product) {
+    addProductToBill(normalizeProduct(product));
+    setMobileProductQuery('');
+    setMobileScreen('items');
+    focusMobileProductSearch();
+  }
+
+  async function submitMobileProductEntry(rawQuery = mobileProductQuery) {
+    const query = String(rawQuery || '').trim();
+    const chosen = mobileProductResults[0];
+    if (chosen) {
+      addMobileProduct(chosen);
+      return;
+    }
+    if (!query) return;
+    const scanned = await resolveProductByScan(query, salesItemFilter);
+    if (scanned) {
+      addMobileProduct(scanned);
+      return;
+    }
+    if (canOpenProductCreationFromQuickEntry && isLikelyBarcodeScan(query)) {
+      setMobileProductQuery('');
+      openAddProductForBarcode(query);
+      return;
+    }
+    setItems((prev) => [...prev, { id: nextItemId.current++, productId: null, productCode: '', itemType: salesItemFilter === 'Service' ? 'Service' : 'Product', productType: 'Standard', description: query, itemDescription: '', hsn: '', qty: 1, unit: 'Nos', rate: 0, discount: 0, discountType: 'percent', gstRate: '' }]);
+    setMobileProductQuery('');
+    focusMobileProductSearch();
+  }
+
+  async function handleMobileProductSubmit(event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    await submitMobileProductEntry(mobileProductInputRef.current?.value ?? mobileProductQuery);
+  }
+
+  async function handleMobileProductKeyDown(event) {
+    if (!['Enter', 'Tab', 'NumpadEnter'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    await submitMobileProductEntry(event.currentTarget.value);
+  }
+
   const quickMatchedProduct = useMemo(() => {
     if (!productSearch) return null;
     const rows = productsOfType(salesItemFilter);
     return findProductByExactEntry(rows, productSearch) || findProductByScan(rows, productSearch);
   }, [productSearch, products, salesItemFilter]);
   const quickProductVariants = quickMatchedProduct?.productType === 'Bundle' ? [] : (quickMatchedProduct?.variants || []);
+  const allFashionSizeOptions = useMemo(() => uniqueTextParts([
+    ...inlineProductSizes,
+    ...fashionSizeRows.map((row) => row?.name ?? row?.label ?? row),
+    ...SIZE_PRESETS,
+  ]).filter((size) => isAllowedFashionSize(size)), [fashionSizeRows, inlineProductSizes, fashionSizeBlocklist]);
+  const allFashionMaterialOptions = FASHION_MATERIALS;
   const quickVariantLabel = isElectronicsRetail ? 'Model' : variantColumnLabel(quickMatchedProduct);
   const quickVariantPlaceholder = quickMatchedProduct?.productType === 'Bundle' ? 'Kit' : quickProductVariants.length ? 'Select' : '-';
   const quickProductLabel = 'Product / Service';
@@ -2839,6 +4234,20 @@ const [customFields, setCustomFields]         = useState([]);
   const useSalesReferenceUi = false;
   const posTaxableAmount = Math.max(0, totals.subtotal - totals.discount - totals.addDiscAmt);
   const posHalfGst = totals.totalGst / 2;
+
+  useEffect(() => {
+    if (!brandPicker) return;
+    window.setTimeout(() => {
+      brandPickerSearchRef.current?.focus();
+      brandPickerSearchRef.current?.select?.();
+    }, 0);
+  }, [brandPicker?.type, brandPicker?.mode, brandPicker?.itemId]);
+
+  useEffect(() => {
+    if (!brandPicker) return;
+    const option = document.querySelector(`[data-brand-picker-option="${brandPicker.highlighted || 0}"]`);
+    option?.scrollIntoView({ block: 'nearest' });
+  }, [brandPicker?.highlighted, brandPicker]);
 
   useEffect(() => {
     if (!useSalesReferenceUi) return;
@@ -2996,40 +4405,46 @@ const [customFields, setCustomFields]         = useState([]);
                     options={SALES_ITEM_FILTER_OPTIONS}
                   />
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <label className="text-[12px] font-medium uppercase text-[#0f172a]" htmlFor="overall-discount">Discount</label>
-                  <input
-                    id="overall-discount"
-                    data-fkey="overall-discount"
-                    className="h-10 w-28 rounded-md border border-[#dbe4ef] bg-white px-3 text-[13px] text-[#111827] outline-none focus:border-blue-500"
-                    type="number"
-                    min="0"
-                    max={addDiscount.type === 'percent' ? '100' : undefined}
-                    value={addDiscount.value}
-                    onChange={(e) => setAddDiscount((prev) => ({ ...prev, value: e.target.value }))}
-                    placeholder="0"
-                  />
-                  <SelectDropdown
-                    value={addDiscount.type || 'percent'}
-                    onChange={(v) => setAddDiscount((prev) => ({ ...prev, type: v }))}
-                    buttonClassName="!h-10 !w-20 !px-3 !py-0 !text-[12px]"
-                    options={[{ value: 'percent', label: '%' }, { value: 'amount', label: 'Amt' }]}
-                  />
-                  {config.showGst && (
-                    <>
-                      <label className="ml-2 text-[12px] font-medium uppercase text-[#0f172a]" htmlFor="bulk-gst-rate">Tax</label>
+                <div className="billing-bulk-controls">
+                  <div className="billing-bulk-field billing-discount-field">
+                    <label htmlFor="overall-discount">Discount</label>
+                    <div className="billing-discount-control">
                       <input
-                        id="bulk-gst-rate"
-                        className="h-10 w-24 rounded-md border border-[#dbe4ef] bg-white px-3 text-[13px] text-[#111827] outline-none focus:border-blue-500"
+                        id="overall-discount"
+                        data-fkey="overall-discount"
+                        className="billing-bulk-input"
                         type="number"
                         min="0"
-                        value={bulkGstRate}
-                        onChange={(e) => setBulkGstRate(e.target.value)}
-                        placeholder="%"
+                        max={addDiscount.type === 'percent' ? '100' : undefined}
+                        value={addDiscount.value}
+                        onChange={(e) => setAddDiscount((prev) => ({ ...prev, value: e.target.value }))}
+                        placeholder="0"
                       />
+                      <SelectDropdown
+                        value={addDiscount.type || 'percent'}
+                        onChange={(v) => setAddDiscount((prev) => ({ ...prev, type: v }))}
+                        buttonClassName="billing-discount-type"
+                        options={[{ value: 'percent', label: '%' }, { value: 'amount', label: 'Amt' }]}
+                      />
+                    </div>
+                  </div>
+                  {config.showGst && (
+                    <>
+                      <div className="billing-bulk-field billing-tax-field">
+                        <label htmlFor="bulk-gst-rate">Tax</label>
+                        <input
+                          id="bulk-gst-rate"
+                          className="billing-bulk-input"
+                          type="number"
+                          min="0"
+                          value={bulkGstRate}
+                          onChange={(e) => setBulkGstRate(e.target.value)}
+                          placeholder="%"
+                        />
+                      </div>
                       <button
                         type="button"
-                        className="h-10 rounded-md border border-[#dbe4ef] bg-white px-4 text-[13px] font-medium text-blue-700 hover:border-blue-200 hover:bg-blue-50"
+                        className="billing-apply-all-btn"
                         onClick={applyQuickValuesToAllItems}
                       >
                         Apply to all items
@@ -3058,9 +4473,8 @@ const [customFields, setCustomFields]         = useState([]);
                         }
                       }}
                       options={productSearchOptions(salesItemFilter)}
-                      inputClassName="!h-10 !rounded-md !border-[#dbe4ef] !bg-white !pr-11 !text-[13px] !font-[inherit] focus:!border-blue-500"
+                      inputClassName="!h-10 !rounded-md !border-[#dbe4ef] !bg-white !pr-3 !text-[13px] !font-[inherit] focus:!border-blue-500"
                     />
-                    <button type="button" className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-[#dbe4ef] bg-white text-[16px] font-semibold text-blue-600" onClick={() => addQuickItem()} title="Add selected product">+</button>
                   </div>
                 </div>
 
@@ -3089,7 +4503,7 @@ const [customFields, setCustomFields]         = useState([]);
                 {quickProductVariants.length > 0 && (
                   <div className="flex flex-col gap-2">
                     <label className="text-[12px] font-semibold uppercase text-[#0f172a]">{quickVariantLabel}</label>
-                    <SelectDropdown data-fkey="quick-model" value={quickItem.size || ''} onChange={(v) => { selectQuickItemVariant(quickMatchedProduct, v); focusQuickItemField('qty'); }} placeholder={quickVariantPlaceholder} buttonClassName="!h-10 !rounded-md !border-[#dbe4ef] !bg-white !px-3 !text-[13px]" selectedLabelClassName="text-left whitespace-normal break-words" optionLabelClassName="text-left whitespace-normal break-words" options={quickProductVariants.map(variantDropdownOption)} />
+                    <SelectDropdown data-fkey="quick-model" value={quickItem.size || ''} onChange={(v) => { selectQuickItemVariant(quickMatchedProduct, v); focusQuickItemField('qty'); }} placeholder={quickVariantPlaceholder} buttonClassName="!h-10 !rounded-md !border-[#dbe4ef] !bg-white !px-3 !text-[13px]" selectedLabelClassName="text-left whitespace-nowrap overflow-hidden text-ellipsis" optionLabelClassName="w-full min-w-0" menuClassName="!w-72 !right-auto" searchable allowCustom customLabel="Manual size" options={quickProductVariants.map(variantDropdownOption)} />
                   </div>
                 )}
 
@@ -3164,6 +4578,22 @@ const [customFields, setCustomFields]         = useState([]);
                   <span className="text-[14px] font-semibold uppercase">Total</span>
                   <strong className="text-[28px] leading-none">{formatCurrency(totals.finalTotal)}</strong>
                 </div>
+                {['invoice', 'bill-of-supply', 'pharmacy-bill'].includes(effectiveDocumentType) && (
+                  <div className="mt-5 space-y-3 rounded-lg border border-amber-100 bg-amber-50 p-3 text-[13px] font-semibold text-amber-900">
+                    <div className="flex items-center justify-between">
+                      <span>Old Credit Balance</span>
+                      <strong>{formatCurrency(oldCreditBalance)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>This Invoice Balance</span>
+                      <strong>{formatCurrency(currentInvoiceBalance)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-amber-200 pt-2 text-[14px]">
+                      <span>Total Balance</span>
+                      <strong>{formatCurrency(customerBalanceAfterInvoice)}</strong>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="sales-reference-card bg-white p-6 shadow-sm">
@@ -3176,9 +4606,15 @@ const [customFields, setCustomFields]         = useState([]);
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={() => setShowPaymentPopup(true)} className="mt-4 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-md border border-[#dbe4ef] bg-white text-[13px] font-semibold text-[#0f2757] hover:border-blue-300 hover:text-blue-700">
+                {selectedPayment && (
+                  <button type="button" onClick={() => setShowPaymentMethodPopup(true)} className="mt-4 inline-flex min-h-[42px] w-full items-center justify-between rounded-md border border-blue-100 bg-blue-50 px-3 text-[12px] font-semibold text-blue-700">
+                    <span>{PAYMENT_METHODS.find((method) => method.id === selectedPayment)?.label || 'Payment'} details</span>
+                    <strong>{selectedPayment === 'credit' ? `${paymentData.creditDays || 0} days` : formatCurrency(Number(paymentData.amount) || 0)}</strong>
+                  </button>
+                )}
+                <button type="button" onClick={openMultiplePayment} className="mt-4 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-md border border-[#dbe4ef] bg-white text-[13px] font-semibold text-[#0f2757] hover:border-blue-300 hover:text-blue-700">
                   <FileText size={17} className="text-blue-600" />
-                  Split Payment
+                  Multiple Payment
                 </button>
                 <button type="button" disabled={saveLoading} onClick={() => handleSave()} className="mt-6 inline-flex h-14 w-full items-center justify-center gap-3 rounded-lg border border-blue-600 bg-blue-600 px-5 text-[16px] font-semibold text-white shadow-sm disabled:opacity-60">
                   <Send size={19} />
@@ -3226,6 +4662,8 @@ const [customFields, setCustomFields]         = useState([]);
           }}
         />
 
+        {paymentMethodPopup}
+
         {showPaymentPopup && (
           <div className="billing-payment-popup-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowPaymentPopup(false); }}>
             <div className="billing-payment-popup" role="dialog" aria-modal="true" aria-label="Multiple payment">
@@ -3247,7 +4685,7 @@ const [customFields, setCustomFields]         = useState([]);
               </div>
               <div className="billing-payment-popup-footer">
                 <div><span>Received</span><strong>{formatCurrency(paymentSplitTotal)}</strong></div>
-                <div><span>Balance / Credit</span><strong>{formatCurrency(Math.max(0, totals.finalTotal - paymentSplitTotal))}</strong></div>
+                <div><span>Balance / Credit</span><strong>{formatCurrency(customerBalanceAfterInvoice)}</strong></div>
                 <button type="button" onClick={() => setShowPaymentPopup(false)}>Done</button>
               </div>
             </div>
@@ -3297,6 +4735,34 @@ const [customFields, setCustomFields]         = useState([]);
 
   return (
     <div className={`document-print-host billing-v2 p-4 md:p-7 ${isRetailPosInvoice ? 'billing-pos-screen' : ''} ${isElectronicsRetail && documentType === 'invoice' ? 'electronics-sales-common-page' : ''}`}>
+      {purchaseBarcodePrintRowsToPrint.length > 0 && (
+        <div className={`barcode-print-area barcode-print-${purchaseBarcodePrintJob?.layout || 'thermal80'}`}>
+          <div className="barcode-print-sheet barcode-print-pages">
+            {chunkPurchaseBarcodePages(purchaseBarcodePrintRowsToPrint).map((pageRows, pageIndex) => (
+              <div className="barcode-print-page" key={`barcode-page-${pageIndex}`}>
+                {pageRows.map((row) => {
+                  const barcodeVal = row.barcode || '';
+                  return (
+                    <div className="barcode-label-card" key={row.printKey}>
+                      <div className="barcode-label-main">
+                        <div className="barcode-label-top">
+                          <div>
+                            <div className="barcode-label-name">{row.description}</div>
+                            <div className="barcode-label-meta">{purchaseLabelVariantText(row)}</div>
+                          </div>
+                          {purchaseLabelPrice(row) && <div className="barcode-label-price">{purchaseLabelPrice(row)}</div>}
+                        </div>
+                        <PurchaseLabelBarcode value={barcodeVal} height={38} />
+                        <div className="barcode-label-code">{normalizePurchaseLabelBarcode(barcodeVal)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {inlineProductModal && (
         <ProductModal
           mode="add"
@@ -3367,7 +4833,7 @@ const [customFields, setCustomFields]         = useState([]);
           {numberEditing ? (
             <input
               autoFocus
-              className="border border-[#dbe4ef] rounded-md px-2.5 py-1 text-[13px] font-semibold text-[#111827] w-32 outline-none focus:border-blue-500 font-[inherit]"
+              className="billing-doc-number-field border border-[#dbe4ef] rounded-md px-2.5 py-1 text-[13px] font-semibold text-[#111827] w-32 outline-none focus:border-blue-500 font-[inherit]"
               value={docMeta.number}
               onChange={(e) => updateMeta('number', e.target.value)}
               onBlur={() => setNumberEditing(false)}
@@ -3377,7 +4843,7 @@ const [customFields, setCustomFields]         = useState([]);
             <button
               type="button"
               onClick={() => setNumberEditing(true)}
-              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#111827] bg-white border border-[#dbe4ef] rounded-md px-2.5 py-1 cursor-pointer font-[inherit]"
+              className="billing-doc-number-field inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#111827] bg-white border border-[#dbe4ef] rounded-md px-2.5 py-1 cursor-pointer font-[inherit]"
               title="Click to edit document number"
             >
               {docMeta.number || '—'}
@@ -3385,9 +4851,9 @@ const [customFields, setCustomFields]         = useState([]);
             </button>
           )}
 
-          <label className="inline-flex items-center gap-1.5 border border-[#dbe4ef] rounded-md px-2.5 py-1.5 text-[13px] text-[#374151] bg-white cursor-pointer">
+          <label className="billing-doc-date-field inline-flex items-center gap-1.5 border border-[#dbe4ef] rounded-md px-2.5 py-1 text-[13px] text-[#374151] bg-white cursor-pointer">
             <Calendar size={13} className="text-[#94a3b8]" />
-            <input type="date" value={docMeta.date} onChange={(e) => updateMeta('date', e.target.value)} className="border-0 bg-transparent outline-none text-[13px] font-[inherit]" />
+            <input type="date" value={docMeta.date} onChange={(e) => updateMeta('date', e.target.value)} className="min-w-0 w-full border-0 bg-transparent outline-none text-[13px] font-[inherit]" />
           </label>
 
         </div>
@@ -3426,7 +4892,248 @@ const [customFields, setCustomFields]         = useState([]);
 
       {showCalculator && <CalculatorPopup onClose={() => setShowCalculator(false)} />}
 
+      {brandPicker && (
+        <div
+          ref={brandPickerRef}
+          tabIndex={-1}
+          onKeyDown={handleBrandPickerKeyDown}
+          className="fixed bottom-6 right-6 z-[9999] w-[280px] overflow-hidden rounded-lg border border-[#9db8e3] bg-white shadow-2xl outline-none ring-2 ring-blue-500/20"
+        >
+          <div className="flex items-center justify-between border-b border-[#dbe7fb] bg-blue-600 px-3 py-2">
+            <div className="min-w-0">
+              <div className="text-[12px] font-black uppercase tracking-wide text-white">{pickerTypeLabel(brandPicker.type)} List</div>
+              <div className="truncate text-[11px] font-medium text-blue-100">{brandPicker.selected.length ? `${brandPicker.selected.length} selected` : `Select ${pickerTypeLabel(brandPicker.type)}`}</div>
+            </div>
+            <button
+              type="button"
+              className="flex h-7 w-7 items-center justify-center rounded border border-blue-400 bg-blue-500 text-[16px] font-bold text-white hover:bg-blue-700"
+              onClick={() => setBrandPicker(null)}
+              title="Close"
+            >
+              ×
+            </button>
+          </div>
+          <div className="border-b border-[#edf2f7] bg-[#f8fbff] p-2">
+            <div className="relative">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]" />
+              <input
+                ref={brandPickerSearchRef}
+                data-brand-picker-search="true"
+                className="h-9 w-full rounded-md border border-[#dbe4ef] bg-white pl-8 pr-3 text-[13px] font-semibold text-[#111827] outline-none focus:border-blue-500"
+                placeholder={`Search or type ${pickerTypeLabel(brandPicker.type)}...`}
+                value={brandPicker.query || ''}
+                onChange={(e) => setBrandPicker((prev) => prev ? { ...prev, query: e.target.value, highlighted: 0 } : prev)}
+                onKeyDown={(e) => {
+                  if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) return;
+                  e.stopPropagation();
+                }}
+              />
+            </div>
+            {brandPicker.selected.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {brandPicker.selected.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    tabIndex={-1}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-blue-200 bg-white px-2 py-1 text-[11px] font-bold text-blue-800"
+                    onClick={() => toggleBrandPickerValue(item, true)}
+                    title={`Remove ${item}`}
+                  >
+                    <span className="truncate">{item}</span>
+                    <X size={12} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="max-h-64 overflow-y-auto p-2">
+            {brandPickerManualValue() && (
+              <button
+                type="button"
+                tabIndex={-1}
+                data-brand-picker-option={0}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => toggleBrandPickerValue(brandPickerManualValue(), true)}
+                className="mb-1 flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-blue-600 bg-blue-50 px-3 py-2 text-left text-[13px] font-semibold text-blue-950 hover:bg-blue-100"
+              >
+                <span className="truncate">Add "{brandPickerManualValue()}"</span>
+                <Plus size={14} />
+              </button>
+            )}
+            {brandPickerFilteredOptions().length ? brandPickerFilteredOptions().map((option, index) => {
+              const active = brandPicker.selected.some((item) => String(item).trim().toLowerCase() === String(option).trim().toLowerCase());
+              const highlighted = index === (brandPicker.highlighted || 0);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  tabIndex={-1}
+                  data-brand-picker-option={index}
+                  onMouseEnter={() => setBrandPicker((prev) => prev ? { ...prev, highlighted: index } : prev)}
+                  onClick={() => toggleBrandPickerValue(option, true)}
+                  className={`mb-1 flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-[13px] font-semibold font-[inherit] ${highlighted ? 'border-blue-600 bg-blue-200 text-blue-950' : active ? 'border-blue-500 bg-blue-100 text-blue-900' : 'border-[#edf2f7] bg-white text-[#111827] hover:bg-blue-50'}`}
+                >
+                  <span className="truncate">{option}</span>
+                  {active && <CheckCircle2 size={14} className="shrink-0" />}
+                </button>
+              );
+            }) : !brandPickerManualValue() ? (
+              <div className="rounded-md border border-dashed border-[#dbe4ef] bg-[#f8fafc] px-3 py-4 text-center text-[12px] font-semibold text-[#64748b]">
+                No {pickerTypeLabel(brandPicker.type)} found.
+              </div>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-[#edf2f7] bg-[#f8fbff] px-3 py-2">
+            <button
+              type="button"
+              className="rounded-md border border-[#dbe4ef] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#536173] hover:bg-slate-50"
+              onKeyDown={(e) => e.stopPropagation()}
+              onClick={() => setBrandPicker((prev) => prev ? { ...prev, selected: [] } : prev)}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-blue-600 bg-blue-600 px-4 py-1.5 text-[12px] font-bold text-white hover:bg-blue-700"
+              onKeyDown={(e) => e.stopPropagation()}
+              onClick={confirmBrandPicker}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Validation Error Banner ── */}
+      {quickVariantDraft && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-6xl overflow-hidden rounded-xl border border-[#dbe4ef] bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-[#edf2f7] bg-[#f8fbff] px-5 py-4">
+              <div>
+                <h2 className="m-0 text-[18px] font-extrabold text-[#0f172a]">{quickVariantDraft.reviewMode === 'save' ? 'Review Purchase Items' : 'Selected Purchase Variants'}</h2>
+                <p className="m-0 mt-1 text-[13px] text-[#536173]">{quickVariantDraft.reviewMode === 'save' ? 'Edit the selected rows here, then continue saving.' : 'Only your selected brand and size rows are shown here. Edit them before adding to the entry.'}</p>
+              </div>
+              <button type="button" className="flex h-9 w-9 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[18px] font-bold text-[#536173] hover:bg-slate-50" onClick={() => setQuickVariantDraft(null)}>&times;</button>
+            </div>
+            <div className="max-h-[62vh] overflow-auto p-5">
+              <table className="w-full min-w-[980px] border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-[#edf2f7] bg-[#f8fafc] text-[11px] uppercase text-[#536173]">
+                    <th className="px-3 py-2">#</th>
+                    <th className="px-3 py-2">Product</th>
+                    <th className="px-3 py-2">Brand</th>
+                    <th className="px-3 py-2">Size</th>
+                    <th className="px-3 py-2">Material</th>
+                    <th className="px-3 py-2 text-right">Qty</th>
+                    <th className="px-3 py-2">Unit</th>
+                    <th className="px-3 py-2 text-right">Rate</th>
+                    <th className="px-3 py-2 text-center">Remove</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quickVariantDraft.rows.map((row, index) => {
+                    const brandOptions = uniqueTextParts([row.brand, ...(quickVariantDraft.brandOptions || [])]);
+                    const sizeOptions = uniqueTextParts([row.size, ...(quickVariantDraft.sizeOptions || [])])
+                      .filter((option) => isAllowedFashionSize(option, [row.description, quickVariantDraft.query]));
+                    return (
+                      <tr key={row.id} className="border-b border-[#edf2f7]">
+                        <td className="px-3 py-2 text-[#64748b]">{index + 1}</td>
+                        <td className="px-3 py-2 font-semibold text-[#0f172a]">{row.description || quickVariantDraft.query}</td>
+                        <td className="px-3 py-2">
+                          <select className="h-9 w-full rounded-md border border-[#dbe4ef] bg-white px-2 text-[13px] outline-none focus:border-blue-500" value={row.brand || ''} onChange={(e) => updateQuickVariantDraftRow(row.id, 'brand', e.target.value)}>
+                            {brandOptions.length ? brandOptions.map((option) => <option key={option} value={option}>{option}</option>) : <option value="">Brand</option>}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select className="h-9 w-full rounded-md border border-[#dbe4ef] bg-white px-2 text-[13px] outline-none focus:border-blue-500" value={row.size || ''} onChange={(e) => updateQuickVariantDraftRow(row.id, 'size', e.target.value)}>
+                            {sizeOptions.length ? sizeOptions.map((option) => <option key={option} value={option}>{option}</option>) : <option value="">Size</option>}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2"><input className="h-9 w-full rounded-md border border-[#dbe4ef] px-2 text-[13px] outline-none focus:border-blue-500" value={row.material || ''} onChange={(e) => updateQuickVariantDraftRow(row.id, 'material', e.target.value)} /></td>
+                        <td className="px-3 py-2"><input className="h-9 w-20 rounded-md border border-[#dbe4ef] px-2 text-right text-[13px] outline-none focus:border-blue-500" type="number" min="0" value={row.qty} onChange={(e) => updateQuickVariantDraftRow(row.id, 'qty', e.target.value)} /></td>
+                        <td className="px-3 py-2"><input className="h-9 w-24 rounded-md border border-[#dbe4ef] px-2 text-[13px] outline-none focus:border-blue-500" value={row.unit || ''} onChange={(e) => updateQuickVariantDraftRow(row.id, 'unit', e.target.value)} /></td>
+                        <td className="px-3 py-2"><input className="h-9 w-24 rounded-md border border-[#dbe4ef] px-2 text-right text-[13px] outline-none focus:border-blue-500" type="number" min="0" value={row.rate} onChange={(e) => updateQuickVariantDraftRow(row.id, 'rate', e.target.value)} /></td>
+                        <td className="px-3 py-2 text-center"><button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-100 bg-red-50 text-[16px] font-bold text-red-500 hover:bg-red-100" onClick={() => removeQuickVariantDraftRow(row.id)} title="Remove row">&times;</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf2f7] bg-white px-5 py-4">
+              <div className="text-[13px] font-semibold text-[#536173]">{quickVariantDraft.rows.length} selected row(s)</div>
+              <div className="flex items-center gap-2">
+                <button type="button" className="rounded-md border border-[#dbe4ef] bg-white px-4 py-2 text-[13px] font-semibold text-[#536173] hover:bg-slate-50" onClick={() => setQuickVariantDraft(null)}>Back to Entry</button>
+                <button type="button" className="rounded-md border border-blue-600 bg-blue-600 px-5 py-2 text-[13px] font-bold text-white hover:bg-blue-700 disabled:opacity-60" disabled={!quickVariantDraft.rows.length} onClick={confirmQuickVariantDraft}>{quickVariantDraft.reviewMode === 'save' ? 'Continue Save' : 'Add Selected to Entry'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {inventoryConfirmOptions && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-[#dbe4ef] bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-[#edf2f7] bg-[#f8fbff] px-5 py-4">
+              <div>
+                <h2 className="m-0 text-[18px] font-extrabold text-[#0f172a]">Add Purchase Items to Inventory</h2>
+                <p className="m-0 mt-1 text-[13px] text-[#536173]">Review the purchase entry rows before they are added to the product list and stock.</p>
+              </div>
+              <button type="button" className="flex h-9 w-9 items-center justify-center rounded-md border border-[#dbe4ef] bg-white text-[18px] font-bold text-[#536173] hover:bg-slate-50" onClick={() => setInventoryConfirmOptions(null)}>×</button>
+            </div>
+            <div className="max-h-[60vh] overflow-auto p-5">
+              <table className="w-full min-w-[820px] border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-[#edf2f7] bg-[#f8fafc] text-[11px] uppercase text-[#536173]">
+                    <th className="px-3 py-2">#</th>
+                    <th className="px-3 py-2">Product</th>
+                    <th className="px-3 py-2">Brand</th>
+                    <th className="px-3 py-2">Size</th>
+                    <th className="px-3 py-2">Material</th>
+                    <th className="px-3 py-2 text-right">Qty</th>
+                    <th className="px-3 py-2">Unit</th>
+                    <th className="px-3 py-2 text-right">Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayItems.filter((item) => item.description).map((item, index) => (
+                    <tr key={item.id || index} className="border-b border-[#edf2f7]">
+                      <td className="px-3 py-2 text-[#64748b]">{index + 1}</td>
+                      <td className="px-3 py-2 font-semibold text-[#0f172a]">{item.description}</td>
+                      <td className="px-3 py-2">{item.brand || '-'}</td>
+                      <td className="px-3 py-2">{item.size || '-'}</td>
+                      <td className="px-3 py-2">{item.material || '-'}</td>
+                      <td className="px-3 py-2 text-right">{Number(item.qty || 0)}</td>
+                      <td className="px-3 py-2">{item.unit || 'Nos'}</td>
+                      <td className="px-3 py-2 text-right">{formatCurrency(Number(item.rate) || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf2f7] bg-white px-5 py-4">
+              <div className="text-[13px] font-semibold text-[#536173]">{displayItems.filter((item) => item.description).length} item(s) ready for inventory</div>
+              <div className="flex items-center gap-2">
+                <button type="button" className="rounded-md border border-[#dbe4ef] bg-white px-4 py-2 text-[13px] font-semibold text-[#536173] hover:bg-slate-50" onClick={() => setInventoryConfirmOptions(null)}>Back to Entry</button>
+                <button
+                  type="button"
+                  className="rounded-md border border-blue-600 bg-blue-600 px-5 py-2 text-[13px] font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+                  disabled={saveLoading}
+                  onClick={() => {
+                    const options = inventoryConfirmOptions || {};
+                    setInventoryConfirmOptions(null);
+                    handleSave({ ...options, inventoryConfirmed: true, variantReviewConfirmed: true });
+                  }}
+                >
+                  Add Inventory
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {Object.keys(errors).length > 0 && (
         <div data-validation-error className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3.5 flex items-start gap-3">
           <svg className="flex-none text-red-500 mt-0.5" fill="none" height="16" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" width="16">
@@ -3443,6 +5150,7 @@ const [customFields, setCustomFields]         = useState([]);
               {errors.originalInvoiceNo && <li className="text-[12px] text-amber-700">• {errors.originalInvoiceNo}</li>}
               {errors.customerGstin   && <li className="text-[12px] text-red-600">• {errors.customerGstin}</li>}
               {errors.vendorInvoiceNo && <li className="text-[12px] text-red-600">• {errors.vendorInvoiceNo}</li>}
+              {errors.vendorInvoiceAmount && <li className="text-[12px] text-red-600">• {errors.vendorInvoiceAmount}</li>}
               {errors.vehicleNumber   && <li className="text-[12px] text-red-600">• {errors.vehicleNumber}</li>}
               {errors.transporter     && <li className="text-[12px] text-red-600">• {errors.transporter}</li>}
               {errors.distanceKm      && <li className="text-[12px] text-red-600">• {errors.distanceKm}</li>}
@@ -3479,6 +5187,26 @@ const [customFields, setCustomFields]         = useState([]);
               onChange={(e) => { updateExtra('vendorInvoiceNo', e.target.value); clearError('vendorInvoiceNo'); }}
             />
           </div>
+          <div className="billing-quick-field billing-quick-vendor-invoice-field">
+            <label>Vendor Invoice Amount</label>
+            <input
+              className={errors.vendorInvoiceAmount ? 'border-red-400 bg-red-50' : ''}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Vendor invoice total"
+              value={docExtra.vendorInvoiceAmount}
+              onChange={(e) => { updateExtra('vendorInvoiceAmount', e.target.value); clearError('vendorInvoiceAmount'); }}
+            />
+          </div>
+          {vendorInvoiceAmountMatch && (
+            <div className={`billing-po-match-row ${vendorInvoiceAmountMatch.matched ? 'matched' : 'mismatch'}`}>
+              <strong>{vendorInvoiceAmountMatch.matched ? 'Vendor amount matched' : 'Vendor amount mismatch'}</strong>
+              <span>Vendor: {formatCurrency(vendorInvoiceAmountMatch.vendorAmount)}</span>
+              <span>Entry: {formatCurrency(vendorInvoiceAmountMatch.entryAmount)}</span>
+              <span>Difference: {formatCurrency(Math.abs(vendorInvoiceAmountMatch.difference))}</span>
+            </div>
+          )}
           <div className={`billing-po-match-row ${purchaseEntryMatch?.matched ? 'matched' : 'mismatch'}`}>
             {purchaseOrders.length === 0 ? (
               <span>No purchase orders found. Create a purchase order first to match it here.</span>
@@ -3568,6 +5296,10 @@ const [customFields, setCustomFields]         = useState([]);
                     setCustomerQuery(getEffectiveCustomer().name || '');
                     setShowCustomerDrop(true);
                   }}
+                  onClick={() => {
+                    setCustomerQuery(getEffectiveCustomer().name || '');
+                    setShowCustomerDrop(true);
+                  }}
                   onChange={(e) => {
                     const value = e.target.value;
                     const lower = value.trim().toLowerCase();
@@ -3626,7 +5358,26 @@ const [customFields, setCustomFields]         = useState([]);
               </div>
 
               {showCustomerDrop && (
+                <>
+                <button
+                  type="button"
+                  className="billing-customer-backdrop"
+                  aria-label={`Close ${partyKindLower} list`}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    setShowCustomerDrop(false);
+                  }}
+                />
                 <div className="billing-customer-dropdown">
+                  <div className="billing-customer-dropdown-head">
+                    <div>
+                      <strong>Select {partyKind}</strong>
+                      <span>{visibleCustomers.length ? `${visibleCustomers.length} matching ${partyKindLower}s` : `Search ${partyKindLower}s`}</span>
+                    </div>
+                    <button type="button" onPointerDown={(event) => { event.preventDefault(); setShowCustomerDrop(false); }} aria-label={`Close ${partyKindLower} list`}>
+                      <X size={18} />
+                    </button>
+                  </div>
                   {visibleCustomers.length === 0 ? (
                     <div className="billing-customer-empty">No {partyKindLower}s found</div>
                   ) : (
@@ -3637,7 +5388,7 @@ const [customFields, setCustomFields]         = useState([]);
                         type="button"
                         className={index === highlightedCustomerIndex ? 'is-highlighted' : ''}
                         onMouseEnter={() => setHighlightedCustomerIndex(index)}
-                        onMouseDown={() => selectCustomer(c)}
+                        onClick={() => selectCustomer(c)}
                       >
                         <span>{c.name}</span>
                         <small>{[c.gstin, c.phone, c.city].filter(Boolean).join(' · ')}</small>
@@ -3647,12 +5398,12 @@ const [customFields, setCustomFields]         = useState([]);
                   <button
                     type="button"
                     className="billing-customer-add-row"
-                    onMouseDown={openNewCustomerFormFromPointer}
                     onClick={openNewCustomerForm}
                   >
                     <UserPlus size={13} /> Add New {partyKind}
                   </button>
                 </div>
+                </>
               )}
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-7 gap-y-1 text-[11px] font-semibold text-[#64748b]">
@@ -3705,14 +5456,16 @@ const [customFields, setCustomFields]         = useState([]);
 
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowMoreDetails((v) => !v)}
-          className="mt-3 pt-2 border-t border-[#edf2f7] w-full flex items-center justify-between gap-2 text-[13px] font-semibold text-[#374151] cursor-pointer bg-transparent border-0 border-t font-[inherit]"
-        >
-          More Details
-          <ChevronDown size={14} className={`text-[#94a3b8] transition-transform ${showMoreDetails ? 'rotate-180' : ''}`} />
-        </button>
+        <div className="mt-3 border-t border-[#edf2f7] pt-2">
+          <button
+            type="button"
+            onClick={() => setShowMoreDetails((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#374151] cursor-pointer bg-transparent border-0 p-0 font-[inherit]"
+          >
+            More Details
+            <ChevronDown size={14} className={`text-[#94a3b8] transition-transform ${showMoreDetails ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
 
         {showMoreDetails && (
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -3821,7 +5574,7 @@ const [customFields, setCustomFields]         = useState([]);
             {documentType === 'sales-return' && <SalesReturnInvoice invoiceId={docExtra.originalSalesId} returnId={invoiceId} onSelect={(invoice) => {
               setCustomer(normalizeCustomer(invoice.customer || {}));
               setSupplyType(invoice.supplyType || 'intrastate');
-              setItems(invoice.items.filter((item) => item.remainingQty > 0).map((item, index) => ({ ...item, id: index + 1, qty: item.remainingQty,
+              setItems(invoice.items.filter((item) => item.remainingQty > 0).map((item, index) => ({ ...normalizeInvoiceLineItem(item, index), id: index + 1, qty: item.remainingQty,
                 discount: item.discountType === 'amount' ? (Number(item.rate) * Number(item.qty) > 0 ? Number(item.discount) / (Number(item.rate) * Number(item.qty)) * 100 : 0) : Number(item.discount || 0), discountType: 'percent' })));
               nextItemId.current = invoice.items.length + 1;
               setCharges([]);
@@ -3835,7 +5588,7 @@ const [customFields, setCustomFields]         = useState([]);
             {documentType === 'supplier-return' && <SupplierReturnPurchase purchaseId={docExtra.originalPurchaseId} returnId={invoiceId} onSelect={(purchase) => {
               setCustomer(normalizeCustomer(purchase.customer || {}));
               setSupplyType(purchase.supplyType || 'intrastate');
-              setItems(purchase.items.filter((item) => item.remainingQty > 0).map((item, index) => ({ ...item, id: index + 1, qty: item.remainingQty,
+              setItems(purchase.items.filter((item) => item.remainingQty > 0).map((item, index) => ({ ...normalizeInvoiceLineItem(item, index), id: index + 1, qty: item.remainingQty,
                 discount: item.discountType === 'amount' ? (Number(item.rate) * Number(item.qty) > 0 ? Number(item.discount) / (Number(item.rate) * Number(item.qty)) * 100 : 0) : Number(item.discount || 0), discountType: 'percent' })));
               nextItemId.current = purchase.items.length + 1;
               setCharges([]);
@@ -3855,16 +5608,20 @@ const [customFields, setCustomFields]         = useState([]);
                 </div>
               ) : (
                 <>
+              {documentType !== 'supplier-return' && (
+                <>
               <div className={cx.field}>
                 <label className={cx.label}>Original Invoice No. <span className="text-[10px] text-amber-600 font-normal ml-1">(recommended)</span></label>
                 <input readOnly={documentType === 'supplier-return'} data-fkey="ref-invoice" className={errors.originalInvoiceNo ? 'border border-amber-400 bg-amber-50 rounded-md px-3 py-2 text-[13px] text-[#111827] w-full outline-none font-[inherit]' : cx.input} placeholder="e.g. INV-0001" value={docExtra.originalInvoiceNo} onChange={(e) => { updateExtra('originalInvoiceNo', e.target.value); clearError('originalInvoiceNo'); }} />
                 {errors.originalInvoiceNo && <p className="text-[11px] text-amber-700 flex items-center gap-1">⚠ {errors.originalInvoiceNo}</p>}
               </div>
-              <div className={cx.field}>
+                </>
+              )}
+              <div className={`${cx.field} ${documentType === 'supplier-return' ? 'hidden' : ''}`}>
                 <label className={cx.label}>Original Invoice Date <span className="text-[10px] text-[#94a3b8] font-normal ml-1">(optional)</span></label>
                 <input readOnly={documentType === 'supplier-return'} className={cx.input} type="date" value={docExtra.originalInvoiceDate} onChange={(e) => updateExtra('originalInvoiceDate', e.target.value)} />
               </div>
-              <div className={cx.field}>
+              <div className={`${cx.field} ${documentType === 'supplier-return' ? 'sm:col-span-3' : ''}`}>
                 <label className={cx.label}>{config.reasonLabel} <span className="text-red-500 ml-0.5">*</span></label>
                 <input data-fkey="reason" className={errors.reason ? cx.inputError : cx.input} placeholder="Reason for issuing this note" value={docExtra.reason} onChange={(e) => { updateExtra('reason', e.target.value); clearError('reason'); }} />
                 {errors.reason && <p className="text-[11px] text-red-600 flex items-center gap-1">⚠ {errors.reason}</p>}
@@ -3936,7 +5693,7 @@ const [customFields, setCustomFields]         = useState([]);
                 <td><button type="button" className="text-red-600" onClick={() => removeItem(item.id)}>Remove</button></td>
               </tr>)}</tbody>
             </table>
-            {!items.some((item) => item.description) && <p className="text-sm text-slate-500">Select an original {documentType === 'supplier-return' ? 'purchase' : 'sales invoice'} above to load returnable items.</p>}
+            {!items.some((item) => item.description) && documentType !== 'supplier-return' && <p className="text-sm text-slate-500">Select an original sales invoice above to load returnable items.</p>}
             {errors.items && <p role="alert" className="text-sm text-red-600">{errors.items}</p>}
           </div>
         ) : <div className="billing-items-panel px-6 py-5 border-b border-[#edf2f7]">
@@ -3950,42 +5707,46 @@ const [customFields, setCustomFields]         = useState([]);
                 options={SALES_ITEM_FILTER_OPTIONS}
               />
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 md:ml-auto">
-              <label className="text-[12px] font-medium text-[#0f172a]" htmlFor="overall-discount">Discount</label>
-              <div className="grid grid-cols-[92px_74px] gap-1.5">
-                <input
-                  id="overall-discount"
-                  data-fkey="overall-discount"
-                  className="rounded-md border border-[#dbe4ef] bg-white px-3 py-2 text-[12px] font-medium text-[#111827] outline-none focus:border-blue-500 font-[inherit]"
-                  type="number"
-                  min="0"
-                  max={addDiscount.type === 'percent' ? '100' : undefined}
-                  value={addDiscount.value}
-                  onChange={(e) => setAddDiscount((prev) => ({ ...prev, value: e.target.value }))}
-                  placeholder="0"
-                />
-                <SelectDropdown
-                  value={addDiscount.type || 'percent'}
-                  onChange={(v) => setAddDiscount((prev) => ({ ...prev, type: v }))}
-                  buttonClassName="!h-[34px] !px-2 !py-0 !text-[11px]"
-                  options={[{ value: 'percent', label: '%' }, { value: 'amount', label: 'Amt' }]}
-                />
+            <div className="billing-bulk-controls md:ml-auto">
+              <div className="billing-bulk-field billing-discount-field">
+                <label htmlFor="overall-discount">Discount</label>
+                <div className="billing-discount-control">
+                  <input
+                    id="overall-discount"
+                    data-fkey="overall-discount"
+                    className="billing-bulk-input"
+                    type="number"
+                    min="0"
+                    max={addDiscount.type === 'percent' ? '100' : undefined}
+                    value={addDiscount.value}
+                    onChange={(e) => setAddDiscount((prev) => ({ ...prev, value: e.target.value }))}
+                    placeholder="0"
+                  />
+                  <SelectDropdown
+                    value={addDiscount.type || 'percent'}
+                    onChange={(v) => setAddDiscount((prev) => ({ ...prev, type: v }))}
+                    buttonClassName="billing-discount-type"
+                    options={[{ value: 'percent', label: '%' }, { value: 'amount', label: 'Amt' }]}
+                  />
+                </div>
               </div>
               {config.showGst && (
                 <>
-                  <label className="ml-2 text-[12px] font-medium text-[#0f172a]" htmlFor="bulk-gst-rate">Tax</label>
-                  <input
-                    id="bulk-gst-rate"
-                    className="w-20 rounded-md border border-[#dbe4ef] bg-white px-3 py-2 text-[12px] font-medium text-[#111827] outline-none focus:border-blue-500 font-[inherit]"
-                    type="number"
-                    min="0"
-                    value={bulkGstRate}
-                    onChange={(e) => setBulkGstRate(e.target.value)}
-                    placeholder="%"
-                  />
+                  <div className="billing-bulk-field billing-tax-field">
+                    <label htmlFor="bulk-gst-rate">Tax</label>
+                    <input
+                      id="bulk-gst-rate"
+                      className="billing-bulk-input"
+                      type="number"
+                      min="0"
+                      value={bulkGstRate}
+                      onChange={(e) => setBulkGstRate(e.target.value)}
+                      placeholder="%"
+                    />
+                  </div>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[#dbe4ef] bg-white px-4 py-2 text-[12px] font-semibold text-blue-700 cursor-pointer hover:border-blue-200 hover:bg-blue-50 font-[inherit]"
+                    className="billing-apply-all-btn"
                     onClick={applyQuickValuesToAllItems}
                   >
                     Apply to all items
@@ -3995,13 +5756,16 @@ const [customFields, setCustomFields]         = useState([]);
             </div>
           </div>
 
-          <div className={`billing-product-detail-row ${quickProductVariants.length > 0 ? 'has-model' : 'no-model'} ${config.showGst ? 'has-tax' : 'no-tax'}`}>
+          <div className={`billing-product-detail-row ${isPurchaseFashionDocument ? 'purchase-fashion-grid' : ''} ${quickProductVariants.length > 0 ? 'has-model' : 'no-model'} ${config.showGst ? 'has-tax' : 'no-tax'}`}>
             <div className="billing-product-field billing-product-name-field">
               <label>{quickProductLabel} <span className="max-md:hidden">F6</span></label>
-              <div className="relative">
+              <div className="billing-quick-product-entry">
                 <AutocompleteInput
                   data-fkey="product"
+                  className="min-w-0"
                   dropDirection="down"
+                  enterKeyHint="done"
+                  inputMode="search"
                   placeholder={quickProductPlaceholder}
                   value={productSearch}
                   onChange={updateProductSearch}
@@ -4018,14 +5782,102 @@ const [customFields, setCustomFields]         = useState([]);
                 />
                 <button
                   type="button"
-                  className="billing-product-add-btn"
-                  onClick={handleQuickProductAddButton}
-                  title={canCreateDevicesInline ? 'Add product' : 'Add selected product'}
+                  className="billing-quick-enter-btn"
+                  onClick={() => addQuickItem(productSearch)}
+                  title="Enter"
                 >
-                  +
+                  Enter
                 </button>
               </div>
             </div>
+            {isPurchaseFashionDocument ? (
+              <>
+                <div className="billing-product-field">
+                  <label>Brand</label>
+                  <button
+                    type="button"
+                    data-fkey="quick-brand"
+                    className="flex h-full w-full items-center justify-between gap-2 border-0 bg-white px-3 text-left text-[13px] text-[#111827] outline-none font-[inherit] hover:bg-blue-50 focus:bg-blue-50"
+                    onClick={() => openBrandPicker({
+                      mode: 'quick',
+                      product: quickMatchedProduct,
+                      value: quickItem.brand || '',
+                      options: uniqueTextParts([...inlineProductBrands, ...variantAttrOptions(quickProductVariants, 'brand')]),
+                    })}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openBrandPicker({
+                        mode: 'quick',
+                        product: quickMatchedProduct,
+                        value: quickItem.brand || '',
+                        options: uniqueTextParts([...inlineProductBrands, ...variantAttrOptions(quickProductVariants, 'brand')]),
+                      });
+                    }}
+                  >
+                    <span className={`truncate ${quickItem.brand ? '' : 'text-[#94a3b8]'}`}>{quickItem.brand || 'Brand'}</span>
+                    <span className="text-[#64748b]">&rsaquo;</span>
+                  </button>
+                </div>
+                <div className="billing-product-field">
+                  <label>Size</label>
+                  <button
+                    type="button"
+                    data-fkey="quick-size"
+                    className="flex h-full w-full items-center justify-between gap-2 border-0 bg-white px-3 text-left text-[13px] text-[#111827] outline-none font-[inherit] hover:bg-blue-50 focus:bg-blue-50"
+                    onClick={() => openSizePicker({
+                      mode: 'quick',
+                      product: quickMatchedProduct,
+                      value: quickItem.size || '',
+                      options: allFashionSizeOptions,
+                    })}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openSizePicker({
+                        mode: 'quick',
+                        product: quickMatchedProduct,
+                        value: quickItem.size || '',
+                        options: allFashionSizeOptions,
+                      });
+                    }}
+                  >
+                    <span className={`truncate ${quickItem.size ? '' : 'text-[#94a3b8]'}`}>{quickItem.size || 'Size'}</span>
+                    <span className="text-[#64748b]">&rsaquo;</span>
+                  </button>
+                </div>
+                <div className="billing-product-field">
+                  <label>Material</label>
+                  <button
+                    type="button"
+                    data-fkey="quick-material"
+                    className="flex h-full w-full items-center justify-between gap-2 border-0 bg-white px-3 text-left text-[13px] text-[#111827] outline-none font-[inherit] hover:bg-blue-50 focus:bg-blue-50"
+                    onClick={() => openMaterialPicker({
+                      mode: 'quick',
+                      product: quickMatchedProduct,
+                      value: quickItem.material || '',
+                      options: variantAttrOptions(quickProductVariants, 'material'),
+                    })}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openMaterialPicker({
+                        mode: 'quick',
+                        product: quickMatchedProduct,
+                        value: quickItem.material || '',
+                        options: variantAttrOptions(quickProductVariants, 'material'),
+                      });
+                    }}
+                  >
+                    <span className={`truncate ${quickItem.material ? '' : 'text-[#94a3b8]'}`}>{quickItem.material || 'Material'}</span>
+                    <span className="text-[#64748b]">&rsaquo;</span>
+                  </button>
+                </div>
+              </>
+            ) : (
             <div className="billing-product-field">
               <label>Description</label>
               <input
@@ -4041,6 +5893,7 @@ const [customFields, setCustomFields]         = useState([]);
                 }}
               />
             </div>
+            )}
             <div className="billing-product-field">
               <label>HSN / SAC</label>
               <AutocompleteInput
@@ -4051,7 +5904,7 @@ const [customFields, setCustomFields]         = useState([]);
                 onKeyDown={(e) => handleQuickItemStep(e, quickProductVariants.length ? 'model' : 'qty')}
               />
             </div>
-            {quickProductVariants.length > 0 && (
+            {!isPurchaseFashionDocument && quickProductVariants.length > 0 && (
               <div className="billing-product-field">
                 <label>{quickVariantLabel}</label>
                 <SelectDropdown
@@ -4062,8 +5915,12 @@ const [customFields, setCustomFields]         = useState([]);
                     focusQuickItemField('qty');
                   }}
                   placeholder={quickVariantPlaceholder}
-                  selectedLabelClassName="text-left whitespace-normal break-words"
-                  optionLabelClassName="text-left whitespace-normal break-words"
+                  selectedLabelClassName="text-left whitespace-nowrap overflow-hidden text-ellipsis"
+                  optionLabelClassName="w-full min-w-0"
+                  menuClassName="!w-72 !right-auto"
+                  searchable
+                  allowCustom
+                  customLabel="Manual size"
                   options={quickProductVariants.map(variantDropdownOption)}
                 />
               </div>
@@ -4099,7 +5956,20 @@ const [customFields, setCustomFields]         = useState([]);
                 onKeyDown={(e) => handleQuickItemStep(e, 'discount')}
               />
             </div>
-            <div className="billing-product-field billing-product-discount-field">
+            {config.showGst && isPurchaseFashionDocument && (
+              <div className="billing-product-field">
+                <label>Tax (%)</label>
+                <AutocompleteInput
+                  data-fkey="quick-gstRate"
+                  min="0"
+                  type="number"
+                  value={String(quickItem.gstRate ?? '')}
+                  onChange={(v) => updateQuickItem('gstRate', v)}
+                  onKeyDown={(e) => handleQuickItemStep(e, 'add')}
+                />
+              </div>
+            )}
+            {!isPurchaseFashionDocument && <div className="billing-product-field billing-product-discount-field">
               <label>Discount %</label>
               <AutocompleteInput
                 data-fkey="quick-discount"
@@ -4110,8 +5980,8 @@ const [customFields, setCustomFields]         = useState([]);
                 onChange={(v) => updateQuickItem('discount', v)}
                 onKeyDown={(e) => handleQuickItemStep(e, config.showGst ? 'gstRate' : 'add')}
               />
-            </div>
-            {config.showGst && (
+            </div>}
+            {config.showGst && !isPurchaseFashionDocument && (
               <div className="billing-product-field">
                 <label>Tax (%)</label>
                 <AutocompleteInput
@@ -4170,6 +6040,8 @@ const [customFields, setCustomFields]         = useState([]);
                         <AutocompleteInput
                           dropDirection="down"
                           inputClassName={`${!item.description && errors.items ? 'border-red-400 bg-red-50' : ''}`}
+                          enterKeyHint="done"
+                          inputMode="search"
                           placeholder="Type item name..."
                           value={item.description}
                           onChange={(value) => {
@@ -4187,10 +6059,11 @@ const [customFields, setCustomFields]         = useState([]);
                             clearError('items');
                           }}
                           onKeyDown={async (e) => {
-                            if (e.key !== 'Enter') return;
+                            if (!isProductCommitKey(e)) return;
                             const value = e.currentTarget.value.trim();
                             if (!value) return;
                             e.preventDefault();
+                            e.stopPropagation();
                             await handleRowProductEntry(item.id, value);
                             clearError('items');
                           }}
@@ -4233,11 +6106,15 @@ const [customFields, setCustomFields]         = useState([]);
                           selectItemVariant(item.id, matchedProduct, v);
                           setErrors((p) => { const n = { ...p }; delete n[`item_size_${idx}`]; return n; });
                         }}
-                        disabled
-                        hideChevron
+                        disabled={!['purchase-entry', 'purchase-order'].includes(documentType)}
+                        hideChevron={!['purchase-entry', 'purchase-order'].includes(documentType)}
                         placeholder="—"
-                        selectedLabelClassName="text-left whitespace-normal break-words"
-                        optionLabelClassName="text-left whitespace-normal break-words"
+                        selectedLabelClassName="text-left whitespace-nowrap overflow-hidden text-ellipsis"
+                        optionLabelClassName="w-full min-w-0"
+                        menuClassName="!w-72 !right-auto"
+                        searchable
+                        allowCustom
+                        customLabel="Manual size"
                         options={variants.map(variantDropdownOption)}
                       />
                     </div>
@@ -4310,7 +6187,22 @@ const [customFields, setCustomFields]         = useState([]);
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {(config.showGst ? [
+                  {(isPurchaseFashionDocument ? [
+                    { w: '4%',  label: '#',                 align: 'center' },
+                    { w: '15%', label: 'Product / Service', align: 'left' },
+                    { w: '12%', label: 'Brand',             align: 'left' },
+                    { w: '10%', label: 'Size',              align: 'left' },
+                    { w: '13%', label: 'Material',          align: 'left' },
+                    { w: '10%', label: 'HSN / SAC',         align: 'left' },
+                    { w: '6%',  label: 'Qty',               align: 'right' },
+                    { w: '7%',  label: 'Unit',              align: 'left' },
+                    { w: '7%',  label: 'Rate',              align: 'right' },
+                    ...(config.showGst ? [
+                      { w: '6%',  label: 'Tax %',             align: 'right' },
+                      { w: '7%',  label: 'Tax (₹)',           align: 'right' },
+                    ] : []),
+                    { w: '3%',  label: '',                  align: 'center' },
+                  ] : config.showGst ? [
                     { w: '5%',  label: '#',                 align: 'center' },
                     { w: '15%', label: 'Product / Service', align: 'left' },
                     { w: '8%',  label: isElectronicsRetail ? 'Model' : 'Size / Model Name', align: 'left' },
@@ -4365,6 +6257,8 @@ const [customFields, setCustomFields]         = useState([]);
                               data-col="description"
                               dropDirection="down"
                               inputClassName={`min-w-0 ${!item.description && errors.items ? 'border-red-400 bg-red-50' : ''}`}
+                              enterKeyHint="done"
+                              inputMode="search"
                               placeholder="Type item name..."
                               value={item.description}
                               onChange={(value) => {
@@ -4382,7 +6276,7 @@ const [customFields, setCustomFields]         = useState([]);
                                 clearError('items');
                               }}
                               onKeyDown={async (e) => {
-                                if (e.key !== 'Enter') return;
+                                if (!isProductCommitKey(e)) return;
                                 const value = e.currentTarget.value.trim();
                                 if (!value) return;
                                 e.preventDefault();
@@ -4430,7 +6324,114 @@ const [customFields, setCustomFields]         = useState([]);
                         )}
                       </td>
 
-                      <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                      {isPurchaseFashionDocument && (() => {
+                        const matchedProduct = matchedProductForRow;
+                        const variants = matchedProduct?.variants || [];
+                        const brandOptions = uniqueTextParts([...inlineProductBrands, ...variantAttrOptions(variants, 'brand')]);
+                        const sizeOptions = allFashionSizeOptions;
+                        const materialOptions = allFashionMaterialOptions;
+                        const fieldClass = 'w-full border border-[#dbe4ef] rounded px-2 py-1.5 text-[13px] text-[#111827] font-[inherit] outline-none bg-[#f8fafc] focus:border-blue-500';
+                        return (
+                          <>
+                            <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                              <button
+                                type="button"
+                                data-row={idx}
+                                data-col="brand"
+                                className={`${fieldClass} flex items-center justify-between gap-2 text-left hover:bg-blue-50 focus:bg-blue-50`}
+                                onClick={() => openBrandPicker({
+                                  mode: 'item',
+                                  itemId: item.id,
+                                  product: matchedProduct,
+                                  value: item.brand || '',
+                                  options: brandOptions,
+                                })}
+                                onKeyDown={(e) => {
+                                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openBrandPicker({
+                                    mode: 'item',
+                                    itemId: item.id,
+                                    product: matchedProduct,
+                                    value: item.brand || '',
+                                    options: brandOptions,
+                                  });
+                                }}
+                              >
+                                <span className={`truncate ${item.brand ? '' : 'text-[#94a3b8]'}`}>{item.brand || 'Brand'}</span>
+                                <span className="text-[#64748b]">&rsaquo;</span>
+                              </button>
+                            </td>
+                            <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                              <button
+                                type="button"
+                                data-row={idx}
+                                data-col="size"
+                                className={`${fieldClass} ${errors[`item_size_${idx}`] ? 'border-red-400 bg-red-50' : ''} flex items-center justify-between gap-2 text-left hover:bg-blue-50 focus:bg-blue-50`}
+                                onClick={() => {
+                                  openSizePicker({
+                                    mode: 'item',
+                                    itemId: item.id,
+                                    product: matchedProduct,
+                                    value: item.size || '',
+                                    options: sizeOptions,
+                                  });
+                                  setErrors((p) => { const n = { ...p }; delete n[`item_size_${idx}`]; return n; });
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openSizePicker({
+                                    mode: 'item',
+                                    itemId: item.id,
+                                    product: matchedProduct,
+                                    value: item.size || '',
+                                    options: sizeOptions,
+                                  });
+                                  setErrors((p) => { const n = { ...p }; delete n[`item_size_${idx}`]; return n; });
+                                }}
+                              >
+                                <span className={`truncate ${item.size ? '' : 'text-[#94a3b8]'}`}>{item.size || 'Size'}</span>
+                                <span className="text-[#64748b]">&rsaquo;</span>
+                              </button>
+                            </td>
+                            <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                              <button
+                                type="button"
+                                data-row={idx}
+                                data-col="material"
+                                className={`${fieldClass} flex items-center justify-between gap-2 text-left hover:bg-blue-50 focus:bg-blue-50`}
+                                onClick={() => openMaterialPicker({
+                                  mode: 'item',
+                                  itemId: item.id,
+                                  product: matchedProduct,
+                                  value: item.material || '',
+                                  options: materialOptions,
+                                })}
+                                onKeyDown={(e) => {
+                                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openMaterialPicker({
+                                    mode: 'item',
+                                    itemId: item.id,
+                                    product: matchedProduct,
+                                    value: item.material || '',
+                                    options: materialOptions,
+                                  });
+                                }}
+                              >
+                                <span className={`truncate ${item.material ? '' : 'text-[#94a3b8]'}`}>{item.material || 'Material'}</span>
+                                <span className="text-[#64748b]">&rsaquo;</span>
+                              </button>
+                            </td>
+                          </>
+                        );
+                      })()}
+
+                      {!isPurchaseFashionDocument && <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         {(() => {
                           const matchedProduct = findCatalogProductForItem(products, item);
                           const variants = matchedProduct?.variants || [];
@@ -4466,19 +6467,23 @@ const [customFields, setCustomFields]         = useState([]);
                                   selectItemVariant(item.id, matchedProduct, v);
                                   setErrors((p) => { const n = { ...p }; delete n[`item_size_${idx}`]; return n; });
                                 }}
-                                disabled
-                                hideChevron
+                                disabled={!['purchase-entry', 'purchase-order'].includes(documentType)}
+                                hideChevron={!['purchase-entry', 'purchase-order'].includes(documentType)}
                                 placeholder="—"
                                 selectedLabelClassName="text-left whitespace-nowrap overflow-hidden text-ellipsis"
-                                optionLabelClassName="text-left whitespace-normal break-words"
+                                optionLabelClassName="w-full min-w-0"
+                                menuClassName="!w-72 !right-auto"
+                                searchable
+                                allowCustom
+                                customLabel="Manual size"
                                 options={variants.map(variantDropdownOption)}
                               />
                             </>
                           );
                         })()}
-                      </td>
+                      </td>}
 
-                      <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                      {!isPurchaseFashionDocument && <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         <textarea
                           data-row={idx}
                           data-col="itemDescription"
@@ -4488,7 +6493,7 @@ const [customFields, setCustomFields]         = useState([]);
                           value={item.itemDescription ?? ''}
                           onChange={(e) => updateItem(item.id, 'itemDescription', e.target.value)}
                         />
-                      </td>
+                      </td>}
 
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         <AutocompleteInput
@@ -4531,7 +6536,23 @@ const [customFields, setCustomFields]         = useState([]);
                           }}
                         />
                       </td>
-                      <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                      {config.showGst && isPurchaseFashionDocument && (
+                        <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
+                          <AutocompleteInput
+                            data-row={idx}
+                            data-col="gstRate"
+                            inputClassName="billing-gst-rate-input !px-2 !py-1.5 !text-right"
+                            type="number"
+                            min="0"
+                            value={String(item.gstRate ?? 0)}
+                            onChange={(v) => updateItem(item.id, 'gstRate', v)}
+                          />
+                        </td>
+                      )}
+                      {config.showGst && isPurchaseFashionDocument && (
+                        <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] text-[#536173] pt-3">{formatCurrency(line.gstAmt)}</td>
+                      )}
+                      {!isPurchaseFashionDocument && <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                         <AutocompleteInput
                           data-row={idx}
                           data-col="discount"
@@ -4542,8 +6563,8 @@ const [customFields, setCustomFields]         = useState([]);
                           value={String(item.discount ?? 0)}
                           onChange={(v) => updateItem(item.id, 'discount', v)}
                         />
-                      </td>
-                      {config.showGst && (
+                      </td>}
+                      {config.showGst && !isPurchaseFashionDocument && (
                         <td className="border-t border-[#edf2f7] py-2 px-2 align-top">
                           {isRetailPosInvoice ? (
                             <span className="billing-pos-tax-label">18%</span>
@@ -4560,10 +6581,10 @@ const [customFields, setCustomFields]         = useState([]);
                           )}
                         </td>
                       )}
-                      {config.showGst && (
+                      {config.showGst && !isPurchaseFashionDocument && (
                         <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] text-[#536173] pt-3">{formatCurrency(line.gstAmt)}</td>
                       )}
-                      <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] font-semibold text-[#111827] pt-3">{formatCurrency(isRetailPosInvoice ? line.taxable : (config.showGst ? line.total : line.taxable))}</td>
+                      {!isPurchaseFashionDocument && <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-right text-[13px] font-semibold text-[#111827] pt-3">{formatCurrency(isRetailPosInvoice ? line.taxable : (config.showGst ? line.total : line.taxable))}</td>}
                       <td className="border-t border-[#edf2f7] py-2 px-2 align-top text-center">
                         <button
                           className="w-7 h-7 text-red-400 bg-transparent border-0 text-lg cursor-pointer rounded hover:bg-red-50 hover:text-red-700 font-[inherit]"
@@ -4910,16 +6931,16 @@ const [customFields, setCustomFields]         = useState([]);
             </div>
 
             {selectedPayment && (
-              <button type="button" className="billing-payment-summary-chip" onClick={() => setShowPaymentPopup(true)}>
-                <span>Received {formatCurrency(paymentSplitTotal)}</span>
-                <strong>Balance {formatCurrency(Math.max(0, totals.finalTotal - paymentSplitTotal))}</strong>
+              <button type="button" className="billing-payment-summary-chip" onClick={() => setShowPaymentMethodPopup(true)}>
+                <span>{PAYMENT_METHODS.find((method) => method.id === selectedPayment)?.label || 'Payment'} details</span>
+                <strong>{selectedPayment === 'credit' ? `${paymentData.creditDays || 0} days` : formatCurrency(Number(paymentData.amount) || 0)}</strong>
               </button>
             )}
 
-
-
-
-
+            <button type="button" className="billing-payment-summary-chip" onClick={openMultiplePayment}>
+              <span>Multiple Payment</span>
+              <strong>Received {formatCurrency(paymentSplitTotal)}</strong>
+            </button>
 
           </div>
         )}
@@ -4937,9 +6958,9 @@ const [customFields, setCustomFields]         = useState([]);
         <div className="mt-3 pt-3 border-t border-[#edf2f7]">
           <div className="text-[11px] font-semibold uppercase text-[#536173] tracking-wide mb-2">Quick Actions</div>
           <div className="grid grid-cols-5 gap-1.5">
-            <button type="button" title="Print (F3)" onClick={() => { if (!saveLoading) handlePrintBill(); }} className="flex flex-col items-center gap-1 py-2 rounded-lg border border-[#dbe4ef] text-[#374151] cursor-pointer bg-white hover:bg-gray-50 font-[inherit]">
+            <button type="button" title="Print (F3)" onClick={() => { if (!saveLoading) handlePrintBill(); }} className="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-[#dbe4ef] bg-white px-1 py-2 font-[inherit] text-[#374151] cursor-pointer hover:bg-gray-50">
               <Printer size={15} />
-              <span className="text-[10px] font-medium">Print</span>
+              <span className="text-[9.5px] leading-3 font-medium whitespace-nowrap">Print</span>
             </button>
             <button
               type="button"
@@ -4950,25 +6971,25 @@ const [customFields, setCustomFields]         = useState([]);
                 const phone = String(c.phone || '').replace(/\D/g, '');
                 window.open(`https://wa.me/${phone}?text=${text}`, '_blank', 'noopener');
               }}
-              className="flex flex-col items-center gap-1 py-2 rounded-lg border border-[#dbe4ef] text-[#374151] cursor-pointer bg-white hover:bg-gray-50 font-[inherit]"
+              className="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-[#dbe4ef] bg-white px-1 py-2 font-[inherit] text-[#374151] cursor-pointer hover:bg-gray-50"
             >
               <span className="text-[#25D366]">
                 <WhatsAppIcon size={16} />
               </span>
-              <span className="text-[10px] font-medium">WhatsApp</span>
+              <span className="text-[9px] leading-3 font-medium whitespace-nowrap">WhatsApp</span>
             </button>
-            <button type="button" title="Email" onClick={() => setShowEmailModal(true)} className="flex flex-col items-center gap-1 py-2 rounded-lg border border-[#dbe4ef] text-[#374151] cursor-pointer bg-white hover:bg-gray-50 font-[inherit]">
+            <button type="button" title="Email" onClick={() => setShowEmailModal(true)} className="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-[#dbe4ef] bg-white px-1 py-2 font-[inherit] text-[#374151] cursor-pointer hover:bg-gray-50">
               <Mail size={15} />
-              <span className="text-[10px] font-medium">Email</span>
+              <span className="text-[9.5px] leading-3 font-medium whitespace-nowrap">Email</span>
             </button>
             <button
               type="button"
               title="Download PDF"
               onClick={() => { setDownloadPdfMode(true); setAutoPrintPreview(false); setShowPreview(true); }}
-              className="flex flex-col items-center gap-1 py-2 rounded-lg border border-[#dbe4ef] text-[#374151] cursor-pointer bg-white hover:bg-gray-50 font-[inherit]"
+              className="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-[#dbe4ef] bg-white px-1 py-2 font-[inherit] text-[#374151] cursor-pointer hover:bg-gray-50"
             >
               <Download size={15} />
-              <span className="text-[10px] font-medium">PDF</span>
+              <span className="text-[9.5px] leading-3 font-medium whitespace-nowrap">PDF</span>
             </button>
             <button
               type="button"
@@ -4978,10 +6999,10 @@ const [customFields, setCustomFields]         = useState([]);
                 const text = encodeURIComponent(`${config.title} ${docMeta.number} — ${formatCurrency(totals.finalTotal)}`);
                 window.open(`sms:${c.phone || ''}?body=${text}`, '_self');
               }}
-              className="flex flex-col items-center gap-1 py-2 rounded-lg border border-[#dbe4ef] text-[#374151] cursor-pointer bg-white hover:bg-gray-50 font-[inherit]"
+              className="flex min-w-0 flex-col items-center gap-1 rounded-lg border border-[#dbe4ef] bg-white px-1 py-2 font-[inherit] text-[#374151] cursor-pointer hover:bg-gray-50"
             >
               <Smartphone size={15} />
-              <span className="text-[10px] font-medium">SMS</span>
+              <span className="text-[9.5px] leading-3 font-medium whitespace-nowrap">SMS</span>
             </button>
           </div>
         </div>
@@ -5048,14 +7069,26 @@ const [customFields, setCustomFields]         = useState([]);
           <span />
         </div>
         <div className="billing-mobile-screen-body">
-          <div className="billing-mobile-search">
+          <form className="billing-mobile-search" onSubmit={handleMobileProductSubmit}>
             <Search size={16} />
             <input
+              ref={mobileProductInputRef}
               autoComplete="off"
+              enterKeyHint="search"
+              inputMode="search"
               placeholder="Search product or service"
+              type="search"
               value={mobileProductQuery}
               onChange={(e) => setMobileProductQuery(e.target.value)}
+              onKeyDown={handleMobileProductKeyDown}
             />
+            <button
+              type="submit"
+              title="Add selected product"
+              aria-label="Add selected product"
+            >
+              <Plus size={18} />
+            </button>
             <button
               type="button"
               title="Scan barcode"
@@ -5063,7 +7096,7 @@ const [customFields, setCustomFields]         = useState([]);
             >
               <Barcode size={18} />
             </button>
-          </div>
+          </form>
           <div className="mb-3">
             <SelectDropdown
               value={salesItemFilter}
@@ -5086,11 +7119,7 @@ const [customFields, setCustomFields]         = useState([]);
                   key={normalized.id || normalized.description}
                   type="button"
                   className="billing-mobile-product-card"
-                  onClick={() => {
-                    addProductToBill(normalized);
-                    setMobileProductQuery('');
-                    setMobileScreen('invoice');
-                  }}
+                  onClick={() => addMobileProduct(normalized)}
                 >
                   <span className="billing-mobile-product-thumb"><Package size={20} /></span>
                   <span className="billing-mobile-product-main">
@@ -5135,25 +7164,31 @@ const [customFields, setCustomFields]         = useState([]);
           </div>
           <div className="billing-mobile-payment-card">
             <h3>Payment Details</h3>
-            <label>
-              <span>Paid Amount</span>
-              <input
-                type="number"
-                min="0"
-                value={paymentData.amount}
-                onChange={(e) => {
-                  updatePayment('amount', e.target.value);
-                  setAdvanceAmt(e.target.value);
-                }}
-              />
-            </label>
-            <div className="billing-mobile-balance">
-              <span>Balance</span>
-              <strong>{formatCurrency(Math.max(0, totals.finalTotal - (Number(paymentData.amount) || 0)))}</strong>
-            </div>
+            {selectedPayment && (
+              <button type="button" className="billing-payment-summary-chip" onClick={() => setShowPaymentMethodPopup(true)}>
+                <span>{PAYMENT_METHODS.find((method) => method.id === selectedPayment)?.label || 'Payment'} details</span>
+                <strong>{selectedPayment === 'credit' ? `${paymentData.creditDays || 0} days` : formatCurrency(Number(paymentData.amount) || 0)}</strong>
+              </button>
+            )}
+            {selectedPayment && selectedPayment !== 'credit' && (
+              <div className="billing-mobile-balance">
+                <span>Total Balance</span>
+                <strong>{formatCurrency(customerBalanceAfterInvoice)}</strong>
+              </div>
+            )}
+            <button type="button" className="billing-payment-summary-chip" onClick={openMultiplePayment}>
+              <span>Multiple Payment</span>
+              <strong>Received {formatCurrency(paymentSplitTotal)}</strong>
+            </button>
           </div>
-          <button type="button" className="billing-mobile-save-btn" onClick={() => handleSave()}>
-            Save & Close
+          <button
+            type="button"
+            className="billing-mobile-save-btn"
+            disabled={saveLoading}
+            onClick={handleMobilePaymentSave}
+            onTouchEnd={handleMobilePaymentSave}
+          >
+            {saveLoading ? 'Saving...' : 'Save & Close'}
           </button>
         </div>
       </section>
@@ -5224,7 +7259,7 @@ const [customFields, setCustomFields]         = useState([]);
             </div>
           </div>
 
-          {documentType === 'purchase-entry' && (
+          {partyKind === 'Vendor' && (
             <div className="mt-4">
               <div className={cx.sectionTitle}>Vendor Bank Details</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -5262,6 +7297,8 @@ const [customFields, setCustomFields]         = useState([]);
           </div>
         </div>
       )}
+
+      {paymentMethodPopup}
 
       {showPaymentPopup && (
         <div
@@ -5315,7 +7352,7 @@ const [customFields, setCustomFields]         = useState([]);
               </div>
               <div>
                 <span>Balance / Credit</span>
-                <strong>{formatCurrency(Math.max(0, totals.finalTotal - paymentSplitTotal))}</strong>
+                <strong>{formatCurrency(customerBalanceAfterInvoice)}</strong>
               </div>
               {paymentSplitTotal > totals.finalTotal && (
                 <div className="billing-payment-popup-change">

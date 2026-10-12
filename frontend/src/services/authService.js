@@ -16,8 +16,8 @@ export function commitAuthSession(token, user) {
   if (token && user) setSession(token, user);
 }
 
-export async function login(email, password, { deferSession = false } = {}) {
-  const data = await apiClient('/auth/login', { method: 'POST', body: JSON.stringify({ email: email.trim(), password }) });
+export async function login(email, password, { deferSession = false, deviceOtp = '' } = {}) {
+  const data = await apiClient('/auth/login', { method: 'POST', body: JSON.stringify({ email: email.trim(), password, deviceOtp }) });
   if (deferSession) return data;
   setSession(data.token, data.user);
   return data.user;
@@ -57,6 +57,10 @@ export async function completeOnboarding(payload) {
   if (data.token && data.user) setSession(data.token, data.user);
   return data;
 }
+export function checkRegistrationEmailAvailability(email) {
+  return apiClient('/auth/register/email-availability', { method: 'POST', body: JSON.stringify({ email: email.trim() }) });
+}
+
 export async function sendRegisterOtp(payload) {
   const data = await apiClient('/auth/register', {
     method: 'POST',
@@ -90,7 +94,12 @@ export async function resetPasswordWithOtp({ email, otp, password }) {
   });
 }
 
-export function logout() {
+export async function logout() {
+  try {
+    if (getToken()) await apiClient('/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+  } catch {
+    // Local sign-out should still work if the server session is already gone.
+  }
   clearSession();
   redirectTo('/login');
 }

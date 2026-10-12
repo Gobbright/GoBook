@@ -1,10 +1,13 @@
 import { ThemeProvider } from './app/ThemeContext.jsx';
-import { AppRouter } from './routes/AppRouter.jsx';
+import { AppErrorBoundary } from './components/AppErrorBoundary.jsx';
+import { PublicEntryRouter } from './routes/PublicEntryRouter.jsx';
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AppRouter />
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider>
+        <PublicEntryRouter />
+      </ThemeProvider>
+    </AppErrorBoundary>
   );
 }

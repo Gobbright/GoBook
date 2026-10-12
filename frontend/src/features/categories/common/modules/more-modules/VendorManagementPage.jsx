@@ -168,6 +168,7 @@ export function VendorManagementPage() {
     { label: 'Status', value: (row) => row.status },
     { label: 'Party Type', value: (row) => isAlsoCustomer(row) ? 'Customer & Vendor' : 'Vendor Only' },
     { label: 'Bank', value: (row) => row.bankName },
+    { label: 'A/C Name', value: (row) => row.accountHolderName },
     { label: 'A/C No.', value: (row) => row.accountNumber },
     { label: 'IFSC', value: (row) => row.ifscCode },
   ];
@@ -197,37 +198,82 @@ export function VendorManagementPage() {
       </div>
 
       {showForm && (
-        <form className="bg-white border border-[#dfe7f1] rounded-xl p-5 mt-5" onSubmit={handleSubmit}>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="m-0 text-[15px] font-semibold">{editingId ? 'Edit Vendor' : 'New Vendor'}</h3>
-            <button className="text-[#536173] hover:text-[#111827] bg-transparent border-0 cursor-pointer text-xl font-[inherit]" type="button" onClick={resetForm}>×</button>
+        <div className="customer-form-overlay fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/35 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="vendor-modal-title">
+          <button type="button" aria-label="Close add vendor" className="absolute inset-0 cursor-default border-0 bg-transparent" onClick={resetForm} />
+        <form className="customer-form-modal relative max-h-[86vh] w-full max-w-[760px] overflow-y-auto rounded-lg border border-[#cfdced] bg-white p-5 shadow-2xl" onSubmit={handleSubmit}>
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h3 id="vendor-modal-title" className="m-0 text-[18px] font-bold text-[#111827] sm:text-[20px]">{editingId ? 'Edit Vendor' : 'Add Vendor'}</h3>
+              <p className="m-0 mt-1 text-[12px] text-[#64748b] sm:mt-1.5 sm:text-[13px]">Vendor details will be available in purchases and payments.</p>
+            </div>
+            <button className="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-[28px] leading-none text-[#64748b] cursor-pointer hover:bg-slate-50 hover:text-[#111827]" type="button" onClick={resetForm} aria-label="Close">×</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Vendor name *" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Contact person" value={form.contact} onChange={(e) => updateForm('contact', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Phone" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Email" type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Category (e.g. Raw Material)" value={form.category} onChange={(e) => updateForm('category', e.target.value)} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="GSTIN" value={form.gstin} onChange={(e) => updateForm('gstin', e.target.value)} />
-            <SelectDropdown buttonClassName="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] bg-white font-[inherit] outline-none" value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
-            <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] sm:col-span-2" placeholder="Address" value={form.address} onChange={(e) => updateForm('address', e.target.value)} />
-          </div>
-          <div className="mb-4">
-            <div className="text-[12px] font-semibold uppercase tracking-wide text-[#536173] mb-2">Bank Details</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Bank Name" value={form.bankName} onChange={(e) => updateForm('bankName', e.target.value)} />
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="A/C Name" value={form.accountHolderName} onChange={(e) => updateForm('accountHolderName', e.target.value)} />
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="A/C No." value={form.accountNumber} onChange={(e) => updateForm('accountNumber', e.target.value)} />
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit]" placeholder="IFSC" value={form.ifscCode} onChange={(e) => updateForm('ifscCode', e.target.value.toUpperCase())} />
-              <input className="border border-[#dbe4ef] rounded-md px-3 py-2 text-[13px] outline-none focus:border-blue-500 font-[inherit] sm:col-span-2" placeholder="Bank Branch" value={form.bankBranch} onChange={(e) => updateForm('bankBranch', e.target.value)} />
+          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Vendor / Company Name *</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Vendor name" required value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Contact Person</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Contact person" value={form.contact} onChange={(e) => updateForm('contact', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Phone</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="+91 XXXXX XXXXX" value={form.phone} onChange={(e) => updateForm('phone', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Email</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="vendor@email.com" type="email" value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Category</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Raw Material" value={form.category} onChange={(e) => updateForm('category', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">GSTIN</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] uppercase outline-none focus:border-blue-500 font-[inherit]" placeholder="15-digit GSTIN" maxLength={15} value={form.gstin} onChange={(e) => updateForm('gstin', e.target.value.toUpperCase())} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Status</label>
+              <SelectDropdown buttonClassName="!h-[40px] !rounded-md !border-[#dbe4ef] !px-3 !text-[14px]" value={form.status} onChange={(v) => updateForm('status', v)} options={['Active', 'Inactive']} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Address</label>
+              <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Street / Building / Area" value={form.address} onChange={(e) => updateForm('address', e.target.value)} />
             </div>
           </div>
-          {formError && <p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{formError}</p>}
-          <div className="flex justify-end gap-2">
-            <button className="px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-[#dbe4ef] rounded-md cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
-            <button className="px-4 py-2 text-[13px] font-medium text-white bg-blue-600 rounded-md cursor-pointer hover:bg-blue-700 border-0 font-[inherit]" type="submit">{editingId ? 'Update Vendor' : 'Save Vendor'}</button>
+          <div className="mb-4 rounded-lg border border-[#edf2f7] bg-[#f8fafc] p-3">
+            <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[#536173]">Bank Details</div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Bank Name</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Bank Name" value={form.bankName} onChange={(e) => updateForm('bankName', e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">A/C Name</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Account holder name" value={form.accountHolderName} onChange={(e) => updateForm('accountHolderName', e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">A/C No.</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Account number" value={form.accountNumber} onChange={(e) => updateForm('accountNumber', e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">IFSC</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[14px] uppercase outline-none focus:border-blue-500 font-[inherit]" placeholder="IFSC" value={form.ifscCode} onChange={(e) => updateForm('ifscCode', e.target.value.toUpperCase())} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-[13px] font-semibold text-[#536173]">Bank Branch</label>
+                <input className="h-[40px] w-full rounded-md border border-[#dbe4ef] bg-white px-3 text-[14px] outline-none focus:border-blue-500 font-[inherit]" placeholder="Branch" value={form.bankBranch} onChange={(e) => updateForm('bankBranch', e.target.value)} />
+              </div>
+            </div>
+          </div>
+          {formError && <p className="mt-4 text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{formError}</p>}
+          <div className="mt-5 flex justify-end gap-2.5">
+            <button className="h-10 min-w-[78px] rounded-md border border-[#dbe4ef] bg-white px-4 text-[14px] font-semibold text-[#1f2937] cursor-pointer hover:bg-gray-50 font-[inherit]" type="button" onClick={resetForm}>Cancel</button>
+            <button className="h-10 min-w-[132px] rounded-md border-0 bg-blue-600 px-4 text-[14px] font-semibold text-white cursor-pointer hover:bg-blue-700 font-[inherit]" type="submit">{editingId ? 'Update Vendor' : 'Save Vendor'}</button>
           </div>
         </form>
+        </div>
       )}
 
       {importResult && (

@@ -1,4 +1,6 @@
 import { apiClient } from './apiClient.js';
+import { API_BASE_URL } from './apiBase.js';
+import { getToken } from './authToken.js';
 import { setSession } from './authToken.js';
 
 export function fetchSubscriptionPlans(category) {
@@ -17,6 +19,35 @@ export function createSubscriptionPaymentOrder(subscriptionPlan) {
 }
 export async function verifySubscriptionPayment(payment) {
   const data = await apiClient('/subscriptions/verify-payment', { method: 'POST', body: JSON.stringify(payment) });
+  setSession(data.token, data.user);
+  return data;
+}
+export function fetchSubscriptionReceipts() {
+  return apiClient('/subscriptions/receipts');
+}
+export async function downloadSubscriptionReceipt(paymentId) {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/subscriptions/receipts/${paymentId}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) throw new Error('Unable to download receipt');
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const disposition = response.headers.get('content-disposition') || '';
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] || 'subscription-receipt.pdf';
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+export function createPaymentMethodVerificationOrder() {
+  return apiClient('/subscriptions/payment-method-verification/order', { method: 'POST', body: JSON.stringify({}) });
+}
+export async function verifyPaymentMethod(payment) {
+  const data = await apiClient('/subscriptions/payment-method-verification/verify', { method: 'POST', body: JSON.stringify(payment) });
   setSession(data.token, data.user);
   return data.user;
 }

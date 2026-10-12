@@ -9,6 +9,8 @@ import { formatCurrency } from '../../../../../utils/formatCurrency.js';
 import { api } from '../../../../../services/api.js';
 import { DateRangeFilter } from '../../../../../components/forms/DateRangeFilter.jsx';
 import { ExportButtons } from '../../../../../components/forms/ExportButtons.jsx';
+import { SalesFilterBar } from '../../../../../components/forms/SalesFilterBar.jsx';
+import { EMPTY_SALES_FILTERS } from '../../../../../components/forms/salesFilterDefaults.js';
 import { isWithinDateRange } from '../../../../../utils/dateRange.js';
 import { ShareModal } from './shared/ShareModal.jsx';
 import { DocumentPdfDownload } from './shared/DocumentPdfDownload.jsx';
@@ -160,6 +162,33 @@ function calcTotal(doc) {
   return normalizePO(doc).total;
 }
 
+function matchesPurchaseFilters(doc, filters) {
+  const customer = doc.customer || {};
+  const haystack = [
+    doc.number,
+    customer.name,
+    customer.phone,
+    customer.gstin,
+    customer.city,
+    customer.state,
+    ...(doc.items || []).flatMap((item) => [item.description, item.name, item.productName, item.hsn, item.hsnCode, item.sac, item.barcode, item.productCode, item.code, item.itemType]),
+  ].join(' ').toLowerCase();
+  const has = (value) => String(value || '').trim().toLowerCase();
+  if (filters.customer && !has(customer.name).includes(has(filters.customer))) return false;
+  if (filters.city && !has(customer.city).includes(has(filters.city))) return false;
+  if (filters.state && !has(customer.state).includes(has(filters.state))) return false;
+  if (filters.supplyType && doc.supplyType !== filters.supplyType) return false;
+  if (filters.gstType === 'with' && !(Number(doc.gst) > 0)) return false;
+  if (filters.gstType === 'without' && Number(doc.gst) > 0) return false;
+  if (filters.amountMin && Number(doc.total || 0) < Number(filters.amountMin)) return false;
+  if (filters.amountMax && Number(doc.total || 0) > Number(filters.amountMax)) return false;
+  if (filters.itemType && !(doc.items || []).some((item) => has(item.itemType || item.type).includes(has(filters.itemType)))) return false;
+  if (filters.hsn && !haystack.includes(has(filters.hsn))) return false;
+  if (filters.productName && !haystack.includes(has(filters.productName))) return false;
+  if (filters.barcode && !haystack.includes(has(filters.barcode))) return false;
+  return true;
+}
+
 // ── Main page ──────────────────────────────────────────────────
 
 const PAGE_SIZE = 5;
@@ -174,6 +203,7 @@ function pageNumbers(current, total) {
 export function PurchaseOrderPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState(EMPTY_SALES_FILTERS);
   const [openMenu, setOpenMenu] = useState(null);
   const [shareDoc, setShareDoc] = useState(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -184,7 +214,13 @@ export function PurchaseOrderPage() {
   const [error, setError] = useState('');
   const [bizSettings, setBizSettings] = useState({});
   const [pdfDoc, setPdfDoc] = useState(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const searchRef = useRef(null);
+
+  function updateFilter(key, value) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
 
   useEffect(() => {
     async function load() {
@@ -247,19 +283,39 @@ export function PurchaseOrderPage() {
     return { total, totalValue, createdThisMonth, avgValue, matched, pendingOrMismatch };
   }, [orders]);
 
+  const vendorOptions = useMemo(() => {
+    const vendors = new Map();
+    orders.forEach((order) => {
+      const vendor = order.customer || {};
+      const name = String(vendor.name || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!vendors.has(key)) vendors.set(key, vendor);
+    });
+    return [...vendors.values()].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  }, [orders]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter((o) => {
       if (q && !o.number?.toLowerCase().includes(q) && !o.customer?.name?.toLowerCase().includes(q)) return false;
       if (!isWithinDateRange(o.date || o.createdAt, dateFrom, dateTo)) return false;
+      if (!matchesPurchaseFilters(o, filters)) return false;
       return true;
     });
-  }, [dateFrom, dateTo, search, orders]);
+  }, [dateFrom, dateTo, filters, search, orders]);
 
-  useEffect(() => { setPage(1); }, [dateFrom, dateTo, search]);
+  useEffect(() => { setPage(1); }, [dateFrom, dateTo, filters, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const selectedOrderIdSet = useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
+  const selectedOrders = useMemo(
+    () => filtered.filter((order) => selectedOrderIdSet.has(order.id)),
+    [filtered, selectedOrderIdSet],
+  );
+  const allFilteredSelected = filtered.length > 0 && filtered.every((order) => selectedOrderIdSet.has(order.id));
+  const someFilteredSelected = filtered.some((order) => selectedOrderIdSet.has(order.id));
   const exportColumns = [
     { label: 'PO No.', value: (row) => row.number },
     { label: 'Vendor', value: (row) => row.customer?.name || '' },
@@ -284,9 +340,50 @@ export function PurchaseOrderPage() {
     if (!window.confirm(`Delete purchase order ${order.number}? This cannot be undone.`)) return;
     try {
       await api.deleteInvoice(order.id);
+      setSelectedOrderIds((ids) => ids.filter((id) => id !== order.id));
       setOrders((prev) => prev.filter((item) => item.id !== order.id));
     } catch (err) {
       setError(err.message || 'Unable to delete purchase order');
+    }
+  }
+
+  useEffect(() => {
+    const availableIds = new Set(orders.map((order) => order.id));
+    setSelectedOrderIds((ids) => ids.filter((id) => availableIds.has(id)));
+  }, [orders]);
+
+  function toggleOrderSelection(orderId) {
+    setSelectedOrderIds((ids) => (
+      ids.includes(orderId)
+        ? ids.filter((id) => id !== orderId)
+        : [...ids, orderId]
+    ));
+  }
+
+  function toggleFilteredSelection() {
+    const orderIds = filtered.map((order) => order.id);
+    if (allFilteredSelected) {
+      setSelectedOrderIds((ids) => ids.filter((id) => !orderIds.includes(id)));
+      return;
+    }
+    setSelectedOrderIds((ids) => Array.from(new Set([...ids, ...orderIds])));
+  }
+
+  async function handleBulkDelete() {
+    if (selectedOrders.length === 0) return;
+    const count = selectedOrders.length;
+    if (!window.confirm(`Delete ${count} selected purchase order${count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    setError('');
+    try {
+      await Promise.all(selectedOrders.map((order) => api.deleteInvoice(order.id)));
+      const deletedIds = new Set(selectedOrders.map((order) => order.id));
+      setSelectedOrderIds([]);
+      setOrders((prev) => prev.filter((order) => !deletedIds.has(order.id)));
+    } catch (err) {
+      setError(err.message || 'Unable to delete selected purchase orders');
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -363,7 +460,25 @@ export function PurchaseOrderPage() {
             onToChange={setDateTo}
             onClear={() => { setDateFrom(''); setDateTo(''); }}
           />
+          <SalesFilterBar
+            filters={filters}
+            onChange={updateFilter}
+            customerOptions={vendorOptions}
+            customerPlaceholder="Vendor..."
+            fields={['gstType', 'customer', 'city', 'state', 'supplyType', 'amountRange', 'itemType', 'hsn', 'productName', 'barcode']}
+          />
           <ExportButtons title="Purchase Orders" filename="purchase-orders" rows={filtered} columns={exportColumns} />
+          {selectedOrders.length > 0 && (
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 size={13} />
+              Delete Selected ({selectedOrders.length})
+            </button>
+          )}
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
             <input
@@ -381,6 +496,18 @@ export function PurchaseOrderPage() {
           <table className="w-full border-collapse sales-list-table">
             <thead>
               <tr className="bg-[#f8fafc]">
+                <th className="w-12 px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    ref={(node) => {
+                      if (node) node.indeterminate = someFilteredSelected && !allFilteredSelected;
+                    }}
+                    onChange={toggleFilteredSelection}
+                    aria-label="Select all purchase orders"
+                    className="h-4 w-4 rounded border-[#cbd5e1] text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
                 {[
                   { label: 'PO No.',             align: 'left'  },
                   { label: 'Vendor',             align: 'left'  },
@@ -410,13 +537,22 @@ export function PurchaseOrderPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="text-center py-16 text-[#536173] text-[13px]">
+                  <td colSpan={13} className="text-center py-16 text-[#536173] text-[13px]">
                     No purchase orders match your search.
                   </td>
                 </tr>
               ) : (
                 paginated.map((o, rowIndex) => (
                   <tr key={o.id} className={`border-t border-[#edf2f7] hover:bg-[#fafbfe] transition-colors ${highlightedIndex === rowIndex ? 'bg-[#eef4fd]' : ''}`}>
+                    <td className="px-4 py-3.5 align-top">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrderIdSet.has(o.id)}
+                        onChange={() => toggleOrderSelection(o.id)}
+                        aria-label={`Select ${o.number}`}
+                        className="h-4 w-4 rounded border-[#cbd5e1] text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
 
                     {/* PO number */}
                     <td className="px-4 py-3.5">

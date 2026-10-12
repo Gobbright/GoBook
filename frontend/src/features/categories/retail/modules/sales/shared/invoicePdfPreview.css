@@ -22,3 +22,76 @@
 .invoice-preview-accessible-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 600px) { .invoice-preview-toolbar { padding: 12px; } .invoice-preview-controls { gap: 2px; } .invoice-preview-control-group { margin-right: 2px; padding-right: 4px; } }
 
+.invoice-html-preview { max-width: 1100px; margin: 0 auto; overflow: hidden; border: 1px solid #dfe7f1; border-radius: 14px; background: #f4f7fb; color: #334155; }
+.invoice-html-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+.invoice-html-preview-toolbar div { display: grid; gap: 3px; min-width: 0; }
+.invoice-html-preview-toolbar strong { font-size: 14px; color: #172b4d; }
+.invoice-html-preview-toolbar span { overflow-wrap: anywhere; font-size: 12px; color: #64748b; }
+.invoice-html-preview-actions { display: flex !important; grid-template-columns: none !important; align-items: center; justify-content: flex-end; gap: 8px; }
+.invoice-html-preview-toolbar button { min-height: 34px; border: 1px solid #dbe4ef; border-radius: 7px; background: #fff; padding: 6px 10px; color: #2563eb; font: 700 12px/1.4 Arial, sans-serif; }
+.invoice-html-preview-toolbar .invoice-html-preview-print { border-color: #2563eb; background: #2563eb; color: #fff; padding-inline: 14px; }
+.invoice-html-preview-viewport { overflow: auto; padding: 18px; }
+
+@media (max-width: 767px) {
+  .invoice-html-preview { border-radius: 10px; }
+  .invoice-html-preview-toolbar { position: sticky; top: 0; z-index: 2; padding: 10px 12px; }
+  .invoice-html-preview-actions { flex: none; }
+  .invoice-html-preview-viewport { max-height: calc(100dvh - 128px); padding: 10px; }
+  .invoice-html-preview .erp-invoice-preview { min-width: 210mm; transform-origin: top left; }
+}
+
+@media print {
+  body.mobile-html-printing * {
+    visibility: hidden !important;
+  }
+
+  body.mobile-html-printing .invoice-html-preview,
+  body.mobile-html-printing .invoice-html-preview-viewport,
+  body.mobile-html-printing .invoice-html-preview-viewport * {
+    visibility: visible !important;
+  }
+
+  body:has(.invoice-html-preview) * {
+    visibility: hidden !important;
+  }
+
+  body:has(.invoice-html-preview) .invoice-html-preview,
+  body:has(.invoice-html-preview) .invoice-html-preview-viewport,
+  body:has(.invoice-html-preview) .invoice-html-preview-viewport * {
+    visibility: visible !important;
+  }
+
+  body.mobile-html-printing .invoice-html-preview,
+  body:has(.invoice-html-preview) .invoice-html-preview {
+    position: static !important;
+    width: 210mm !important;
+    max-width: none !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  body.mobile-html-printing .invoice-html-preview-toolbar,
+  body:has(.invoice-html-preview) .invoice-html-preview-toolbar {
+    display: none !important;
+  }
+
+  body.mobile-html-printing .invoice-html-preview-viewport,
+  body:has(.invoice-html-preview) .invoice-html-preview-viewport {
+    display: block !important;
+    width: 210mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  body.mobile-html-printing .invoice-html-preview .erp-invoice-preview,
+  body:has(.invoice-html-preview) .invoice-html-preview .erp-invoice-preview {
+    width: 210mm !important;
+    min-width: 210mm !important;
+    transform: none !important;
+  }
+}
+

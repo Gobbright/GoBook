@@ -12,7 +12,6 @@ import {
   employeeLeaveHistory,
   employeeLeaveStatus,
   employeeMonthlyAttendance,
-  employeeNotices,
   employeePayslips,
   exchangeMainToken,
   getEmployeePortalMe,
@@ -35,6 +34,5 @@ employeePortalRouter.post('/attendance/correction', requireEmployeePortalRole('e
 employeePortalRouter.post('/leave/apply', requireEmployeePortalRole('employee'), applyLeave);
 employeePortalRouter.get('/leave/status', requireEmployeePortalRole('employee'), employeeLeaveStatus);
 employeePortalRouter.get('/leave/history', requireEmployeePortalRole('employee'), employeeLeaveHistory);
-employeePortalRouter.get('/notices', employeeNotices);
 employeePortalRouter.get('/payslips', requireEmployeePortalRole('employee'), employeePayslips);
 employeePortalRouter.get('/holidays', employeeHolidays);
